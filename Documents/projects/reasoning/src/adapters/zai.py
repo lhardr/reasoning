@@ -36,8 +36,12 @@ class ZaiAdapter(BaseAdapter):
                 model=model_id,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=thinking_budget + 512,
-                # include_reasoning is permanent — ensures reasoning_content passthrough.
-                extra_body={"include_reasoning": True},
+                # reasoning.mandatory=false for GLM 5.2 — must request explicitly.
+                # include_reasoning ensures OpenRouter forwards the content.
+                extra_body={
+                    "include_reasoning": True,
+                    "reasoning": {"effort": "high"},
+                },
             )
             latency = time.perf_counter() - t0
         except Exception as exc:
@@ -60,9 +64,9 @@ class ZaiAdapter(BaseAdapter):
         api_reasoning = (
             getattr(comp_details, "reasoning_tokens", None) if comp_details else None
         )
-        if api_reasoning is not None:
+        if api_reasoning is not None and api_reasoning > 0:
             reasoning_tokens = api_reasoning
-            output_tokens = total_completion - reasoning_tokens
+            output_tokens = max(0, total_completion - reasoning_tokens)
         else:
             reasoning_tokens, output_tokens = split_token_estimate(
                 reasoning, answer, total_completion

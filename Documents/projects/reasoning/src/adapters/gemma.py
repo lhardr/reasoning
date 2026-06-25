@@ -47,8 +47,12 @@ class GemmaAdapter(BaseAdapter):
                 model=model_id,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=thinking_budget + 512,
-                # Permanent: ensures <think> content is forwarded, not stripped.
-                extra_body={"include_reasoning": True},
+                # reasoning.default_enabled=false for Gemma 4 — must request explicitly.
+                # include_reasoning ensures OpenRouter forwards the content.
+                extra_body={
+                    "include_reasoning": True,
+                    "reasoning": {"effort": "high"},
+                },
             )
             latency = time.perf_counter() - t0
         except Exception as exc:
@@ -73,7 +77,9 @@ class GemmaAdapter(BaseAdapter):
         api_reasoning = (
             getattr(comp_details, "reasoning_tokens", None) if comp_details else None
         )
-        if api_reasoning is not None:
+        # Use api_reasoning only when strictly positive — a zero means the gateway
+        # doesn't track thinking tokens for this model, not that there are none.
+        if api_reasoning is not None and api_reasoning > 0:
             reasoning_tokens = api_reasoning
             output_tokens = max(0, total_completion - reasoning_tokens)
         else:
