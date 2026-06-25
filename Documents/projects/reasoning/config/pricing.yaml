@@ -1,63 +1,64 @@
-# Pricing snapshot — verify against each provider's current pricing page before each run.
+# Pricing snapshot — verified against OpenRouter live catalog 2026-06-25.
+# Also cross-check against each provider's own pricing page before production runs.
 # Cost formula: input*p_in + cache_read*p_cache_read + cache_write*p_cache_write
 #               + (reasoning + output)*p_out
 # All prices are USD per million tokens (MTok).
 
-snapshot_date: "2026-06-25"  # Update this whenever prices are refreshed
+snapshot_date: "2026-06-25"
 
 models:
   deepseek_v4:
-    # Source: https://api.deepseek.com/pricing — verify before run
-    input_per_mtok: 0.27
-    output_per_mtok: 1.10
-    cache_read_per_mtok: 0.07
-    cache_write_per_mtok: 0.27
+    # deepseek/deepseek-v4-pro — confirmed OpenRouter 2026-06-25
+    input_per_mtok: 0.435
+    output_per_mtok: 0.870
+    cache_read_per_mtok: 0.07     # Verify: DeepSeek cache pricing
+    cache_write_per_mtok: 0.435   # Verify: DeepSeek cache write pricing
 
   glm_5_2:
-    # Source: https://open.bigmodel.cn/pricing — verify before run
-    input_per_mtok: 0.14
-    output_per_mtok: 0.14
+    # z-ai/glm-5.2 — confirmed OpenRouter 2026-06-25
+    input_per_mtok: 0.95
+    output_per_mtok: 3.00
     cache_read_per_mtok: 0.00
     cache_write_per_mtok: 0.00
 
   kimi_k2_7:
-    # Source: https://platform.moonshot.cn/pricing — verify before run
-    input_per_mtok: 0.30
-    output_per_mtok: 3.00
-    cache_read_per_mtok: 0.03
+    # moonshotai/kimi-k2.7-code — confirmed OpenRouter 2026-06-25
+    input_per_mtok: 0.74
+    output_per_mtok: 3.50
+    cache_read_per_mtok: 0.00
     cache_write_per_mtok: 0.00
 
   gpt_5_5:
-    # Source: https://openai.com/pricing — verify before run
-    input_per_mtok: 2.00
-    output_per_mtok: 8.00
-    cache_read_per_mtok: 0.50
+    # openai/gpt-5.5 — confirmed OpenRouter 2026-06-25
+    input_per_mtok: 5.00
+    output_per_mtok: 30.00
+    cache_read_per_mtok: 1.25     # Verify: OpenAI cache pricing for GPT-5.5
     cache_write_per_mtok: 0.00
 
   claude_sonnet_4_6:
-    # Source: https://www.anthropic.com/pricing — verify before run
+    # anthropic/claude-sonnet-4.6 — confirmed OpenRouter 2026-06-25
     input_per_mtok: 3.00
     output_per_mtok: 15.00
     cache_read_per_mtok: 0.30
     cache_write_per_mtok: 3.75
 
   gemma_4:
-    # Local model — no API cost
-    input_per_mtok: 0.00
-    output_per_mtok: 0.00
+    # google/gemma-4-31b-it via OpenRouter — confirmed 2026-06-25
+    input_per_mtok: 0.12
+    output_per_mtok: 0.35
     cache_read_per_mtok: 0.00
     cache_write_per_mtok: 0.00
 
   minimax:
-    # Judge stub — pricing unused Phase 0
-    input_per_mtok: 0.00
-    output_per_mtok: 0.00
+    # minimax/minimax-m3 — judge stub, Phase 2
+    input_per_mtok: 0.30
+    output_per_mtok: 1.20
     cache_read_per_mtok: 0.00
     cache_write_per_mtok: 0.00
 
   gemini_3_1_pro:
-    # Judge stub — pricing unused Phase 0
-    input_per_mtok: 0.00
-    output_per_mtok: 0.00
+    # google/gemini-3.1-pro-preview — judge stub, Phase 2
+    input_per_mtok: 2.00
+    output_per_mtok: 12.00
     cache_read_per_mtok: 0.00
     cache_write_per_mtok: 0.00

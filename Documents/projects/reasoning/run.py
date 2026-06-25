@@ -11,12 +11,10 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-# Ensure project root on path so `src` is importable when run as a script.
 sys.path.insert(0, str(Path(__file__).parent))
 
 from dotenv import load_dotenv
@@ -28,35 +26,40 @@ from src.adapters import PROVIDER_MAP, CredentialMissingError
 from src.adapters.base import AdapterError, ModelResponse
 from src.config_loader import load_panel
 from src.cost import compute_cost
+from src.model_resolver import print_resolution_table, resolve_models
 from src.storage import save_result
 
 # ---------------------------------------------------------------------------
-# Expected trace_exposure per model (from panel.yaml "trace_exposure" field).
-# The smoke test verifies actual behaviour against this table.
+# Smoke test constants
 # ---------------------------------------------------------------------------
-
-TRACE_RULES: dict[str, str] = {
-    "raw": "raw_reasoning_trace is not None and trace_status == 'raw'",
-    "summarized": "raw_reasoning_trace is not None and trace_status == 'summarized'",
-    "count_only": "raw_reasoning_trace is None and trace_status == 'count_only' and reasoning_tokens > 0",
-    "absent": "trace_status == 'absent'",
-}
 
 SMOKE_PROMPT = (
     "What is 15 + 27? Work through this step by step, then give your final answer."
 )
 
-# Models that participate in the smoke test (scored + anchor; judges skipped).
 SMOKE_ROLES = {"scored", "anchor"}
 
+# Models where reasoning_tokens MUST be > 0 — zero is a regression.
+# gpt_5_5: count_only (reasoning count reported, no text)
+# deepseek_v4 / glm_5_2 / kimi_k2_7: raw (text present, tokens estimated or direct)
+# claude_sonnet_4_6: summarized (thinking block present, tokens estimated or direct)
+# gemma_4: raw (local, tokens estimated from text)
+MUST_HAVE_REASONING_TOKENS: set[str] = {
+    "deepseek_v4",
+    "glm_5_2",
+    "kimi_k2_7",
+    "gpt_5_5",
+    "claude_sonnet_4_6",
+    "gemma_4",
+}
+
+# ---------------------------------------------------------------------------
+# Trace exposure verification
+# ---------------------------------------------------------------------------
 
 def _verify_trace(
     response: ModelResponse, expected_exposure: Optional[str]
 ) -> tuple[bool, str]:
-    """
-    Check that the actual trace behaviour matches the expected exposure regime.
-    Returns (passed, description).
-    """
     if expected_exposure is None:
         return True, "n/a (judge stub)"
 
@@ -86,6 +89,10 @@ def _verify_trace(
     return ok, detail
 
 
+# ---------------------------------------------------------------------------
+# Smoke test
+# ---------------------------------------------------------------------------
+
 def _fmt_row(
     key: str,
     version: str,
@@ -96,14 +103,18 @@ def _fmt_row(
     cost: float,
     latency: float,
     verify: str,
+    reas_assert: str,
 ) -> str:
     return (
         f"{key:<22} {version:<28} {inp:>7} {reas:>9} {out:>7}  "
-        f"{status:<12} ${cost:>8.5f}  {latency:>7.2f}s  {verify}"
+        f"{status:<12} ${cost:>8.5f}  {latency:>7.2f}s  {verify:<20} {reas_assert}"
     )
 
 
-def run_smoke(model_filter: Optional[str] = None) -> None:
+def run_smoke(model_filter: Optional[str] = None) -> int:
+    """
+    Run the smoke test. Returns exit code (0 = all checks passed, 1 = failures).
+    """
     panel = load_panel()
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_smoke"
 
@@ -114,15 +125,33 @@ def run_smoke(model_filter: Optional[str] = None) -> None:
         and (model_filter is None or k == model_filter)
     ]
 
-    print(f"\n{'='*100}")
+    # ------------------------------------------------------------------
+    # Step 1: Print model resolution table + fail loudly on bad IDs
+    # ------------------------------------------------------------------
+    print(f"\n{'='*110}")
     print(f"  Reasoning Benchmark — Smoke Test   run_id={run_id}")
     print(f"  Prompt: {SMOKE_PROMPT!r}")
-    print(f"{'='*100}")
+    print(f"{'='*110}")
+
+    resolved = resolve_models(panel, target_keys)
+    hard_errors = print_resolution_table(resolved)
+    if hard_errors > 0:
+        print(
+            f"\n  !! {hard_errors} model(s) could not be resolved to the intended ID. "
+            "Fix panel.yaml before running.\n"
+        )
+        return 1
+
+    # ------------------------------------------------------------------
+    # Step 2: Run each model and collect results
+    # ------------------------------------------------------------------
     print(
         f"\n{'Model':<22} {'Version':<28} {'Input':>7} {'Reasoning':>9} {'Output':>7}  "
-        f"{'TraceStatus':<12} {'Cost(USD)':>10}  {'Latency':>8}  Verify"
+        f"{'TraceStatus':<12} {'Cost(USD)':>10}  {'Latency':>8}  {'Exposure':20} TokenAssert"
     )
-    print("-" * 120)
+    print("-" * 135)
+
+    has_failure = False
 
     for key in target_keys:
         cfg = panel[key]
@@ -135,21 +164,21 @@ def run_smoke(model_filter: Optional[str] = None) -> None:
             print(f"{key:<22} SKIPPED (unknown provider: {provider})")
             continue
 
-        # Instantiate adapter — raises CredentialMissingError if key absent
         try:
             adapter = cls(key, cfg)
         except CredentialMissingError as e:
             print(f"{key:<22} SKIPPED — {e}")
             continue
 
-        # Call the model
         try:
             response = adapter.call(SMOKE_PROMPT, thinking_budget=thinking_budget)
         except AdapterError as e:
             print(f"{key:<22} ERROR    — {e}")
+            has_failure = True
             continue
         except Exception as e:
             print(f"{key:<22} ERROR    — unexpected: {e}")
+            has_failure = True
             continue
 
         account = build_account(response)
@@ -166,8 +195,20 @@ def run_smoke(model_filter: Optional[str] = None) -> None:
             thinking_budget=thinking_budget,
         )
 
-        passed, detail = _verify_trace(response, expected_exposure)
-        verify_label = "PASS" if passed else f"MISMATCH ({detail})"
+        # Exposure check
+        exp_ok, exp_detail = _verify_trace(response, expected_exposure)
+        exposure_label = "PASS" if exp_ok else f"MISMATCH ({exp_detail})"
+        if not exp_ok:
+            has_failure = True
+
+        # Reasoning-token assertion — hard failure if zero where we expect non-zero
+        reas_label = ""
+        if key in MUST_HAVE_REASONING_TOKENS:
+            if account.reasoning_tokens == 0:
+                reas_label = "FAIL: reasoning_tokens=0"
+                has_failure = True
+            else:
+                reas_label = f"OK ({account.reasoning_tokens})"
 
         print(
             _fmt_row(
@@ -179,13 +220,21 @@ def run_smoke(model_filter: Optional[str] = None) -> None:
                 response.trace_status,
                 cost_usd,
                 response.latency_s,
-                verify_label,
+                exposure_label,
+                reas_label,
             )
         )
 
-    print("-" * 120)
-    print(f"\nResults written to results/{run_id}.jsonl\n")
+    print("-" * 135)
+    status_line = "ALL CHECKS PASSED" if not has_failure else "FAILURES DETECTED — see FAIL/MISMATCH rows"
+    print(f"\n  {status_line}")
+    print(f"  Results written to results/{run_id}.jsonl\n")
+    return 1 if has_failure else 0
 
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Reasoning Benchmark runner")
@@ -203,7 +252,8 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.smoke:
-        run_smoke(model_filter=args.model)
+        code = run_smoke(model_filter=args.model)
+        sys.exit(code)
     else:
         parser.print_help()
         sys.exit(1)

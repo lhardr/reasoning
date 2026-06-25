@@ -1,7 +1,7 @@
 # Reasoning Benchmark
 
-Measures **reasoning-token economy** across a panel of frontier and open-weight
-models, with a Danish/European-language and sovereignty angle.
+Measures **reasoning-token economy** across a panel of frontier models, with a
+Danish/European-language and sovereignty angle.
 
 This repo implements **Phase 0** — the measurement plumbing and smoke test.
 See `docs/cc_brief_phase0_harness.md` for the full brief and
@@ -22,16 +22,24 @@ See `docs/cc_brief_phase0_harness.md` for the full brief and
 
 ## Model panel
 
-| Key | Provider | Role | Trace exposure |
-|-----|----------|------|----------------|
-| `deepseek_v4` | DeepSeek | scored | raw |
-| `glm_5_2` | Zhipu AI | scored | raw |
-| `kimi_k2_7` | Moonshot AI | scored | raw |
-| `gpt_5_5` | OpenAI | scored | count\_only |
-| `claude_sonnet_4_6` | Anthropic | scored | summarized |
-| `gemma_4` | local (Ollama) | anchor | raw |
-| `minimax` | MiniMax | judge | stub (Phase 2) |
-| `gemini_3_1_pro` | Google | judge | stub (Phase 2) |
+All models run via **OpenRouter** (`OPENROUTER_API_KEY`) unless a direct provider
+key is present (which takes priority). `include_reasoning: true` is set permanently
+on all raw-trace adapters so the reasoning content is never silently stripped by
+the gateway.
+
+| Key | Provider | Role | Trace exposure | OpenRouter slug |
+|-----|----------|------|----------------|-----------------|
+| `deepseek_v4` | DeepSeek | scored | raw | `deepseek/deepseek-v4-pro` |
+| `glm_5_2` | Z.ai | scored | raw | `z-ai/glm-5.2` |
+| `kimi_k2_7` | Moonshot AI | scored | raw | `moonshotai/kimi-k2.7-code` |
+| `gpt_5_5` | OpenAI | scored | count\_only | `openai/gpt-5.5` |
+| `claude_sonnet_4_6` | Anthropic | scored | summarized | `anthropic/claude-sonnet-4.6` |
+| `gemma_4` | Google (anchor) | anchor | raw | `google/gemma-4-31b-it` |
+| `minimax` | MiniMax | judge | stub (Phase 2) | `minimax/minimax-m3` |
+| `gemini_3_1_pro` | Google | judge | stub (Phase 2) | `google/gemini-3.1-pro-preview` |
+
+Model IDs confirmed against the live OpenRouter catalog on 2026-06-25.
+Verify slugs before each production run: `openrouter.ai/models`.
 
 ---
 
@@ -45,45 +53,26 @@ pip3 install -r requirements.txt
 
 ### 2. Set API keys
 
-Copy `.env.example` to `.env` and fill in the keys you have:
+Copy `.env.example` to `.env` and fill in at least `OPENROUTER_API_KEY`:
 
 ```bash
 cp .env.example .env
-# edit .env — add the keys for the models you want to test
+# edit .env
 ```
 
-Keys required per model:
+A single OpenRouter key covers all six models. Direct provider keys (listed
+below) take priority over OpenRouter when present.
 
-| Model key | Env var |
-|-----------|---------|
-| `deepseek_v4` | `DEEPSEEK_API_KEY` |
-| `glm_5_2` | `ZAI_API_KEY` |
-| `kimi_k2_7` | `MOONSHOT_API_KEY` |
-| `gpt_5_5` | `OPENAI_API_KEY` |
-| `claude_sonnet_4_6` | `ANTHROPIC_API_KEY` |
-| `gemma_4` | *(none — local via Ollama)* |
+| Model key | Direct env var | OpenRouter fallback |
+|-----------|----------------|---------------------|
+| `deepseek_v4` | `DEEPSEEK_API_KEY` | ✓ |
+| `glm_5_2` | `ZAI_API_KEY` | ✓ |
+| `kimi_k2_7` | `MOONSHOT_API_KEY` | ✓ |
+| `gpt_5_5` | `OPENAI_API_KEY` | ✓ |
+| `claude_sonnet_4_6` | `ANTHROPIC_API_KEY` | ✓ |
+| `gemma_4` | — | ✓ (OpenRouter only) |
 
 A missing key means that model is **skipped gracefully**, not a crash.
-
-### 3. Install and start Ollama (for Gemma 4)
-
-```bash
-# Install Ollama from https://ollama.com
-ollama pull gemma4
-ollama serve   # start the local server if not already running
-```
-
-### 4. Verify model IDs
-
-Before a real run, confirm the model IDs in `config/panel.yaml` against each
-provider's current API docs — the field is well-documented:
-
-```yaml
-deepseek_v4:
-  model_id: deepseek-reasoner   # <- verify this
-```
-
-Similarly update prices in `config/pricing.yaml` and refresh `snapshot_date`.
 
 ---
 
@@ -93,31 +82,35 @@ Similarly update prices in `config/pricing.yaml` and refresh `snapshot_date`.
 python3 run.py --smoke
 ```
 
-This runs one trivial prompt across all available scored models plus the Gemma
-anchor and prints a summary table:
-
-```
-Model                  Version                      Input  Reasoning  Output  TraceStatus  Cost(USD)  Latency  Verify
----
-deepseek_v4            deepseek-reasoner              128        512      64  raw            $0.00063    3.21s  PASS
-glm_5_2                glm-z1-air                     134        480      58  raw            $0.00012    2.10s  PASS
-...
-gpt_5_5                gpt-5.5                        121        384      48  count_only     $0.00430    4.55s  PASS
-claude_sonnet_4_6      claude-sonnet-4-6              119        320      72  summarized     $0.00654    5.18s  PASS
-gemma_4                gemma4:latest                   98        210      44  raw            $0.00000    9.33s  PASS
-```
-
-**Verify column** shows PASS or MISMATCH per model. A MISMATCH means the
-provider's actual trace exposure differs from the expected regime in `panel.yaml`
-— this is a finding to investigate, not a crash.
+This:
+1. Resolves and prints the model IDs that will be used (failing loudly if any slug
+   is not found in the live OpenRouter catalog)
+2. Runs one trivial prompt across all six models
+3. Prints a summary table with trace-exposure verification (PASS/MISMATCH) and a
+   hard assertion that `reasoning_tokens > 0` for every thinking model
+4. Writes results to `results/<run_id>.jsonl`
 
 To test a single model:
 
 ```bash
-python3 run.py --smoke --model claude_sonnet_4_6
+python3 run.py --smoke --model deepseek_v4
 ```
 
-Results are written to `results/<run_id>.jsonl` (gitignored).
+**Expected output (all six green):**
+```
+Model Resolution
+---------------------------------------------------------------------------
+  deepseek_v4            DeepSeek V4 Pro (reasoning)      deepseek/deepseek-v4-pro  openrouter
+  glm_5_2                GLM 5.2 (Z.ai)                   z-ai/glm-5.2              openrouter
+  kimi_k2_7              Kimi K2.7 (Moonshot)             moonshotai/kimi-k2.7-code openrouter
+  gpt_5_5                GPT-5.5 (OpenAI)                 openai/gpt-5.5            openrouter
+  claude_sonnet_4_6      Claude Sonnet 4.6 (Anthropic)    anthropic/claude-sonnet-4.6 openrouter
+  gemma_4                Gemma 4 (OpenRouter)             google/gemma-4-31b-it     openrouter
+
+Model   Version  Input  Reasoning  Output  TraceStatus  Cost($)  Latency  Exposure  TokenAssert
+deepseek_v4   ...   26    500+    350+   raw     PASS    OK (N)
+...
+```
 
 ---
 
@@ -126,21 +119,22 @@ Results are written to `results/<run_id>.jsonl` (gitignored).
 ```
 reasoning/
   config/
-    panel.yaml          models, roles, expected trace exposure
-    pricing.yaml        per-model prices + snapshot_date
+    panel.yaml          models, roles, expected trace exposure, confirmed OpenRouter slugs
+    pricing.yaml        per-model prices (snapshot_date) confirmed from OpenRouter 2026-06-25
   src/
-    adapters/           one adapter per provider
+    adapters/
       base.py           ModelResponse dataclass, BaseAdapter, shared utilities
-      deepseek.py       DeepSeek V4
-      zai.py            Zhipu AI GLM 5.2
-      moonshot.py       Moonshot AI Kimi K2.7
-      openai_adapter.py OpenAI GPT-5.5
-      anthropic_adapter.py  Anthropic Claude Sonnet 4.6
-      local.py          Gemma 4 via Ollama
-      minimax.py        MiniMax stub (Phase 2 judge)
-      google_adapter.py Gemini stub (Phase 2 judge)
+      deepseek.py       DeepSeek V4 Pro — raw trace, include_reasoning permanent
+      zai.py            Z.ai GLM 5.2 — raw trace, include_reasoning permanent
+      moonshot.py       Moonshot Kimi K2.7 — raw trace, include_reasoning permanent
+      openai_adapter.py OpenAI GPT-5.5 — count_only
+      anthropic_adapter.py  Anthropic Claude Sonnet 4.6 — summarized thinking
+      gemma.py          Gemma 4 via OpenRouter — raw trace, include_reasoning permanent
+      minimax.py        MiniMax M3 stub (Phase 2 judge)
+      google_adapter.py Gemini 3.1 Pro stub (Phase 2 judge)
     accounting.py       token-phase accounting (economy axis, no quality)
     cost.py             cost calculation from config/pricing.yaml
+    model_resolver.py   model ID resolution + loud failure on bad slugs
     storage.py          JSONL persistence to results/
     config_loader.py    cached YAML loaders
   results/              gitignored; raw traces + records land here
@@ -160,9 +154,9 @@ Tokens are kept strictly separate — never collapsed:
 | Field | Description |
 |-------|-------------|
 | `input_tokens` | Tokens in the prompt |
-| `reasoning_tokens` | Billed thinking tokens (count; text may be absent for closed models) |
+| `reasoning_tokens` | Billed thinking tokens (count; text may be absent for GPT-5.5) |
 | `output_tokens` | Visible answer tokens |
-| `cache_read_tokens` | Cache-read tokens (billed at cache rate) |
+| `cache_read_tokens` | Cache-read tokens |
 | `cache_write_tokens` | Cache-write tokens |
 
 Cost formula:
@@ -179,11 +173,19 @@ cost = input * p_in
 
 | Status | Meaning |
 |--------|---------|
-| `raw` | Full CoT text returned in `raw_reasoning_trace` |
-| `summarized` | Processed/summarized thinking returned (Claude) |
-| `count_only` | CoT hidden; reasoning token count in `reasoning_tokens` (GPT) |
-| `absent` | No reasoning trace or count exposed |
+| `raw` | Full CoT text in `raw_reasoning_trace` (DeepSeek, GLM, Kimi, Gemma) |
+| `summarized` | Processed thinking text (Claude) |
+| `count_only` | CoT hidden; count in `reasoning_tokens` (GPT-5.5) |
+| `absent` | No trace or count exposed |
 
-The smoke test **empirically verifies** these against the `trace_exposure` field
-in `panel.yaml` and reports PASS / MISMATCH per model. A mismatch means
-provider behaviour changed since the config was last updated.
+The smoke test empirically verifies these against `trace_exposure` in `panel.yaml`
+and also asserts `reasoning_tokens > 0` for every thinking model — a regression
+guard for the `include_reasoning` flag.
+
+---
+
+## Pricing
+
+Prices live in `config/pricing.yaml` with a `snapshot_date`. The cost formula
+reads exclusively from there — no hardcoded prices in logic. Update the file and
+`snapshot_date` before each production run.

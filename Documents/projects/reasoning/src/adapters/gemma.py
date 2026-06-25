@@ -1,37 +1,45 @@
-"""DeepSeek V4 adapter — trace_exposure: raw.
+"""Gemma 4 adapter via OpenRouter — trace_exposure: raw.
 
-The deepseek-reasoner model returns reasoning_content (raw CoT) separately from
-the answer in content. Falls back to OpenRouter when DEEPSEEK_API_KEY is absent.
+Runs google/gemma-4-31b-it through the OpenRouter OpenAI-compatible gateway.
+include_reasoning=True is permanent so OpenRouter forwards the thinking trace.
+Gemma 4 exposes thinking via <think>...</think> tags in the content stream;
+OpenRouter may also surface it under message.reasoning or message.reasoning_content.
+All three paths are checked.
 
-Via OpenRouter: passes include_reasoning=True in extra_body so OpenRouter
-forwards the reasoning_content field. If OpenRouter still strips it, the token
-count is still captured and trace_status is reported as "count_only" (MISMATCH
-vs expected "raw" — this is a finding, not a crash).
+Cost: $0.12/MTok input, $0.35/MTok output (confirmed 2026-06-25).
 """
 from __future__ import annotations
 
+import os
 import time
 
 from .base import (
     AdapterError,
     BaseAdapter,
+    CredentialMissingError,
     ModelResponse,
     extract_think_tags,
     split_token_estimate,
 )
 
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-class DeepSeekAdapter(BaseAdapter):
-    required_env = ["DEEPSEEK_API_KEY"]
+
+class GemmaAdapter(BaseAdapter):
+    required_env = ["OPENROUTER_API_KEY"]
+
+    def _check_credentials(self) -> None:
+        if not os.environ.get("OPENROUTER_API_KEY"):
+            raise CredentialMissingError(
+                "gemma_4: missing OPENROUTER_API_KEY (Gemma 4 runs via OpenRouter)"
+            )
 
     def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
         from openai import OpenAI
 
-        api_key, base_url, model_id, _via_or = self._resolve_openai_creds()
-        kwargs: dict = {"api_key": api_key}
-        if base_url:
-            kwargs["base_url"] = base_url
-        client = OpenAI(**kwargs)
+        or_key = os.environ["OPENROUTER_API_KEY"]
+        model_id = self.config.get("openrouter_model_id", self.config["model_id"])
+        client = OpenAI(api_key=or_key, base_url=OPENROUTER_BASE_URL)
 
         try:
             t0 = time.perf_counter()
@@ -39,23 +47,23 @@ class DeepSeekAdapter(BaseAdapter):
                 model=model_id,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=thinking_budget + 512,
-                # include_reasoning is permanent — not conditional on gateway.
-                # Without it, OpenRouter (and some native APIs) strip reasoning_content.
+                # Permanent: ensures <think> content is forwarded, not stripped.
                 extra_body={"include_reasoning": True},
             )
             latency = time.perf_counter() - t0
         except Exception as exc:
-            raise AdapterError(f"deepseek_v4 API error: {exc}") from exc
+            raise AdapterError(f"gemma_4 API error: {exc}") from exc
 
         msg = resp.choices[0].message
-        answer = msg.content or ""
+        raw_content = msg.content or ""
 
-        # Check both field names: native API uses reasoning_content; some gateways use reasoning
-        reasoning = getattr(msg, "reasoning_content", None)
-        if reasoning is None:
-            reasoning = getattr(msg, "reasoning", None)
-        if reasoning is None:
-            reasoning, answer = extract_think_tags(answer)
+        # OpenRouter may surface thinking in a separate field after include_reasoning
+        reasoning = getattr(msg, "reasoning", None) or getattr(msg, "reasoning_content", None)
+        if reasoning:
+            answer = raw_content
+        else:
+            # Gemma's native thinking format: <think>...</think> in content stream
+            reasoning, answer = extract_think_tags(raw_content)
 
         usage = resp.usage
         raw = usage.model_dump() if hasattr(usage, "model_dump") else {}
@@ -72,14 +80,12 @@ class DeepSeekAdapter(BaseAdapter):
             reasoning_tokens, output_tokens = split_token_estimate(
                 reasoning, answer, total_completion
             )
-
-        cache_read = getattr(usage, "prompt_cache_hit_tokens", 0) or 0
-        cache_write = getattr(usage, "prompt_cache_miss_tokens", 0) or 0
+            raw["thinking_tokens_estimated"] = True
 
         if reasoning:
             trace_status = "raw"
         elif reasoning_tokens > 0:
-            trace_status = "count_only"  # text stripped (e.g. OpenRouter without passthrough)
+            trace_status = "count_only"
         else:
             trace_status = "absent"
 
@@ -88,8 +94,8 @@ class DeepSeekAdapter(BaseAdapter):
             input_tokens=usage.prompt_tokens,
             reasoning_tokens=reasoning_tokens,
             output_tokens=output_tokens,
-            cache_read_tokens=cache_read,
-            cache_write_tokens=cache_write,
+            cache_read_tokens=0,
+            cache_write_tokens=0,
             raw_reasoning_trace=reasoning,
             trace_status=trace_status,
             latency_s=latency,

@@ -4,7 +4,7 @@ from .zai import ZaiAdapter
 from .moonshot import MoonshotAdapter
 from .openai_adapter import OpenAIAdapter
 from .anthropic_adapter import AnthropicAdapter
-from .local import LocalAdapter
+from .gemma import GemmaAdapter
 from .minimax import MinimaxAdapter
 from .google_adapter import GoogleAdapter
 
@@ -14,9 +14,9 @@ PROVIDER_MAP: dict[str, type[BaseAdapter]] = {
     "moonshot": MoonshotAdapter,
     "openai": OpenAIAdapter,
     "anthropic": AnthropicAdapter,
-    "local": LocalAdapter,
+    "gemma": GemmaAdapter,       # Gemma 4 via OpenRouter (was local/Ollama)
     "minimax": MinimaxAdapter,
-    "google": GoogleAdapter,
+    "google": GoogleAdapter,     # Gemini judge stub (Phase 2)
 }
 
 __all__ = [

@@ -1,18 +1,18 @@
 # Model panel configuration.
 # trace_exposure is our EXPECTED classification per provider docs (June 2026).
 # The smoke test verifies this empirically and flags mismatches.
-# Verify model_id values against each provider's API docs before each run.
 #
-# openrouter_model_id: used when OPENROUTER_API_KEY is set and the direct
-# provider key is absent. Slugs confirmed on OpenRouter 2026-06-25.
+# openrouter_model_id: confirmed against live OpenRouter catalog 2026-06-25.
+# model_id: for the direct provider API (when direct key is present).
+# Verify both against provider docs before each production run.
 
 models:
   deepseek_v4:
     provider: deepseek
     role: scored
     trace_exposure: raw
-    model_id: deepseek-reasoner                   # Verify: current DeepSeek V4 direct API model ID
-    openrouter_model_id: deepseek/deepseek-r1-0528  # Confirmed on OpenRouter 2026-06-25
+    model_id: deepseek-reasoner                   # Direct DeepSeek API model ID (verify before run)
+    openrouter_model_id: deepseek/deepseek-v4-pro # Confirmed 2026-06-25: DeepSeek V4 Pro reasoning
     thinking_budget: 4096
     base_url: https://api.deepseek.com
 
@@ -20,8 +20,8 @@ models:
     provider: zai
     role: scored
     trace_exposure: raw
-    model_id: glm-z1-air                          # Verify: current GLM 5.2 direct API model ID
-    openrouter_model_id: z-ai/glm-5.2             # Confirmed on OpenRouter 2026-06-25
+    model_id: glm-z1-air                          # Direct Z.ai API model ID (verify before run)
+    openrouter_model_id: z-ai/glm-5.2             # Confirmed 2026-06-25: GLM 5.2 reasoning model
     thinking_budget: 4096
     base_url: https://open.bigmodel.cn/api/paas/v4/
 
@@ -29,8 +29,10 @@ models:
     provider: moonshot
     role: scored
     trace_exposure: raw
-    model_id: moonshot-v1-thinking                # Verify: current Kimi K2.7 direct API model ID
-    openrouter_model_id: moonshotai/kimi-k2-thinking  # Confirmed on OpenRouter 2026-06-25
+    model_id: moonshot-v1-thinking                # Direct Moonshot API model ID (verify before run)
+    # kimi-k2.7-code is the K2.7 build available on OpenRouter (coding-focused).
+    # For general K2.7 reasoning, use the direct Moonshot API with MOONSHOT_API_KEY.
+    openrouter_model_id: moonshotai/kimi-k2.7-code  # Confirmed 2026-06-25: K2.7 code variant
     thinking_budget: 4096
     base_url: https://api.moonshot.cn/v1
 
@@ -38,34 +40,36 @@ models:
     provider: openai
     role: scored
     trace_exposure: count_only
-    model_id: gpt-5.5                             # Verify: current GPT-5.5 direct API model ID
-    openrouter_model_id: openai/o4-mini           # Confirmed o-series fallback on OpenRouter 2026-06-25
+    model_id: gpt-5.5                             # Direct OpenAI API model ID
+    openrouter_model_id: openai/gpt-5.5           # Confirmed 2026-06-25: exact GPT-5.5 match
     thinking_budget: 4096
 
   claude_sonnet_4_6:
     provider: anthropic
     role: scored
     trace_exposure: summarized
-    model_id: claude-sonnet-4-6
-    openrouter_model_id: anthropic/claude-sonnet-4-5  # Confirmed on OpenRouter 2026-06-25
+    model_id: claude-sonnet-4-6                   # Direct Anthropic API model ID
+    openrouter_model_id: anthropic/claude-sonnet-4.6  # Confirmed 2026-06-25: exact Sonnet 4.6 match
     thinking_budget: 4096
 
   gemma_4:
-    provider: local
+    provider: gemma
     role: anchor
     trace_exposure: raw
-    model_id: gemma4                          # Ollama model name; run `ollama pull gemma4`
+    model_id: google/gemma-4-31b-it               # OpenRouter model ID (Gemma 4 runs via OpenRouter)
+    openrouter_model_id: google/gemma-4-31b-it    # Confirmed 2026-06-25: Gemma 4 31B instruction-tuned
     thinking_budget: 4096
-    ollama_url: http://localhost:11434
 
   minimax:
     provider: minimax
     role: judge
-    trace_exposure: null                      # unused Phase 0
-    model_id: minimax-m2                      # stub
+    trace_exposure: null                          # unused Phase 0
+    model_id: minimax-m3                          # Confirmed 2026-06-25: MiniMax M3 (latest)
+    openrouter_model_id: minimax/minimax-m3
 
   gemini_3_1_pro:
     provider: google
     role: judge
-    trace_exposure: null                      # unused Phase 0
-    model_id: gemini-3.1-pro                  # stub
+    trace_exposure: null                          # unused Phase 0
+    model_id: gemini-3.1-pro-preview              # Confirmed 2026-06-25: Gemini 3.1 Pro Preview
+    openrouter_model_id: google/gemini-3.1-pro-preview

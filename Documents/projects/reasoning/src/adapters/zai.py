@@ -24,15 +24,11 @@ class ZaiAdapter(BaseAdapter):
     def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
         from openai import OpenAI
 
-        api_key, base_url, model_id, via_openrouter = self._resolve_openai_creds()
+        api_key, base_url, model_id, _via_or = self._resolve_openai_creds()
         kwargs: dict = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
         client = OpenAI(**kwargs)
-
-        extra: dict = {}
-        if via_openrouter:
-            extra["include_reasoning"] = True
 
         try:
             t0 = time.perf_counter()
@@ -40,7 +36,8 @@ class ZaiAdapter(BaseAdapter):
                 model=model_id,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=thinking_budget + 512,
-                **({"extra_body": extra} if extra else {}),
+                # include_reasoning is permanent — ensures reasoning_content passthrough.
+                extra_body={"include_reasoning": True},
             )
             latency = time.perf_counter() - t0
         except Exception as exc:
