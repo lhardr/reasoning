@@ -1,0 +1,27 @@
+from .base import BaseAdapter, CredentialMissingError, ModelResponse
+from .deepseek import DeepSeekAdapter
+from .zai import ZaiAdapter
+from .moonshot import MoonshotAdapter
+from .openai_adapter import OpenAIAdapter
+from .anthropic_adapter import AnthropicAdapter
+from .local import LocalAdapter
+from .minimax import MinimaxAdapter
+from .google_adapter import GoogleAdapter
+
+PROVIDER_MAP: dict[str, type[BaseAdapter]] = {
+    "deepseek": DeepSeekAdapter,
+    "zai": ZaiAdapter,
+    "moonshot": MoonshotAdapter,
+    "openai": OpenAIAdapter,
+    "anthropic": AnthropicAdapter,
+    "local": LocalAdapter,
+    "minimax": MinimaxAdapter,
+    "google": GoogleAdapter,
+}
+
+__all__ = [
+    "BaseAdapter",
+    "CredentialMissingError",
+    "ModelResponse",
+    "PROVIDER_MAP",
+]

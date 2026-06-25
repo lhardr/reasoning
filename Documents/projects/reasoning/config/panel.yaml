@@ -1,0 +1,63 @@
+# Model panel configuration.
+# trace_exposure is our EXPECTED classification per provider docs (June 2026).
+# The smoke test verifies this empirically and flags mismatches.
+# Verify model_id values against each provider's API docs before each run.
+
+models:
+  deepseek_v4:
+    provider: deepseek
+    role: scored
+    trace_exposure: raw
+    model_id: deepseek-reasoner      # Verify: current DeepSeek V4 API model ID
+    thinking_budget: 4096
+    base_url: https://api.deepseek.com
+
+  glm_5_2:
+    provider: zai
+    role: scored
+    trace_exposure: raw
+    model_id: glm-z1-air             # Verify: current GLM 5.2 API model ID
+    thinking_budget: 4096
+    base_url: https://open.bigmodel.cn/api/paas/v4/
+
+  kimi_k2_7:
+    provider: moonshot
+    role: scored
+    trace_exposure: raw
+    model_id: moonshot-v1-thinking   # Verify: current Kimi K2.7 API model ID
+    thinking_budget: 4096
+    base_url: https://api.moonshot.cn/v1
+
+  gpt_5_5:
+    provider: openai
+    role: scored
+    trace_exposure: count_only
+    model_id: gpt-5.5                # Verify: current GPT-5.5 API model ID
+    thinking_budget: 4096
+
+  claude_sonnet_4_6:
+    provider: anthropic
+    role: scored
+    trace_exposure: summarized
+    model_id: claude-sonnet-4-6
+    thinking_budget: 4096
+
+  gemma_4:
+    provider: local
+    role: anchor
+    trace_exposure: raw
+    model_id: gemma4                 # Ollama model name; run `ollama pull gemma4`
+    thinking_budget: 4096
+    ollama_url: http://localhost:11434
+
+  minimax:
+    provider: minimax
+    role: judge
+    trace_exposure: null             # unused Phase 0
+    model_id: minimax-m2             # stub
+
+  gemini_3_1_pro:
+    provider: google
+    role: judge
+    trace_exposure: null             # unused Phase 0
+    model_id: gemini-3.1-pro         # stub
