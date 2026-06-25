@@ -16,14 +16,20 @@ from .base import AdapterError, BaseAdapter, ModelResponse
 class OpenAIAdapter(BaseAdapter):
     required_env = ["OPENAI_API_KEY"]
 
-    def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
+    def call(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:
         from openai import OpenAI
 
-        api_key, base_url, model_id, _via_openrouter = self._resolve_openai_creds()
+        api_key, base_url, model_id, via_openrouter = self._resolve_openai_creds()
         kwargs: dict = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
         client = OpenAI(**kwargs)
+
+        # Pass reasoning effort through OpenRouter; for direct OpenAI o-series, reasoning
+        # is always active — extra_body is a no-op but keeps the call uniform.
+        extra: dict = {}
+        if via_openrouter:
+            extra["reasoning"] = {"effort": reasoning_effort}
 
         try:
             t0 = time.perf_counter()
@@ -31,6 +37,7 @@ class OpenAIAdapter(BaseAdapter):
                 model=model_id,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=thinking_budget + 512,
+                extra_body=extra or None,
             )
             latency = time.perf_counter() - t0
         except Exception as exc:
@@ -74,6 +81,7 @@ class OpenAIAdapter(BaseAdapter):
             cache_write_tokens=0,
             raw_reasoning_trace=None,   # raw CoT hidden by OpenAI
             trace_status="count_only" if reasoning_tokens > 0 else "absent",
+            reasoning_source="api",     # reasoning_tokens always from usage fields
             latency_s=latency,
             model_version=resp.model,
             raw_usage=raw,

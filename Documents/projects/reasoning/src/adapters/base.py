@@ -26,6 +26,7 @@ class ModelResponse:
     cache_write_tokens: int
     raw_reasoning_trace: Optional[str]   # CoT text, or None if not exposed
     trace_status: str            # "raw" | "summarized" | "count_only" | "absent"
+    reasoning_source: str        # "api" — from usage fields; "text_estimate" — split_token_estimate()
     latency_s: float
     model_version: str           # pinned snapshot id reported by the provider
     raw_usage: dict = field(default_factory=dict)
@@ -81,7 +82,12 @@ class BaseAdapter:
             f"{', '.join(self.required_env)} or OPENROUTER_API_KEY)"
         )
 
-    def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
+    def call(
+        self,
+        prompt: str,
+        thinking_budget: int = 4096,
+        reasoning_effort: str = "high",
+    ) -> ModelResponse:
         raise NotImplementedError
 
 

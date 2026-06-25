@@ -21,7 +21,7 @@ from .base import (
 class MoonshotAdapter(BaseAdapter):
     required_env = ["MOONSHOT_API_KEY"]
 
-    def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
+    def call(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:
         from openai import OpenAI
 
         api_key, base_url, model_id, _via_or = self._resolve_openai_creds()
@@ -36,8 +36,13 @@ class MoonshotAdapter(BaseAdapter):
                 model=model_id,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=thinking_budget + 512,
-                # include_reasoning is permanent — ensures reasoning_content passthrough.
-                extra_body={"include_reasoning": True},
+                # include_reasoning ensures reasoning_content passthrough.
+                # Kimi K2.7 has reasoning.mandatory=true so effort is advisory here,
+                # but we set it explicitly for experiment consistency.
+                extra_body={
+                    "include_reasoning": True,
+                    "reasoning": {"effort": reasoning_effort},
+                },
             )
             latency = time.perf_counter() - t0
         except Exception as exc:
@@ -60,13 +65,15 @@ class MoonshotAdapter(BaseAdapter):
         api_reasoning = (
             getattr(comp_details, "reasoning_tokens", None) if comp_details else None
         )
-        if api_reasoning is not None:
+        if api_reasoning is not None and api_reasoning > 0:
             reasoning_tokens = api_reasoning
-            output_tokens = total_completion - reasoning_tokens
+            output_tokens = max(0, total_completion - reasoning_tokens)
+            reasoning_source = "api"
         else:
             reasoning_tokens, output_tokens = split_token_estimate(
                 reasoning, answer, total_completion
             )
+            reasoning_source = "text_estimate"
 
         cache_read = getattr(usage, "prompt_cache_hit_tokens", 0) or 0
         cache_write = getattr(usage, "prompt_cache_miss_tokens", 0) or 0
@@ -87,6 +94,7 @@ class MoonshotAdapter(BaseAdapter):
             cache_write_tokens=cache_write,
             raw_reasoning_trace=reasoning,
             trace_status=trace_status,
+            reasoning_source=reasoning_source,
             latency_s=latency,
             model_version=resp.model,
             raw_usage=raw,

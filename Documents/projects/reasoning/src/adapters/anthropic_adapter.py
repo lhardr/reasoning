@@ -23,7 +23,7 @@ from .base import AdapterError, BaseAdapter, ModelResponse, split_token_estimate
 class AnthropicAdapter(BaseAdapter):
     required_env = ["ANTHROPIC_API_KEY"]
 
-    def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
+    def call(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:
         import os
         if os.environ.get("ANTHROPIC_API_KEY"):
             return self._call_direct(prompt, thinking_budget)
@@ -63,22 +63,21 @@ class AnthropicAdapter(BaseAdapter):
 
         usage = resp.usage
         raw = usage.model_dump() if hasattr(usage, "model_dump") else {}
-        estimated = False
 
         reasoning_tokens: int | None = getattr(usage, "thinking_tokens", None)
         if reasoning_tokens is None:
             out_details = getattr(usage, "output_tokens_details", None)
             if out_details is not None:
                 reasoning_tokens = getattr(out_details, "thinking_tokens", None)
-        if reasoning_tokens is None:
+        if reasoning_tokens is not None:
+            reasoning_source = "api"
+        else:
             reasoning_tokens, _ = split_token_estimate(
                 thinking_text, answer_text, usage.output_tokens
             )
-            estimated = True
+            reasoning_source = "text_estimate"
 
         output_tokens = max(0, usage.output_tokens - reasoning_tokens)
-        if estimated:
-            raw["thinking_tokens_estimated"] = True
 
         return ModelResponse(
             answer_text=answer_text,
@@ -89,6 +88,7 @@ class AnthropicAdapter(BaseAdapter):
             cache_write_tokens=getattr(usage, "cache_creation_input_tokens", 0) or 0,
             raw_reasoning_trace=thinking_text,
             trace_status="summarized" if thinking_text else "absent",
+            reasoning_source=reasoning_source,
             latency_s=latency,
             model_version=resp.model,
             raw_usage=raw,
@@ -152,14 +152,15 @@ class AnthropicAdapter(BaseAdapter):
         api_reasoning = (
             getattr(comp_details, "reasoning_tokens", None) if comp_details else None
         )
-        if api_reasoning is not None:
+        if api_reasoning is not None and api_reasoning > 0:
             reasoning_tokens = api_reasoning
-            output_tokens = total_completion - reasoning_tokens
+            output_tokens = max(0, total_completion - reasoning_tokens)
+            reasoning_source = "api"
         else:
             reasoning_tokens, output_tokens = split_token_estimate(
                 reasoning, answer, total_completion
             )
-            raw["thinking_tokens_estimated"] = True
+            reasoning_source = "text_estimate"
 
         return ModelResponse(
             answer_text=answer,
@@ -170,6 +171,7 @@ class AnthropicAdapter(BaseAdapter):
             cache_write_tokens=0,
             raw_reasoning_trace=reasoning,
             trace_status="summarized" if reasoning else "absent",
+            reasoning_source=reasoning_source,
             latency_s=latency,
             model_version=resp.model,
             raw_usage=raw,

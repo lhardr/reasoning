@@ -22,6 +22,7 @@ def save_result(
     cost_usd: float,
     pricing_snapshot_date: str,
     thinking_budget: int,
+    reasoning_effort: str,
 ) -> dict:
     """
     Persist one (model, prompt, run) record to results/<run_id>.jsonl.
@@ -35,12 +36,14 @@ def save_result(
         "model_version": response.model_version,
         "prompt": prompt,
         "thinking_budget": thinking_budget,
+        "reasoning_effort": reasoning_effort,
         "answer_text": response.answer_text,
         "raw_reasoning_trace": response.raw_reasoning_trace,
         "trace_status": response.trace_status,
         "tokens": {
             "input": account.input_tokens,
             "reasoning": account.reasoning_tokens,
+            "reasoning_source": response.reasoning_source,
             "output": account.output_tokens,
             "cache_read": account.cache_read_tokens,
             "cache_write": account.cache_write_tokens,

@@ -24,7 +24,7 @@ load_dotenv()
 from src.accounting import build_account
 from src.adapters import PROVIDER_MAP, CredentialMissingError
 from src.adapters.base import AdapterError, ModelResponse
-from src.config_loader import load_panel
+from src.config_loader import load_experiment, load_panel
 from src.cost import compute_cost
 from src.model_resolver import print_resolution_table, resolve_models
 from src.storage import save_result
@@ -107,7 +107,7 @@ def _fmt_row(
 ) -> str:
     return (
         f"{key:<22} {version:<28} {inp:>7} {reas:>9} {out:>7}  "
-        f"{status:<12} ${cost:>8.5f}  {latency:>7.2f}s  {verify:<20} {reas_assert}"
+        f"{status:<12} ${cost:>8.5f}  {latency:>7.2f}s  {verify:<20}  {reas_assert}"
     )
 
 
@@ -116,6 +116,8 @@ def run_smoke(model_filter: Optional[str] = None) -> int:
     Run the smoke test. Returns exit code (0 = all checks passed, 1 = failures).
     """
     panel = load_panel()
+    experiment = load_experiment()
+    reasoning_effort: str = experiment.get("reasoning_effort", "high")
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_smoke"
 
     target_keys = [
@@ -131,6 +133,7 @@ def run_smoke(model_filter: Optional[str] = None) -> int:
     print(f"\n{'='*110}")
     print(f"  Reasoning Benchmark — Smoke Test   run_id={run_id}")
     print(f"  Prompt: {SMOKE_PROMPT!r}")
+    print(f"  reasoning_effort={reasoning_effort!r}  (experiment condition, locked across all models)")
     print(f"{'='*110}")
 
     resolved = resolve_models(panel, target_keys)
@@ -147,9 +150,9 @@ def run_smoke(model_filter: Optional[str] = None) -> int:
     # ------------------------------------------------------------------
     print(
         f"\n{'Model':<22} {'Version':<28} {'Input':>7} {'Reasoning':>9} {'Output':>7}  "
-        f"{'TraceStatus':<12} {'Cost(USD)':>10}  {'Latency':>8}  {'Exposure':20} TokenAssert"
+        f"{'TraceStatus':<12} {'Cost(USD)':>10}  {'Latency':>8}  {'Exposure':20}  {'TokenAssert (src)'}"
     )
-    print("-" * 135)
+    print("-" * 140)
 
     has_failure = False
 
@@ -171,7 +174,11 @@ def run_smoke(model_filter: Optional[str] = None) -> int:
             continue
 
         try:
-            response = adapter.call(SMOKE_PROMPT, thinking_budget=thinking_budget)
+            response = adapter.call(
+                SMOKE_PROMPT,
+                thinking_budget=thinking_budget,
+                reasoning_effort=reasoning_effort,
+            )
         except AdapterError as e:
             print(f"{key:<22} ERROR    — {e}")
             has_failure = True
@@ -193,6 +200,7 @@ def run_smoke(model_filter: Optional[str] = None) -> int:
             cost_usd=cost_usd,
             pricing_snapshot_date=snapshot_date,
             thinking_budget=thinking_budget,
+            reasoning_effort=reasoning_effort,
         )
 
         # Exposure check
@@ -201,14 +209,17 @@ def run_smoke(model_filter: Optional[str] = None) -> int:
         if not exp_ok:
             has_failure = True
 
-        # Reasoning-token assertion — hard failure if zero where we expect non-zero
+        # Reasoning-token assertion — hard failure if zero where we expect non-zero.
+        # Include reasoning_source so "measured" and "estimated" values are never
+        # silently mixed in the same comparison column.
         reas_label = ""
         if key in MUST_HAVE_REASONING_TOKENS:
             if account.reasoning_tokens == 0:
                 reas_label = "FAIL: reasoning_tokens=0"
                 has_failure = True
             else:
-                reas_label = f"OK ({account.reasoning_tokens})"
+                src_tag = "api" if response.reasoning_source == "api" else "est"
+                reas_label = f"OK ({account.reasoning_tokens}, {src_tag})"
 
         print(
             _fmt_row(
@@ -225,7 +236,7 @@ def run_smoke(model_filter: Optional[str] = None) -> int:
             )
         )
 
-    print("-" * 135)
+    print("-" * 140)
     status_line = "ALL CHECKS PASSED" if not has_failure else "FAILURES DETECTED — see FAIL/MISMATCH rows"
     print(f"\n  {status_line}")
     print(f"  Results written to results/{run_id}.jsonl\n")

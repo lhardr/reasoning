@@ -34,7 +34,7 @@ class GemmaAdapter(BaseAdapter):
                 "gemma_4: missing OPENROUTER_API_KEY (Gemma 4 runs via OpenRouter)"
             )
 
-    def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
+    def call(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:
         from openai import OpenAI
 
         or_key = os.environ["OPENROUTER_API_KEY"]
@@ -51,7 +51,7 @@ class GemmaAdapter(BaseAdapter):
                 # include_reasoning ensures OpenRouter forwards the content.
                 extra_body={
                     "include_reasoning": True,
-                    "reasoning": {"effort": "high"},
+                    "reasoning": {"effort": reasoning_effort},
                 },
             )
             latency = time.perf_counter() - t0
@@ -82,11 +82,12 @@ class GemmaAdapter(BaseAdapter):
         if api_reasoning is not None and api_reasoning > 0:
             reasoning_tokens = api_reasoning
             output_tokens = max(0, total_completion - reasoning_tokens)
+            reasoning_source = "api"
         else:
             reasoning_tokens, output_tokens = split_token_estimate(
                 reasoning, answer, total_completion
             )
-            raw["thinking_tokens_estimated"] = True
+            reasoning_source = "text_estimate"
 
         if reasoning:
             trace_status = "raw"
@@ -104,6 +105,7 @@ class GemmaAdapter(BaseAdapter):
             cache_write_tokens=0,
             raw_reasoning_trace=reasoning,
             trace_status=trace_status,
+            reasoning_source=reasoning_source,
             latency_s=latency,
             model_version=resp.model,
             raw_usage=raw,

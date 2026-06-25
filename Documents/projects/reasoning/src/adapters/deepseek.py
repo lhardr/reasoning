@@ -24,7 +24,7 @@ from .base import (
 class DeepSeekAdapter(BaseAdapter):
     required_env = ["DEEPSEEK_API_KEY"]
 
-    def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
+    def call(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:
         from openai import OpenAI
 
         api_key, base_url, model_id, _via_or = self._resolve_openai_creds()
@@ -43,7 +43,7 @@ class DeepSeekAdapter(BaseAdapter):
                 # include_reasoning ensures OpenRouter forwards the content.
                 extra_body={
                     "include_reasoning": True,
-                    "reasoning": {"effort": "high"},
+                    "reasoning": {"effort": reasoning_effort},
                 },
             )
             latency = time.perf_counter() - t0
@@ -71,10 +71,12 @@ class DeepSeekAdapter(BaseAdapter):
         if api_reasoning is not None and api_reasoning > 0:
             reasoning_tokens = api_reasoning
             output_tokens = max(0, total_completion - reasoning_tokens)
+            reasoning_source = "api"
         else:
             reasoning_tokens, output_tokens = split_token_estimate(
                 reasoning, answer, total_completion
             )
+            reasoning_source = "text_estimate"
 
         cache_read = getattr(usage, "prompt_cache_hit_tokens", 0) or 0
         cache_write = getattr(usage, "prompt_cache_miss_tokens", 0) or 0
@@ -95,6 +97,7 @@ class DeepSeekAdapter(BaseAdapter):
             cache_write_tokens=cache_write,
             raw_reasoning_trace=reasoning,
             trace_status=trace_status,
+            reasoning_source=reasoning_source,
             latency_s=latency,
             model_version=resp.model,
             raw_usage=raw,

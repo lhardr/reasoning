@@ -6,6 +6,12 @@
 # model_id: for the direct provider API (when direct key is present).
 # Verify both against provider docs before each production run.
 
+# Experiment-level constants — recorded on every result row.
+# reasoning_effort MUST be identical across all runs in a comparison set.
+# Changing it invalidates cross-model comparisons.
+experiment:
+  reasoning_effort: "high"   # OpenRouter reasoning.effort for applicable models
+
 models:
   deepseek_v4:
     provider: deepseek
