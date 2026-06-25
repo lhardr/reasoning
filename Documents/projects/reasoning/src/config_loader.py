@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 
 CONFIG_DIR = Path(__file__).parent.parent / "config"
+DATA_DIR = Path(__file__).parent.parent / "data"
 
 
 @lru_cache(maxsize=1)
@@ -27,3 +28,32 @@ def load_experiment() -> dict:
 def load_pricing() -> dict:
     with open(CONFIG_DIR / "pricing.yaml") as f:
         return yaml.safe_load(f)
+
+
+def load_prompts() -> dict[str, dict]:
+    """
+    Load prompts from data/prompts.yaml, keyed by prompt ID.
+
+    SECURITY INVARIANT: facit is stripped before returning. It must never
+    appear in any outgoing model request. The function asserts this on every
+    call — if the strip ever fails, execution stops with a hard error.
+    """
+    with open(DATA_DIR / "prompts.yaml") as f:
+        raw = yaml.safe_load(f)
+
+    result: dict[str, dict] = {}
+    for entry in raw["prompts"]:
+        pid = entry["id"]
+        # Require facit to exist in source so omissions are caught early.
+        assert "facit" in entry, (
+            f"prompt {pid} is missing the 'facit' field — "
+            "add it (null is acceptable if there is no known answer)"
+        )
+        # Strip facit — this is the guard on the request path.
+        send_obj = {k: v for k, v in entry.items() if k != "facit"}
+        # Hard assertion: facit must not survive the strip.
+        assert "facit" not in send_obj, (
+            f"BUG: facit leaked into the request-path object for prompt {pid}"
+        )
+        result[pid] = send_obj
+    return result
