@@ -1,12 +1,15 @@
 """DeepSeek V4 adapter — trace_exposure: raw.
 
 The deepseek-reasoner model returns reasoning_content (raw CoT) separately from
-the answer in content. Token breakdown from usage; reasoning/output are split
-proportionally when the API does not report them separately.
+the answer in content. Falls back to OpenRouter when DEEPSEEK_API_KEY is absent.
+
+Via OpenRouter: passes include_reasoning=True in extra_body so OpenRouter
+forwards the reasoning_content field. If OpenRouter still strips it, the token
+count is still captured and trace_status is reported as "count_only" (MISMATCH
+vs expected "raw" — this is a finding, not a crash).
 """
 from __future__ import annotations
 
-import os
 import time
 
 from .base import (
@@ -24,17 +27,24 @@ class DeepSeekAdapter(BaseAdapter):
     def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
         from openai import OpenAI
 
-        client = OpenAI(
-            api_key=os.environ["DEEPSEEK_API_KEY"],
-            base_url=self.config.get("base_url", "https://api.deepseek.com"),
-        )
+        api_key, base_url, model_id, via_openrouter = self._resolve_openai_creds()
+        kwargs: dict = {"api_key": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        client = OpenAI(**kwargs)
+
+        extra: dict = {}
+        if via_openrouter:
+            # Ask OpenRouter to forward the reasoning_content field
+            extra["include_reasoning"] = True
 
         try:
             t0 = time.perf_counter()
             resp = client.chat.completions.create(
-                model=self.config["model_id"],
+                model=model_id,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=thinking_budget + 512,
+                **({"extra_body": extra} if extra else {}),
             )
             latency = time.perf_counter() - t0
         except Exception as exc:
@@ -43,26 +53,25 @@ class DeepSeekAdapter(BaseAdapter):
         msg = resp.choices[0].message
         answer = msg.content or ""
 
-        # DeepSeek reasoning models expose CoT via reasoning_content
+        # Direct field (native API and some OpenRouter configurations)
         reasoning = getattr(msg, "reasoning_content", None)
         if reasoning is None:
-            # Fallback: parse <think> tags from content
+            # OpenRouter may also expose it under .reasoning
+            reasoning = getattr(msg, "reasoning", None)
+        if reasoning is None:
             reasoning, answer = extract_think_tags(answer)
 
         usage = resp.usage
         raw = usage.model_dump() if hasattr(usage, "model_dump") else {}
 
         total_completion = usage.completion_tokens
-
-        # Try provider-reported split first
         comp_details = getattr(usage, "completion_tokens_details", None)
-        api_reasoning_tokens = (
+        api_reasoning = (
             getattr(comp_details, "reasoning_tokens", None) if comp_details else None
         )
-
-        if api_reasoning_tokens is not None:
-            reasoning_tokens = api_reasoning_tokens
-            output_tokens = total_completion - reasoning_tokens
+        if api_reasoning is not None:
+            reasoning_tokens = api_reasoning
+            output_tokens = max(0, total_completion - reasoning_tokens)
         else:
             reasoning_tokens, output_tokens = split_token_estimate(
                 reasoning, answer, total_completion
@@ -70,6 +79,13 @@ class DeepSeekAdapter(BaseAdapter):
 
         cache_read = getattr(usage, "prompt_cache_hit_tokens", 0) or 0
         cache_write = getattr(usage, "prompt_cache_miss_tokens", 0) or 0
+
+        if reasoning:
+            trace_status = "raw"
+        elif reasoning_tokens > 0:
+            trace_status = "count_only"  # text stripped (e.g. OpenRouter without passthrough)
+        else:
+            trace_status = "absent"
 
         return ModelResponse(
             answer_text=answer,
@@ -79,7 +95,7 @@ class DeepSeekAdapter(BaseAdapter):
             cache_read_tokens=cache_read,
             cache_write_tokens=cache_write,
             raw_reasoning_trace=reasoning,
-            trace_status="raw" if reasoning else "absent",
+            trace_status=trace_status,
             latency_s=latency,
             model_version=resp.model,
             raw_usage=raw,

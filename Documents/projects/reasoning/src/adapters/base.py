@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
 
 class CredentialMissingError(Exception):
     pass
@@ -38,11 +40,46 @@ class BaseAdapter:
         self._check_credentials()
 
     def _check_credentials(self) -> None:
-        missing = [v for v in self.required_env if not os.environ.get(v)]
-        if missing:
+        """
+        Accept if (a) all required_env vars are present, OR (b) OPENROUTER_API_KEY
+        is set (allows OpenAI-compatible adapters to fall back to OpenRouter).
+        Subclasses that cannot use OpenRouter (e.g. local) override this.
+        """
+        direct_ok = all(os.environ.get(v) for v in self.required_env)
+        openrouter_ok = bool(os.environ.get("OPENROUTER_API_KEY"))
+        if not direct_ok and not openrouter_ok:
             raise CredentialMissingError(
-                f"{self.model_key}: missing env var(s): {', '.join(missing)}"
+                f"{self.model_key}: missing env var(s): {', '.join(self.required_env)}"
+                " (and no OPENROUTER_API_KEY fallback)"
             )
+
+    def _resolve_openai_creds(self) -> tuple[str, Optional[str], str, bool]:
+        """
+        Returns (api_key, base_url, model_id, via_openrouter).
+        Prefers direct provider key; falls back to OpenRouter when absent.
+        """
+        direct_key_var = self.required_env[0] if self.required_env else None
+        direct_key = os.environ.get(direct_key_var) if direct_key_var else None
+
+        if direct_key:
+            return (
+                direct_key,
+                self.config.get("base_url"),
+                self.config["model_id"],
+                False,
+            )
+
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        if openrouter_key:
+            model_id = self.config.get(
+                "openrouter_model_id", self.config["model_id"]
+            )
+            return openrouter_key, OPENROUTER_BASE_URL, model_id, True
+
+        raise CredentialMissingError(
+            f"{self.model_key}: no usable credential (need "
+            f"{', '.join(self.required_env)} or OPENROUTER_API_KEY)"
+        )
 
     def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
         raise NotImplementedError

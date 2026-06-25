@@ -25,6 +25,9 @@ from .base import (
 class LocalAdapter(BaseAdapter):
     required_env: list[str] = []  # local model, no credentials
 
+    def _check_credentials(self) -> None:
+        pass  # Ollama needs no credential; connection error reported at call time
+
     def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
         base = self.config.get("ollama_url", "http://localhost:11434")
         model = self.config["model_id"]

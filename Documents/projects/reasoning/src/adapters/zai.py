@@ -1,13 +1,12 @@
 """Zhipu AI GLM 5.2 adapter — trace_exposure: raw.
 
-Uses the OpenAI-compatible endpoint at open.bigmodel.cn.
-GLM-Z1 reasoning models expose raw CoT via reasoning_content (same field name as
-DeepSeek). Falls back to <think> tag parsing if the field is absent.
+Uses the OpenAI-compatible endpoint at open.bigmodel.cn. Falls back to OpenRouter
+when ZAI_API_KEY is absent. GLM-Z1 reasoning models expose raw CoT via
+reasoning_content (same field as DeepSeek); falls back to <think> tag parsing.
 Verify model_id and field names against Zhipu AI docs at run time.
 """
 from __future__ import annotations
 
-import os
 import time
 
 from .base import (
@@ -25,19 +24,23 @@ class ZaiAdapter(BaseAdapter):
     def call(self, prompt: str, thinking_budget: int = 4096) -> ModelResponse:
         from openai import OpenAI
 
-        client = OpenAI(
-            api_key=os.environ["ZAI_API_KEY"],
-            base_url=self.config.get(
-                "base_url", "https://open.bigmodel.cn/api/paas/v4/"
-            ),
-        )
+        api_key, base_url, model_id, via_openrouter = self._resolve_openai_creds()
+        kwargs: dict = {"api_key": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        client = OpenAI(**kwargs)
+
+        extra: dict = {}
+        if via_openrouter:
+            extra["include_reasoning"] = True
 
         try:
             t0 = time.perf_counter()
             resp = client.chat.completions.create(
-                model=self.config["model_id"],
+                model=model_id,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=thinking_budget + 512,
+                **({"extra_body": extra} if extra else {}),
             )
             latency = time.perf_counter() - t0
         except Exception as exc:
@@ -48,13 +51,14 @@ class ZaiAdapter(BaseAdapter):
 
         reasoning = getattr(msg, "reasoning_content", None)
         if reasoning is None:
+            reasoning = getattr(msg, "reasoning", None)
+        if reasoning is None:
             reasoning, answer = extract_think_tags(answer)
 
         usage = resp.usage
         raw = usage.model_dump() if hasattr(usage, "model_dump") else {}
 
         total_completion = usage.completion_tokens
-
         comp_details = getattr(usage, "completion_tokens_details", None)
         api_reasoning = (
             getattr(comp_details, "reasoning_tokens", None) if comp_details else None
@@ -70,6 +74,13 @@ class ZaiAdapter(BaseAdapter):
         cache_read = getattr(usage, "prompt_cache_hit_tokens", 0) or 0
         cache_write = getattr(usage, "prompt_cache_miss_tokens", 0) or 0
 
+        if reasoning:
+            trace_status = "raw"
+        elif reasoning_tokens > 0:
+            trace_status = "count_only"  # text stripped (e.g. via OpenRouter)
+        else:
+            trace_status = "absent"
+
         return ModelResponse(
             answer_text=answer,
             input_tokens=usage.prompt_tokens,
@@ -78,7 +89,7 @@ class ZaiAdapter(BaseAdapter):
             cache_read_tokens=cache_read,
             cache_write_tokens=cache_write,
             raw_reasoning_trace=reasoning,
-            trace_status="raw" if reasoning else "absent",
+            trace_status=trace_status,
             latency_s=latency,
             model_version=resp.model,
             raw_usage=raw,
