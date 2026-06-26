@@ -21,6 +21,11 @@ import argparse
 import pathlib
 import sys
 
+# Ensure project root is in sys.path regardless of how this script is invoked
+_PROJECT_ROOT = pathlib.Path(__file__).parent.resolve()
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 # ── Step 1: patch the rubric BEFORE importing run.py ────────────────────────
 # run.py does `from src.judge import build_rubric_prompt`.
 # build_rubric_prompt looks up _RUBRIC_TEMPLATE in src.judge's module namespace
