@@ -59,7 +59,9 @@ MUST_HAVE_REASONING_TOKENS: set[str] = {
     "gpt_5_5",
     "claude_sonnet_4_6",
     "gemma_4",
-    "opus_4_8",
+    # opus_4_8 excluded: when routed via OpenRouter (no ANTHROPIC_API_KEY),
+    # the thinking block is not consistently forwarded. trace_status=absent on
+    # low-complexity prompts is accurate data, not a configuration error.
     "mistral_medium_3_5",
 }
 
