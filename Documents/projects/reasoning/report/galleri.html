@@ -9,12 +9,34 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px; background: #0f1117; color: #e2e8f0; line-height: 1.4;
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
 }
 a { color: #60a5fa; }
 
+/* Legend */
+.legend-wrap {
+  background: #131825; border-bottom: 1px solid #1e293b;
+  padding: 5px 12px; flex-shrink: 0;
+}
+.legend-hdr {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+}
+.legend-title { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+.legend-toggle {
+  background: none; border: 1px solid #334155; border-radius: 3px;
+  color: #475569; cursor: pointer; font-size: 10px; padding: 1px 6px;
+}
+.legend-toggle:hover { color: #94a3b8; border-color: #475569; }
+.legend-body { display: flex; gap: 24px; flex-wrap: wrap; }
+.leg-section { font-size: 10px; }
+.leg-head { color: #64748b; font-weight: 600; margin-bottom: 3px; }
+.leg-row { display: flex; gap: 6px; margin: 1px 0; }
+.leg-key { color: #cbd5e1; font-weight: 600; min-width: 72px; white-space: nowrap; }
+.leg-desc { color: #475569; }
+
 /* Controls */
 .controls {
-  position: sticky; top: 0; z-index: 100;
+  flex-shrink: 0;
   background: #1e2130; border-bottom: 1px solid #334155;
   padding: 8px 12px; display: flex; flex-direction: column; gap: 6px;
 }
@@ -39,15 +61,15 @@ a { color: #60a5fa; }
 
 /* Page header */
 .page-header {
-  padding: 12px 16px 8px; border-bottom: 1px solid #1e293b;
+  padding: 12px 16px 8px; border-bottom: 1px solid #1e293b; flex-shrink: 0;
 }
 .page-header h1 { font-size: 16px; color: #f1f5f9; }
 .page-header p  { color: #64748b; font-size: 11px; margin-top: 3px; }
 
-/* Grid — fixed-height scroll container so sticky thead works inside it */
+/* Grid — fills remaining height so sticky thead works inside it */
 .grid-wrap {
+  flex: 1; min-height: 0;
   overflow: auto;
-  height: calc(100vh - 148px);
   border-top: 1px solid #1e293b;
 }
 .gallery-grid {
@@ -134,10 +156,11 @@ a { color: #60a5fa; }
 .sw-warn   { color: #f59e0b; margin-left: 2px; font-size: 10px; }
 
 /* Cell stats */
-.cell-header { display: flex; align-items: center; flex-wrap: nowrap; gap: 3px; margin-bottom: 3px; overflow: hidden; }
-.cell-stats { color: #64748b; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.corr   { font-weight: 700; font-size: 12px; margin-left: 2px; }
-.score-leg { font-size: 10px; color: #a78bfa; }
+.cell-header { display: flex; align-items: center; flex-wrap: nowrap; gap: 2px; margin-bottom: 2px; overflow: hidden; }
+.cell-stats  { color: #64748b; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.cell-line3  { font-size: 10px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; gap: 6px; }
+.corr        { font-weight: 700; font-size: 11px; }
+.score-leg   { font-size: 10px; color: #a78bfa; }
 
 /* Missing cell */
 .cell-missing { background: #0a0f1a; text-align: center; color: #334155; }
@@ -238,6 +261,23 @@ a { color: #60a5fa; }
   </div>
 </div>
 
+<div class="legend-wrap" id="legendWrap">
+  <div class="legend-hdr">
+    <span class="legend-title">Nøgle</span>
+    <button class="legend-toggle" onclick="toggleLegend()">skjul</button>
+  </div>
+  <div class="legend-body" id="legendBody">
+    <div class="leg-section">
+      <div class="leg-head">Trace-status</div>
+      <div class="leg-row"><span class="leg-key">raw</span><span class="leg-desc">råt tankespor, hele modellens tænkning er synlig</span></div><div class="leg-row"><span class="leg-key">raw-a</span><span class="leg-desc">råt anker (Gemma), samme som raw</span></div><div class="leg-row"><span class="leg-key">sum</span><span class="leg-desc">resumé, kun et sammendrag af tænkningen (fx Claude)</span></div><div class="leg-row"><span class="leg-key">cnt</span><span class="leg-desc">kun tal, tænkningen er skjult, kun token-tallet kendes (fx GPT)</span></div>
+    </div>
+    <div class="leg-section">
+      <div class="leg-head">Felter i hver celle</div>
+      <div class="leg-row"><span class="leg-key">tænkesprog</span><span class="leg-desc">det sprog tankesporet er skrevet på (da/en/zh)</span></div><div class="leg-row"><span class="leg-key">skift</span><span class="leg-desc">antal gange sporet skifter sprog undervejs</span></div><div class="leg-row"><span class="leg-key">tænk</span><span class="leg-desc">&quot;tok&quot; = tokens (det du betaler) / &quot;tegn&quot; = rå tegn, uafhængigt af tokenizer</span></div><div class="leg-row"><span class="leg-key">svar</span><span class="leg-desc">output-tokens, altså selve svaret</span></div><div class="leg-row"><span class="leg-key">tid</span><span class="leg-desc">svartid i sekunder</span></div><div class="leg-row"><span class="leg-key">korrekt ✓</span><span class="leg-desc">svaret dømt rigtigt (kun på facit-opgaver)</span></div><div class="leg-row"><span class="leg-key">redundans</span><span class="leg-desc">skala 1–5, lavere er bedre (mindre gentagelse)</span></div><div class="leg-row"><span class="leg-key">sammenhæng</span><span class="leg-desc">skala 1–5, højere er bedre</span></div><div class="leg-row"><span class="leg-key">k</span><span class="leg-desc">tusind — fx 1.0k = 1000</span></div>
+    </div>
+  </div>
+</div>
+
 <div class="grid-wrap">
   <table class="gallery-grid" id="galleryGrid">
     <colgroup><col id="col-prompt" style="width:130px"><col id="col-deepseek_v4" data-model="deepseek_v4" style="width:160px"><col id="col-glm_5_2" data-model="glm_5_2" style="width:160px"><col id="col-kimi_k2_7" data-model="kimi_k2_7" style="width:160px"><col id="col-gpt_5_5" data-model="gpt_5_5" style="width:160px"><col id="col-claude_sonnet_4_6" data-model="claude_sonnet_4_6" style="width:160px"><col id="col-gemma_4" data-model="gemma_4" style="width:160px"><col id="col-opus_4_8" data-model="opus_4_8" style="width:160px"><col id="col-mistral_medium_3_5" data-model="mistral_medium_3_5" style="width:160px"></colgroup>
@@ -246,13 +286,7 @@ a { color: #60a5fa; }
 hvorfor man skal melde flytning til folkeregistret. Maksimalt 120 ord.
 </span></th><td class="cell curated" data-model="deepseek_v4" data-prompt="P1" data-type="da_natural_language" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="score-leg" title="Redundans 1.5/5 · Koherens 4.5/5">r:1.5 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:1028 tok (api) · out:178 tok · 2,738 chars · 16.59s">r:1.0k o:178 2.7kch · 16.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 1028 tok (api) / 2,738 tegn · svar: 178 tok · 16.59s">tænk: 1.0k tok / 2.7k tegn · svar: 178 tok · 16.6s</div><div class="cell-line3"><span class="score-leg" title="Redundans 1.5/5 · Sammenhæng 4.5/5">redundans 1.5 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Clerical optælling — 932 reas-tok på simpel forespørgsel</div>
@@ -315,13 +349,7 @@ Forslag: &quot;Din folkeregisteradresse er den officielle adresse, du er registr
   </div>
 </td><td class="cell" data-model="glm_5_2" data-prompt="P1" data-type="da_natural_language" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
-  <span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
-</div>
-<div class="cell-stats" title="reas:688 tok (api) · out:393 tok · 2,619 chars · 15.01s">r:688 o:393 2.6kch · 15.0s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span> · <span class="sw-warn" title="4 sprogskift">4 skift</span></div><div class="cell-stats" title="tænk: 688 tok (api) / 2,619 tegn · svar: 393 tok · 15.01s">tænk: 688 tok / 2.6k tegn · svar: 393 tok · 15.0s</div><div class="cell-line3"><span class="score-leg" title="Redundans 1/5 · Sammenhæng 5/5">redundans 1 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -407,13 +435,7 @@ Det tager heldigvis kun fem minutter at melde flytningen online, og det gør hve
   </div>
 </td><td class="cell" data-model="kimi_k2_7" data-prompt="P1" data-type="da_natural_language" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="score-leg" title="Redundans 1.5/5 · Koherens 4.5/5">r:1.5 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:153 tok (api) · out:178 tok · 563 chars · 13.60s">r:153 o:178 563ch · 13.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 153 tok (api) / 563 tegn · svar: 178 tok · 13.60s">tænk: 153 tok / 563 tegn · svar: 178 tok · 13.6s</div><div class="cell-line3"><span class="score-leg" title="Redundans 1.5/5 · Sammenhæng 4.5/5">redundans 1.5 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -476,13 +498,7 @@ Du skal melde flytning, så myndigheder, kommune og post Nord ved, hvor de kan n
   </div>
 </td><td class="cell" data-model="gpt_5_5" data-prompt="P1" data-type="da_natural_language" data-regime="count_only" data-ts="count_only">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  
-</div>
-<div class="cell-stats" title="reas:185 tok (api) · out:130 tok · 0 chars · 7.11s">r:185 o:130 0ch · 7.1s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 185 tok (api) / 0 tegn · svar: 130 tok · 7.11s">tænk: 185 tok / 0 tegn · svar: 130 tok · 7.1s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -519,13 +535,7 @@ Kort sagt: Din korrekte adresse hjælper både dig og det offentlige med at få 
   </div>
 </td><td class="cell" data-model="claude_sonnet_4_6" data-prompt="P1" data-type="da_natural_language" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  
-</div>
-<div class="cell-stats" title="reas:49 tok (api) · out:214 tok · 196 chars · 7.69s">r:49 o:214 196ch · 7.7s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 49 tok (api) / 196 tegn · svar: 214 tok · 7.69s">tænk: 49 tok / 196 tegn · svar: 214 tok · 7.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -566,13 +576,7 @@ Heldigvis er det nemt – flytning meldes hurtigt og gratis på **borger.dk**. �
   </div>
 </td><td class="cell" data-model="gemma_4" data-prompt="P1" data-type="da_natural_language" data-regime="raw_anchor" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="score-leg" title="Redundans 1.5/5 · Koherens 4.5/5">r:1.5 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:301 tok (api) · out:178 tok · 1,138 chars · 21.56s">r:301 o:178 1.1kch · 21.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="2 sprogskift">2 skift</span></div><div class="cell-stats" title="tænk: 301 tok (api) / 1,138 tegn · svar: 178 tok · 21.56s">tænk: 301 tok / 1.1k tegn · svar: 178 tok · 21.6s</div><div class="cell-line3"><span class="score-leg" title="Redundans 1.5/5 · Sammenhæng 4.5/5">redundans 1.5 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -646,13 +650,7 @@ Det sikrer, at alt det praktiske kører glat, og det er samtidig et lovkrav. God
   </div>
 </td><td class="cell" data-model="opus_4_8" data-prompt="P1" data-type="da_natural_language" data-regime="summarized" data-ts="absent">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  
-</div>
-<div class="cell-stats" title="reas:49 tok (api) · out:279 tok · 0 chars · 7.28s">r:49 o:279 0ch · 7.3s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 49 tok (api) / 0 tegn · svar: 279 tok · 7.28s">tænk: 49 tok / 0 tegn · svar: 279 tok · 7.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -693,13 +691,7 @@ Melder du korrekt flytning, sikrer du, at vigtig post og beskeder når frem til 
   </div>
 </td><td class="cell" data-model="mistral_medium_3_5" data-prompt="P1" data-type="da_natural_language" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="score-leg" title="Redundans 5/5 · Koherens 4/5">r:5 c:4</span>
-</div>
-<div class="cell-stats" title="reas:3167 tok (api) · out:1441 tok · 10,529 chars · 82.98s">r:3.2k o:1.4k 10.5kch · 83.0s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 3167 tok (api) / 10,529 tegn · svar: 1441 tok · 82.98s">tænk: 3.2k tok / 10.5k tegn · svar: 1.4k tok · 83.0s</div><div class="cell-line3"><span class="score-leg" title="Redundans 5/5 · Sammenhæng 4/5">redundans 5 · sammenhæng 4</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1347,13 +1339,7 @@ meddelelse indgive eventuel klage til den myndighed, der har truffet
 afgørelsen, jf. forvaltningslovens regler herom.&quot;
 </span></th><td class="cell" data-model="deepseek_v4" data-prompt="P2" data-type="da_natural_language" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="score-leg" title="Redundans 2.5/5 · Koherens 4/5">r:2.5 c:4</span>
-</div>
-<div class="cell-stats" title="reas:775 tok (api) · out:285 tok · 2,838 chars · 35.65s">r:775 o:285 2.8kch · 35.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 775 tok (api) / 2,838 tegn · svar: 285 tok · 35.65s">tænk: 775 tok / 2.8k tegn · svar: 285 tok · 35.6s</div><div class="cell-line3"><span class="score-leg" title="Redundans 2.5/5 · Sammenhæng 4/5">redundans 2.5 · sammenhæng 4</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1430,13 +1416,7 @@ Jeg vil præsentere svaret med denne omskrivning.</pre>
   </div>
 </td><td class="cell" data-model="glm_5_2" data-prompt="P2" data-type="da_natural_language" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="10 sprogskift">⚡10</span></span>
-  <span class="score-leg" title="Redundans 2/5 · Koherens 5/5">r:2 c:5</span>
-</div>
-<div class="cell-stats" title="reas:879 tok (api) · out:333 tok · 3,313 chars · 39.88s">r:879 o:333 3.3kch · 39.9s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span> · <span class="sw-warn" title="10 sprogskift">10 skift</span></div><div class="cell-stats" title="tænk: 879 tok (api) / 3,313 tegn · svar: 333 tok · 39.88s">tænk: 879 tok / 3.3k tegn · svar: 333 tok · 39.9s</div><div class="cell-line3"><span class="score-leg" title="Redundans 2/5 · Sammenhæng 5/5">redundans 2 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1537,13 +1517,7 @@ Jeg vil præsentere svaret med denne omskrivning.</pre>
   </div>
 </td><td class="cell" data-model="kimi_k2_7" data-prompt="P2" data-type="da_natural_language" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="score-leg" title="Redundans 2/5 · Koherens 4.5/5">r:2 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:236 tok (api) · out:93 tok · 905 chars · 5.34s">r:236 o:93 905ch · 5.3s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 236 tok (api) / 905 tegn · svar: 93 tok · 5.34s">tænk: 236 tok / 905 tegn · svar: 93 tok · 5.3s</div><div class="cell-line3"><span class="score-leg" title="Redundans 2/5 · Sammenhæng 4.5/5">redundans 2 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1602,13 +1576,7 @@ Need ensure no extra fluff. Final in Danish.</pre>
   </div>
 </td><td class="cell" data-model="gpt_5_5" data-prompt="P2" data-type="da_natural_language" data-regime="count_only" data-ts="count_only">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  
-</div>
-<div class="cell-stats" title="reas:119 tok (api) · out:59 tok · 0 chars · 5.48s">r:119 o:59 0ch · 5.5s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 119 tok (api) / 0 tegn · svar: 59 tok · 5.48s">tænk: 119 tok / 0 tegn · svar: 59 tok · 5.5s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1641,13 +1609,7 @@ Need ensure no extra fluff. Final in Danish.</pre>
   </div>
 </td><td class="cell" data-model="claude_sonnet_4_6" data-prompt="P2" data-type="da_natural_language" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  
-</div>
-<div class="cell-stats" title="reas:80 tok (api) · out:146 tok · 314 chars · 6.76s">r:80 o:146 314ch · 6.8s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 80 tok (api) / 314 tegn · svar: 146 tok · 6.76s">tænk: 80 tok / 314 tegn · svar: 146 tok · 6.8s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1691,13 +1653,7 @@ The original sentence means: If you want to complain about the decision, you mus
   </div>
 </td><td class="cell" data-model="gemma_4" data-prompt="P2" data-type="da_natural_language" data-regime="raw_anchor" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="5 sprogskift">⚡5</span></span>
-  <span class="score-leg" title="Redundans 2/5 · Koherens 4.5/5">r:2 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:742 tok (api) · out:551 tok · 2,809 chars · 41.16s">r:742 o:551 2.8kch · 41.2s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="5 sprogskift">5 skift</span></div><div class="cell-stats" title="tænk: 742 tok (api) / 2,809 tegn · svar: 551 tok · 41.16s">tænk: 742 tok / 2.8k tegn · svar: 551 tok · 41.2s</div><div class="cell-line3"><span class="score-leg" title="Redundans 2/5 · Sammenhæng 4.5/5">redundans 2 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1801,13 +1757,7 @@ The original sentence means: If you want to complain about the decision, you mus
   </div>
 </td><td class="cell" data-model="opus_4_8" data-prompt="P2" data-type="da_natural_language" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  
-</div>
-<div class="cell-stats" title="reas:17 tok (api) · out:339 tok · 66 chars · 11.55s">r:17 o:339 66ch · 11.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 17 tok (api) / 66 tegn · svar: 339 tok · 11.55s">tænk: 17 tok / 66 tegn · svar: 339 tok · 11.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1848,13 +1798,7 @@ Henvisningen til forvaltningsloven (&quot;jf. forvaltningslovens regler herom&qu
   </div>
 </td><td class="cell" data-model="mistral_medium_3_5" data-prompt="P2" data-type="da_natural_language" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="score-leg" title="Redundans 4.5/5 · Koherens 4/5">r:4.5 c:4</span>
-</div>
-<div class="cell-stats" title="reas:1109 tok (api) · out:220 tok · 4,040 chars · 28.80s">r:1.1k o:220 4.0kch · 28.8s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 1109 tok (api) / 4,040 tegn · svar: 220 tok · 28.80s">tænk: 1.1k tok / 4.0k tegn · svar: 220 tok · 28.8s</div><div class="cell-line3"><span class="score-leg" title="Redundans 4.5/5 · Sammenhæng 4/5">redundans 4.5 · sammenhæng 4</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1971,13 +1915,7 @@ modtaget hos kommunen fredag den 3. april 2026. Er klagen rettidig?
 Begrund kort.
 </span></th><td class="cell curated" data-model="deepseek_v4" data-prompt="P3" data-type="da_legal" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and accurately calculates the four-week deadline from March 6 to April 3.">✓</span><span class="score-leg" title="Redundans 3.5/5 · Koherens 4.5/5">r:3.5 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:2405 tok (api) · out:138 tok · 8,096 chars · 47.36s">r:2.4k o:138 8.1kch · 47.4s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="4 sprogskift">4 skift</span></div><div class="cell-stats" title="tænk: 2405 tok (api) / 8,096 tegn · svar: 138 tok · 47.36s">tænk: 2.4k tok / 8.1k tegn · svar: 138 tok · 47.4s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and accurately calculates the four-week deadline from March 6 to April 3.">✓ korrekt</span> <span class="score-leg" title="Redundans 3.5/5 · Sammenhæng 4.5/5">redundans 3.5 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2058,13 +1996,7 @@ Thus the answer is yes.</pre>
   </div>
 </td><td class="cell curated" data-model="glm_5_2" data-prompt="P3" data-type="da_legal" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and accurately calculates the 4-week deadline as April 3.">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 5/5">r:2 c:5</span>
-</div>
-<div class="cell-stats" title="reas:660 tok (api) · out:152 tok · 2,511 chars · 10.28s">r:660 o:152 2.5kch · 10.3s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="4 sprogskift">4 skift</span></div><div class="cell-stats" title="tænk: 660 tok (api) / 2,511 tegn · svar: 152 tok · 10.28s">tænk: 660 tok / 2.5k tegn · svar: 152 tok · 10.3s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and accurately calculates the 4-week deadline as April 3.">✓ korrekt</span> <span class="score-leg" title="Redundans 2/5 · Sammenhæng 5/5">redundans 2 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2164,13 +2096,7 @@ Når en klagefrist beregnes i uger, udløber den på samme ugedag, som den dag a
   </div>
 </td><td class="cell curated" data-model="kimi_k2_7" data-prompt="P3" data-type="da_legal" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the four-week deadline ends on April 3, which is the exact day the appeal was received.">✓</span><span class="score-leg" title="Redundans 2.5/5 · Koherens 4.5/5">r:2.5 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:620 tok (api) · out:101 tok · 2,214 chars · 19.72s">r:620 o:101 2.2kch · 19.7s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="2 sprogskift">2 skift</span></div><div class="cell-stats" title="tænk: 620 tok (api) / 2,214 tegn · svar: 101 tok · 19.72s">tænk: 620 tok / 2.2k tegn · svar: 101 tok · 19.7s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the four-week deadline ends on April 3, which is the exact day the appeal was received.">✓ korrekt</span> <span class="score-leg" title="Redundans 2.5/5 · Sammenhæng 4.5/5">redundans 2.5 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2241,13 +2167,7 @@ Klagefristen begynder at løbe dagen efter meddelelsen, altså lørdag den 7. ma
   </div>
 </td><td class="cell curated" data-model="gpt_5_5" data-prompt="P3" data-type="da_legal" data-regime="count_only" data-ts="count_only">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the four-week deadline from March 6 expires on April 3, which is the day the complaint was received.">✓</span>
-</div>
-<div class="cell-stats" title="reas:1034 tok (api) · out:137 tok · 0 chars · 23.56s">r:1.0k o:137 0ch · 23.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 1034 tok (api) / 0 tegn · svar: 137 tok · 23.56s">tænk: 1.0k tok / 0 tegn · svar: 137 tok · 23.6s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the four-week deadline from March 6 expires on April 3, which is the day the complaint was received.">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2290,13 +2210,7 @@ Desuden var 3. april 2026 langfredag; hvis fristen udløber på en helligdag, ud
   </div>
 </td><td class="cell curated" data-model="claude_sonnet_4_6" data-prompt="P3" data-type="da_legal" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the four-week deadline from March 6 ends on April 3, which is the day the appeal was received.">✓</span>
-</div>
-<div class="cell-stats" title="reas:311 tok (api) · out:695 tok · 1,202 chars · 19.09s">r:311 o:695 1.2kch · 19.1s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 311 tok (api) / 1,202 tegn · svar: 695 tok · 19.09s">tænk: 311 tok / 1.2k tegn · svar: 695 tok · 19.1s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the four-week deadline from March 6 ends on April 3, which is the day the appeal was received.">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2368,13 +2282,7 @@ Klagefristen udløber **fredag den 3. april 2026**, og klagen er modtaget netop 
   </div>
 </td><td class="cell curated" data-model="gemma_4" data-prompt="P3" data-type="da_legal" data-regime="raw_anchor" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because four weeks from March 6 is April 3, matching the reasoning in the grading key.">✓</span><span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
-</div>
-<div class="cell-stats" title="reas:292 tok (api) · out:120 tok · 1,099 chars · 27.53s">r:292 o:120 1.1kch · 27.5s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 292 tok (api) / 1,099 tegn · svar: 120 tok · 27.53s">tænk: 292 tok / 1.1k tegn · svar: 120 tok · 27.5s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because four weeks from March 6 is April 3, matching the reasoning in the grading key.">✓ korrekt</span> <span class="score-leg" title="Redundans 1.5/5 · Sammenhæng 5/5">redundans 1.5 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2460,13 +2368,7 @@ Fristen på fire uger regnes fra meddelelsen fredag den 6. marts. Fire uger efte
   </div>
 </td><td class="cell curated" data-model="opus_4_8" data-prompt="P3" data-type="da_legal" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the 4-week deadline from March 6 falls on April 3, which is the day the complaint was received.">✓</span>
-</div>
-<div class="cell-stats" title="reas:146 tok (api) · out:570 tok · 571 chars · 12.15s">r:146 o:570 571ch · 12.2s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 146 tok (api) / 571 tegn · svar: 570 tok · 12.15s">tænk: 146 tok / 571 tegn · svar: 570 tok · 12.2s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the 4-week deadline from March 6 falls on April 3, which is the day the complaint was received.">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2524,13 +2426,7 @@ Da klagen er **modtaget hos kommunen fredag den 3. april 2026** — dvs. på sel
   </div>
 </td><td class="cell curated" data-model="mistral_medium_3_5" data-prompt="P3" data-type="da_legal" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and provides the correct reasoning that 4 weeks equals 28 days, making the deadline April 3rd.">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 2/5">r:4 c:2</span>
-</div>
-<div class="cell-stats" title="reas:1044 tok (api) · out:497 tok · 3,768 chars · 19.34s">r:1.0k o:497 3.8kch · 19.3s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span> · <span class="sw-warn" title="2 sprogskift">2 skift</span></div><div class="cell-stats" title="tænk: 1044 tok (api) / 3,768 tegn · svar: 497 tok · 19.34s">tænk: 1.0k tok / 3.8k tegn · svar: 497 tok · 19.3s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and provides the correct reasoning that 4 weeks equals 28 days, making the deadline April 3rd.">✓ korrekt</span> <span class="score-leg" title="Redundans 4/5 · Sammenhæng 2/5">redundans 4 · sammenhæng 2</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2666,13 +2562,7 @@ Angiv hvilke to sagsbehandlingsregler kommunen har tilsidesat, og vurder
 kort, om afgørelsen som udgangspunkt er ugyldig.
 </span></th><td class="cell" data-model="deepseek_v4" data-prompt="P4" data-type="da_legal" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøringspligten (§ 19) and begrundelsespligten (§ 22) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldi">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 4/5">r:2 c:4</span>
-</div>
-<div class="cell-stats" title="reas:1248 tok (api) · out:341 tok · 4,795 chars · 36.69s">r:1.2k o:341 4.8kch · 36.7s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span> · <span class="sw-warn" title="3 sprogskift">3 skift</span></div><div class="cell-stats" title="tænk: 1248 tok (api) / 4,795 tegn · svar: 341 tok · 36.69s">tænk: 1.2k tok / 4.8k tegn · svar: 341 tok · 36.7s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøringspligten (§ 19) and begrundelsespligten (§ 22) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldi">✓ korrekt</span> <span class="score-leg" title="Redundans 2/5 · Sammenhæng 4/5">redundans 2 · sammenhæng 4</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -2749,13 +2639,7 @@ Afgørelsen er som udgangspunkt ugyldig. Manglende partshøring er en væsentlig
   </div>
 </td><td class="cell" data-model="glm_5_2" data-prompt="P4" data-type="da_legal" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§ 24) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓</span><span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
-</div>
-<div class="cell-stats" title="reas:751 tok (api) · out:541 tok · 3,007 chars · 27.88s">r:751 o:541 3.0kch · 27.9s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="2 sprogskift">2 skift</span></div><div class="cell-stats" title="tænk: 751 tok (api) / 3,007 tegn · svar: 541 tok · 27.88s">tænk: 751 tok / 3.0k tegn · svar: 541 tok · 27.9s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§ 24) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓ korrekt</span> <span class="score-leg" title="Redundans 1.5/5 · Sammenhæng 5/5">redundans 1.5 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -2855,13 +2739,7 @@ Ifølge Forvaltningslovens § 38 er en afgørelse ugyldig, hvis der er begået s
   </div>
 </td><td class="cell" data-model="kimi_k2_7" data-prompt="P4" data-type="da_legal" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§ 22) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 3.5/5">r:4 c:3.5</span>
-</div>
-<div class="cell-stats" title="reas:1900 tok (api) · out:375 tok · 7,575 chars · 71.56s">r:1.9k o:375 7.6kch · 71.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="3 sprogskift">3 skift</span></div><div class="cell-stats" title="tænk: 1900 tok (api) / 7,575 tegn · svar: 375 tok · 71.56s">tænk: 1.9k tok / 7.6k tegn · svar: 375 tok · 71.6s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§ 22) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓ korrekt</span> <span class="score-leg" title="Redundans 4/5 · Sammenhæng 3.5/5">redundans 4 · sammenhæng 3.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -2968,13 +2846,7 @@ Afgørelsen er som udgangspunkt **ugyldig**. Når kommunen både har undladt at 
   </div>
 </td><td class="cell" data-model="gpt_5_5" data-prompt="P4" data-type="da_legal" data-regime="count_only" data-ts="count_only">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) and concludes that the decision is as a starting point invalid (ugyldig).">✓</span>
-</div>
-<div class="cell-stats" title="reas:516 tok (api) · out:306 tok · 0 chars · 43.08s">r:516 o:306 0ch · 43.1s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 516 tok (api) / 0 tegn · svar: 306 tok · 43.08s">tænk: 516 tok / 0 tegn · svar: 306 tok · 43.1s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) and concludes that the decision is as a starting point invalid (ugyldig).">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3022,13 +2894,7 @@ Manglende partshøring er en væsentlig sagsbehandlingsfejl, især når borgeren
   </div>
 </td><td class="cell" data-model="claude_sonnet_4_6" data-prompt="P4" data-type="da_legal" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) as the violated rules and concludes that the decision is as a starting point invalid (ugyldig).">✓</span>
-</div>
-<div class="cell-stats" title="reas:385 tok (api) · out:720 tok · 1,488 chars · 24.15s">r:385 o:720 1.5kch · 24.1s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 385 tok (api) / 1,488 tegn · svar: 720 tok · 24.15s">tænk: 385 tok / 1.5k tegn · svar: 720 tok · 24.1s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) as the violated rules and concludes that the decision is as a starting point invalid (ugyldig).">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3096,13 +2962,7 @@ Afgørelsen er **som udgangspunkt ugyldig**. Det afgørende er, at den manglende
   </div>
 </td><td class="cell" data-model="gemma_4" data-prompt="P4" data-type="da_legal" data-regime="raw_anchor" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 4.5/5">r:2 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:550 tok (api) · out:484 tok · 2,074 chars · 19.86s">r:550 o:484 2.1kch · 19.9s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 550 tok (api) / 2,074 tegn · svar: 484 tok · 19.86s">tænk: 550 tok / 2.1k tegn · svar: 484 tok · 19.9s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓ korrekt</span> <span class="score-leg" title="Redundans 2/5 · Sammenhæng 4.5/5">redundans 2 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3210,13 +3070,7 @@ I denne konkrete sag er vurderingen følgende:
   </div>
 </td><td class="cell" data-model="opus_4_8" data-prompt="P4" data-type="da_legal" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) as the violated rules and accurately concludes that the decision is invalid (ugyldig) as a starting point.">✓</span>
-</div>
-<div class="cell-stats" title="reas:215 tok (api) · out:1029 tok · 850 chars · 22.22s">r:215 o:1.0k 850ch · 22.2s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 215 tok (api) / 850 tegn · svar: 1029 tok · 22.22s">tænk: 215 tok / 850 tegn · svar: 1.0k tok · 22.2s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) as the violated rules and accurately concludes that the decision is invalid (ugyldig) as a starting point.">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3276,13 +3130,7 @@ Afgørende er dog den **konkrete væsentlighedsvurdering**: Har fejlen kunkret k
   </div>
 </td><td class="cell curated" data-model="mistral_medium_3_5" data-prompt="P4" data-type="da_legal" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="corr" style="color:#22c55e" title="partial parse: verdict=&#x27;correct&#x27; extracted from truncated JSON; raw: &#x27;```json\n{\n  &quot;verdict&quot;: &quot;correct&quot;,\n  &quot;justification&quot;: &quot;The&#x27;">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 4/5">r:2 c:4</span>
-</div>
-<div class="cell-stats" title="reas:524 tok (api) · out:396 tok · 1,862 chars · 26.91s">r:524 o:396 1.9kch · 26.9s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 524 tok (api) / 1,862 tegn · svar: 396 tok · 26.91s">tænk: 524 tok / 1.9k tegn · svar: 396 tok · 26.9s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="partial parse: verdict=&#x27;correct&#x27; extracted from truncated JSON; raw: &#x27;```json\n{\n  &quot;verdict&quot;: &quot;correct&quot;,\n  &quot;justification&quot;: &quot;The&#x27;">✓ korrekt</span> <span class="score-leg" title="Redundans 2/5 · Sammenhæng 4/5">redundans 2 · sammenhæng 4</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ §17-fejlen — forkert paragrafhenvisning for partshøring</div>
@@ -3370,13 +3218,7 @@ Afgørelsen er **som udgangspunkt ugyldig**, da overtrædelsen af begge regler (
 90 km/t. Hvor mange minutter tager hele turen? Svar med ét tal i minutter.
 </span></th><td class="cell" data-model="deepseek_v4" data-prompt="P5" data-type="math" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
-</div>
-<div class="cell-stats" title="reas:205 tok (api) · out:3 tok · 551 chars · 3.71s">r:205 o:3 551ch · 3.7s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span> · <span class="sw-warn" title="2 sprogskift">2 skift</span></div><div class="cell-stats" title="tænk: 205 tok (api) / 551 tegn · svar: 3 tok · 3.71s">tænk: 205 tok / 551 tegn · svar: 3 tok · 3.7s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Found 168">✓ korrekt</span> <span class="score-leg" title="Redundans 1/5 · Sammenhæng 5/5">redundans 1 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3449,13 +3291,7 @@ Svaret skal være ét tal: 168.</pre>
   </div>
 </td><td class="cell" data-model="glm_5_2" data-prompt="P5" data-type="math" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
-</div>
-<div class="cell-stats" title="reas:182 tok (api) · out:65 tok · 729 chars · 5.65s">r:182 o:65 729ch · 5.7s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 182 tok (api) / 729 tegn · svar: 65 tok · 5.65s">tænk: 182 tok / 729 tegn · svar: 65 tok · 5.7s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Found 168">✓ korrekt</span> <span class="score-leg" title="Redundans 1/5 · Sammenhæng 5/5">redundans 1 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3534,13 +3370,7 @@ So the answer should be just 168.</pre>
   </div>
 </td><td class="cell" data-model="kimi_k2_7" data-prompt="P5" data-type="math" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span><span class="score-leg" title="Redundans 2.5/5 · Koherens 5/5">r:2.5 c:5</span>
-</div>
-<div class="cell-stats" title="reas:114 tok (api) · out:15 tok · 452 chars · 17.11s">r:114 o:15 452ch · 17.1s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 114 tok (api) / 452 tegn · svar: 15 tok · 17.11s">tænk: 114 tok / 452 tegn · svar: 15 tok · 17.1s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Found 168">✓ korrekt</span> <span class="score-leg" title="Redundans 2.5/5 · Sammenhæng 5/5">redundans 2.5 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3601,13 +3431,7 @@ So the answer should be just 168.</pre>
   </div>
 </td><td class="cell" data-model="gpt_5_5" data-prompt="P5" data-type="math" data-regime="count_only" data-ts="count_only">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span>
-</div>
-<div class="cell-stats" title="reas:51 tok (api) · out:7 tok · 0 chars · 3.53s">r:51 o:7 0ch · 3.5s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 51 tok (api) / 0 tegn · svar: 7 tok · 3.53s">tænk: 51 tok / 0 tegn · svar: 7 tok · 3.5s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Found 168">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3646,13 +3470,7 @@ So the answer should be just 168.</pre>
   </div>
 </td><td class="cell" data-model="claude_sonnet_4_6" data-prompt="P5" data-type="math" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span>
-</div>
-<div class="cell-stats" title="reas:48 tok (api) · out:144 tok · 172 chars · 4.27s">r:48 o:144 172ch · 4.3s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 48 tok (api) / 172 tegn · svar: 144 tok · 4.27s">tænk: 48 tok / 172 tegn · svar: 144 tok · 4.3s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Found 168">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3702,13 +3520,7 @@ Total = 48 + 120 = 168 minutes</pre>
   </div>
 </td><td class="cell" data-model="gemma_4" data-prompt="P5" data-type="math" data-regime="raw_anchor" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 4.5/5">r:1 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:345 tok (api) · out:4 tok · 767 chars · 32.04s">r:345 o:4 767ch · 32.0s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="3 sprogskift">3 skift</span></div><div class="cell-stats" title="tænk: 345 tok (api) / 767 tegn · svar: 4 tok · 32.04s">tænk: 345 tok / 767 tegn · svar: 4 tok · 32.0s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Found 168">✓ korrekt</span> <span class="score-leg" title="Redundans 1/5 · Sammenhæng 4.5/5">redundans 1 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3792,13 +3604,7 @@ Total = 48 + 120 = 168 minutes</pre>
   </div>
 </td><td class="cell" data-model="opus_4_8" data-prompt="P5" data-type="math" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span>
-</div>
-<div class="cell-stats" title="reas:66 tok (api) · out:116 tok · 261 chars · 5.31s">r:66 o:116 261ch · 5.3s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 66 tok (api) / 261 tegn · svar: 116 tok · 5.31s">tænk: 66 tok / 261 tegn · svar: 116 tok · 5.3s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Found 168">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3842,13 +3648,7 @@ Beregning:
   </div>
 </td><td class="cell" data-model="mistral_medium_3_5" data-prompt="P5" data-type="math" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span><span class="score-leg" title="Redundans 3/5 · Koherens 5/5">r:3 c:5</span>
-</div>
-<div class="cell-stats" title="reas:344 tok (api) · out:473 tok · 1,274 chars · 8.71s">r:344 o:473 1.3kch · 8.7s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 344 tok (api) / 1,274 tegn · svar: 473 tok · 8.71s">tænk: 344 tok / 1.3k tegn · svar: 473 tok · 8.7s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Found 168">✓ korrekt</span> <span class="score-leg" title="Redundans 3/5 · Sammenhæng 5/5">redundans 3 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3940,13 +3740,7 @@ i et løb. David kom nummer 1. Anna kom før Bo. Clara kom lige efter Bo.
 Angiv den fuldstændige rækkefølge fra nr. 1 til nr. 4.
 </span></th><td class="cell" data-model="deepseek_v4" data-prompt="P6" data-type="logic" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="1 sprogskift">⚡1</span></span>
-  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
-</div>
-<div class="cell-stats" title="reas:477 tok (api) · out:42 tok · 1,355 chars · 11.56s">r:477 o:42 1.4kch · 11.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="1 sprogskift">1 skift</span></div><div class="cell-stats" title="tænk: 477 tok (api) / 1,355 tegn · svar: 42 tok · 11.56s">tænk: 477 tok / 1.4k tegn · svar: 42 tok · 11.6s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓ korrekt</span> <span class="score-leg" title="Redundans 1/5 · Sammenhæng 5/5">redundans 1 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4036,13 +3830,7 @@ So the complete order is David, Anna, Bo, Clara.</pre>
   </div>
 </td><td class="cell" data-model="glm_5_2" data-prompt="P6" data-type="logic" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
-</div>
-<div class="cell-stats" title="reas:251 tok (api) · out:114 tok · 929 chars · 5.63s">r:251 o:114 929ch · 5.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 251 tok (api) / 929 tegn · svar: 114 tok · 5.63s">tænk: 251 tok / 929 tegn · svar: 114 tok · 5.6s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓ korrekt</span> <span class="score-leg" title="Redundans 1/5 · Sammenhæng 5/5">redundans 1 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4132,13 +3920,7 @@ So the order from 1 to 4 is: David, Anna, Bo, Clara.</pre>
   </div>
 </td><td class="cell" data-model="kimi_k2_7" data-prompt="P6" data-type="logic" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 5/5">r:2 c:5</span>
-</div>
-<div class="cell-stats" title="reas:201 tok (api) · out:87 tok · 749 chars · 15.18s">r:201 o:87 749ch · 15.2s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 201 tok (api) / 749 tegn · svar: 87 tok · 15.18s">tænk: 201 tok / 749 tegn · svar: 87 tok · 15.2s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓ korrekt</span> <span class="score-leg" title="Redundans 2/5 · Sammenhæng 5/5">redundans 2 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4213,13 +3995,7 @@ Den eneste mulighed er derfor:
   </div>
 </td><td class="cell" data-model="gpt_5_5" data-prompt="P6" data-type="logic" data-regime="count_only" data-ts="count_only">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span>
-</div>
-<div class="cell-stats" title="reas:147 tok (api) · out:29 tok · 0 chars · 3.49s">r:147 o:29 0ch · 3.5s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 147 tok (api) / 0 tegn · svar: 29 tok · 3.49s">tænk: 147 tok / 0 tegn · svar: 29 tok · 3.5s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4263,13 +4039,7 @@ Den eneste mulighed er derfor:
   </div>
 </td><td class="cell" data-model="claude_sonnet_4_6" data-prompt="P6" data-type="logic" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="Name order: david, anna, bo, clara">✓</span>
-</div>
-<div class="cell-stats" title="reas:98 tok (api) · out:260 tok · 356 chars · 8.16s">r:98 o:260 356ch · 8.2s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 98 tok (api) / 356 tegn · svar: 260 tok · 8.16s">tænk: 98 tok / 356 tegn · svar: 260 tok · 8.2s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Name order: david, anna, bo, clara">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4348,13 +4118,7 @@ Det passer præcist ind på pladserne 2, 3 og 4.
   </div>
 </td><td class="cell" data-model="gemma_4" data-prompt="P6" data-type="logic" data-regime="raw_anchor" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
-</div>
-<div class="cell-stats" title="reas:225 tok (api) · out:147 tok · 811 chars · 12.23s">r:225 o:147 811ch · 12.2s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 225 tok (api) / 811 tegn · svar: 147 tok · 12.23s">tænk: 225 tok / 811 tegn · svar: 147 tok · 12.2s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓ korrekt</span> <span class="score-leg" title="Redundans 1/5 · Sammenhæng 5/5">redundans 1 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4451,13 +4215,7 @@ Det passer præcist ind på pladserne 2, 3 og 4.
   </div>
 </td><td class="cell" data-model="opus_4_8" data-prompt="P6" data-type="logic" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="Name order: david, anna, bo, clara">✓</span>
-</div>
-<div class="cell-stats" title="reas:63 tok (api) · out:378 tok · 251 chars · 6.90s">r:63 o:378 251ch · 6.9s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 63 tok (api) / 251 tegn · svar: 378 tok · 6.90s">tænk: 63 tok / 251 tegn · svar: 378 tok · 6.9s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Name order: david, anna, bo, clara">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4523,13 +4281,7 @@ Det giver kun én mulig rækkefølge for de tre pladser:
   </div>
 </td><td class="cell" data-model="mistral_medium_3_5" data-prompt="P6" data-type="logic" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 4.5/5">r:4 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:909 tok (api) · out:251 tok · 3,247 chars · 19.23s">r:909 o:251 3.2kch · 19.2s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 909 tok (api) / 3,247 tegn · svar: 251 tok · 19.23s">tænk: 909 tok / 3.2k tegn · svar: 251 tok · 19.2s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓ korrekt</span> <span class="score-leg" title="Redundans 4/5 · Sammenhæng 4.5/5">redundans 4 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4635,13 +4387,7 @@ Returnér kun JSON, intet andet.
 Tekst: &quot;Mette Sørensen er 34 år, bor i Odense og har et premium-abonnement.&quot;
 </span></th><td class="cell" data-model="deepseek_v4" data-prompt="P7" data-type="code_structure" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span><span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
-</div>
-<div class="cell-stats" title="reas:162 tok (api) · out:36 tok · 452 chars · 4.87s">r:162 o:36 452ch · 4.9s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 162 tok (api) / 452 tegn · svar: 36 tok · 4.87s">tænk: 162 tok / 452 tegn · svar: 36 tok · 4.9s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓ korrekt</span> <span class="score-leg" title="Redundans 1.5/5 · Sammenhæng 5/5">redundans 1.5 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4719,13 +4465,7 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   </div>
 </td><td class="cell" data-model="glm_5_2" data-prompt="P7" data-type="code_structure" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span><span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
-</div>
-<div class="cell-stats" title="reas:307 tok (api) · out:67 tok · 1,114 chars · 9.45s">r:307 o:67 1.1kch · 9.4s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="3 sprogskift">3 skift</span></div><div class="cell-stats" title="tænk: 307 tok (api) / 1,114 tegn · svar: 67 tok · 9.45s">tænk: 307 tok / 1.1k tegn · svar: 67 tok · 9.4s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓ korrekt</span> <span class="score-leg" title="Redundans 1.5/5 · Sammenhæng 5/5">redundans 1.5 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4823,13 +4563,7 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   </div>
 </td><td class="cell" data-model="kimi_k2_7" data-prompt="P7" data-type="code_structure" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span><span class="score-leg" title="Redundans 3.5/5 · Koherens 4/5">r:3.5 c:4</span>
-</div>
-<div class="cell-stats" title="reas:131 tok (api) · out:52 tok · 517 chars · 8.82s">r:131 o:52 517ch · 8.8s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 131 tok (api) / 517 tegn · svar: 52 tok · 8.82s">tænk: 131 tok / 517 tegn · svar: 52 tok · 8.8s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓ korrekt</span> <span class="score-leg" title="Redundans 3.5/5 · Sammenhæng 4/5">redundans 3.5 · sammenhæng 4</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4890,13 +4624,7 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   </div>
 </td><td class="cell" data-model="gpt_5_5" data-prompt="P7" data-type="code_structure" data-regime="count_only" data-ts="count_only">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span>
-</div>
-<div class="cell-stats" title="reas:48 tok (api) · out:30 tok · 0 chars · 2.61s">r:48 o:30 0ch · 2.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 48 tok (api) / 0 tegn · svar: 30 tok · 2.61s">tænk: 48 tok / 0 tegn · svar: 30 tok · 2.6s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4935,13 +4663,7 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   </div>
 </td><td class="cell" data-model="claude_sonnet_4_6" data-prompt="P7" data-type="code_structure" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span>
-</div>
-<div class="cell-stats" title="reas:11 tok (api) · out:48 tok · 44 chars · 1.94s">r:11 o:48 44ch · 1.9s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 11 tok (api) / 44 tegn · svar: 48 tok · 1.94s">tænk: 11 tok / 44 tegn · svar: 48 tok · 1.9s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4982,13 +4704,7 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   </div>
 </td><td class="cell" data-model="gemma_4" data-prompt="P7" data-type="code_structure" data-regime="raw_anchor" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 5/5">r:2 c:5</span>
-</div>
-<div class="cell-stats" title="reas:224 tok (api) · out:107 tok · 802 chars · 10.47s">r:224 o:107 802ch · 10.5s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span> · <span class="sw-warn" title="3 sprogskift">3 skift</span></div><div class="cell-stats" title="tænk: 224 tok (api) / 802 tegn · svar: 107 tok · 10.47s">tænk: 224 tok / 802 tegn · svar: 107 tok · 10.5s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓ korrekt</span> <span class="score-leg" title="Redundans 2/5 · Sammenhæng 5/5">redundans 2 · sammenhæng 5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5082,13 +4798,7 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   </div>
 </td><td class="cell" data-model="opus_4_8" data-prompt="P7" data-type="code_structure" data-regime="summarized" data-ts="absent">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span>
-</div>
-<div class="cell-stats" title="reas:0 tok (api) · out:57 tok · 0 chars · 1.53s">r:0 o:57 0ch · 1.5s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 0 tok (api) / 0 tegn · svar: 57 tok · 1.53s">tænk: 0 tok / 0 tegn · svar: 57 tok · 1.5s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5134,13 +4844,7 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   </div>
 </td><td class="cell" data-model="mistral_medium_3_5" data-prompt="P7" data-type="code_structure" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span><span class="score-leg" title="Redundans 3/5 · Koherens 4.5/5">r:3 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:541 tok (api) · out:128 tok · 1,912 chars · 11.74s">r:541 o:128 1.9kch · 11.7s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span> · <span class="sw-warn" title="2 sprogskift">2 skift</span></div><div class="cell-stats" title="tænk: 541 tok (api) / 1,912 tegn · svar: 128 tok · 11.74s">tænk: 541 tok / 1.9k tegn · svar: 128 tok · 11.7s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓ korrekt</span> <span class="score-leg" title="Redundans 3/5 · Sammenhæng 4.5/5">redundans 3 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5263,13 +4967,7 @@ def find_største(tal):
     return største
 </span></th><td class="cell" data-model="deepseek_v4" data-prompt="P8" data-type="code_bug" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing &#x27;største = 0&#x27; fails for lists with only negative numbers and provides the correct fix of initializing it to &#x27;tal[0]&#x27;.">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 4/5">r:4 c:4</span>
-</div>
-<div class="cell-stats" title="reas:895 tok (api) · out:362 tok · 3,372 chars · 18.02s">r:895 o:362 3.4kch · 18.0s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="3 sprogskift">3 skift</span></div><div class="cell-stats" title="tænk: 895 tok (api) / 3,372 tegn · svar: 362 tok · 18.02s">tænk: 895 tok / 3.4k tegn · svar: 362 tok · 18.0s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing &#x27;største = 0&#x27; fails for lists with only negative numbers and provides the correct fix of initializing it to &#x27;tal[0]&#x27;.">✓ korrekt</span> <span class="score-leg" title="Redundans 4/5 · Sammenhæng 4/5">redundans 4 · sammenhæng 4</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5367,13 +5065,7 @@ Man kan yderligere optimere ved at iterere fra indeks 1 (`for t in tal[1:]:`), m
   </div>
 </td><td class="cell" data-model="glm_5_2" data-prompt="P8" data-type="code_bug" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies the initialization bug with negative numbers and provides the exact fix required by the grading key.">✓</span><span class="score-leg" title="Redundans 3.5/5 · Koherens 4.5/5">r:3.5 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:837 tok (api) · out:388 tok · 3,076 chars · 9.00s">r:837 o:388 3.1kch · 9.0s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="4 sprogskift">4 skift</span></div><div class="cell-stats" title="tænk: 837 tok (api) / 3,076 tegn · svar: 388 tok · 9.00s">tænk: 837 tok / 3.1k tegn · svar: 388 tok · 9.0s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies the initialization bug with negative numbers and provides the exact fix required by the grading key.">✓ korrekt</span> <span class="score-leg" title="Redundans 3.5/5 · Sammenhæng 4.5/5">redundans 3.5 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5493,13 +5185,7 @@ med:
   </div>
 </td><td class="cell" data-model="kimi_k2_7" data-prompt="P8" data-type="code_bug" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing to 0 fails for lists with only negative numbers, and provides the correct fix of initializing the variable with the first element of the list.">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 3.5/5">r:4 c:3.5</span>
-</div>
-<div class="cell-stats" title="reas:783 tok (api) · out:310 tok · 2,981 chars · 29.19s">r:783 o:310 3.0kch · 29.2s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="2 sprogskift">2 skift</span></div><div class="cell-stats" title="tænk: 783 tok (api) / 2,981 tegn · svar: 310 tok · 29.19s">tænk: 783 tok / 3.0k tegn · svar: 310 tok · 29.2s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing to 0 fails for lists with only negative numbers, and provides the correct fix of initializing the variable with the first element of the list.">✓ korrekt</span> <span class="score-leg" title="Redundans 4/5 · Sammenhæng 3.5/5">redundans 4 · sammenhæng 3.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5624,13 +5310,7 @@ største = tal[0]
   </div>
 </td><td class="cell" data-model="gpt_5_5" data-prompt="P8" data-type="code_bug" data-regime="count_only" data-ts="count_only">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing the variable to 0 fails for lists with only negative numbers and provides the correct fix of initializing it to the first element of the list.">✓</span>
-</div>
-<div class="cell-stats" title="reas:516 tok (api) · out:178 tok · 0 chars · 11.65s">r:516 o:178 0ch · 11.7s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 516 tok (api) / 0 tegn · svar: 178 tok · 11.65s">tænk: 516 tok / 0 tegn · svar: 178 tok · 11.7s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing the variable to 0 fails for lists with only negative numbers and provides the correct fix of initializing it to the first element of the list.">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5702,13 +5382,7 @@ Bemærk: Dette forudsætter, at listen ikke er tom. En tom liste har ikke noget 
   </div>
 </td><td class="cell" data-model="claude_sonnet_4_6" data-prompt="P8" data-type="code_bug" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing to 0 fails for lists with only negative numbers and provides the correct fix of initializing to the first element of the list.">✓</span>
-</div>
-<div class="cell-stats" title="reas:82 tok (api) · out:442 tok · 316 chars · 10.81s">r:82 o:442 316ch · 10.8s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 82 tok (api) / 316 tegn · svar: 442 tok · 10.81s">tænk: 82 tok / 316 tegn · svar: 442 tok · 10.8s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing to 0 fails for lists with only negative numbers and provides the correct fix of initializing to the first element of the list.">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5797,13 +5471,7 @@ største = float(&#x27;-inf&#x27;)       # ← Alternativ rettelse
   </div>
 </td><td class="cell" data-model="gemma_4" data-prompt="P8" data-type="code_bug" data-regime="raw_anchor" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing to 0 fails for lists with only negative numbers and provides the correct fix of initializing the variable to the first element of the list.">✓</span><span class="score-leg" title="Redundans 1.5/5 · Koherens 4.5/5">r:1.5 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:603 tok (api) · out:401 tok · 2,242 chars · 40.43s">r:603 o:401 2.2kch · 40.4s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="2 sprogskift">2 skift</span></div><div class="cell-stats" title="tænk: 603 tok (api) / 2,242 tegn · svar: 401 tok · 40.43s">tænk: 603 tok / 2.2k tegn · svar: 401 tok · 40.4s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing to 0 fails for lists with only negative numbers and provides the correct fix of initializing the variable to the first element of the list.">✓ korrekt</span> <span class="score-leg" title="Redundans 1.5/5 · Sammenhæng 4.5/5">redundans 1.5 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5928,13 +5596,7 @@ def find_største(tal):
   </div>
 </td><td class="cell" data-model="opus_4_8" data-prompt="P8" data-type="code_bug" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing &#x27;største = 0&#x27; fails for lists with only negative numbers and provides the correct fix of initializing it to &#x27;tal[0]&#x27;.">✓</span>
-</div>
-<div class="cell-stats" title="reas:41 tok (api) · out:564 tok · 163 chars · 13.11s">r:41 o:564 163ch · 13.1s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 41 tok (api) / 163 tegn · svar: 564 tok · 13.11s">tænk: 41 tok / 163 tegn · svar: 564 tok · 13.1s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing &#x27;største = 0&#x27; fails for lists with only negative numbers and provides the correct fix of initializing it to &#x27;tal[0]&#x27;.">✓ korrekt</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -6034,13 +5696,7 @@ I praksis kan man i Python blot bruge den indbyggede funktion `max(tal)`, som h�
   </div>
 </td><td class="cell" data-model="mistral_medium_3_5" data-prompt="P8" data-type="code_bug" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing the variable to 0 fails for lists with only negative numbers and provides the correct fix of initializing it to the first element of the list.">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 4.5/5">r:4 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:1091 tok (api) · out:299 tok · 3,917 chars · 23.45s">r:1.1k o:299 3.9kch · 23.5s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 1091 tok (api) / 3,917 tegn · svar: 299 tok · 23.45s">tænk: 1.1k tok / 3.9k tegn · svar: 299 tok · 23.5s</div><div class="cell-line3"><span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing the variable to 0 fails for lists with only negative numbers and provides the correct fix of initializing it to the first element of the list.">✓ korrekt</span> <span class="score-leg" title="Redundans 4/5 · Sammenhæng 4.5/5">redundans 4 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -6150,13 +5806,7 @@ sprogmodel i stedet for at bruge et amerikansk API til at behandle
 borgerhenvendelser. Giv en afvejet anbefaling.
 </span></th><td class="cell" data-model="deepseek_v4" data-prompt="P9" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="score-leg" title="Redundans 3/5 · Koherens 4.5/5">r:3 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:1040 tok (api) · out:2735 tok · 3,917 chars · 50.57s">r:1.0k o:2.7k 3.9kch · 50.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 1040 tok (api) / 3,917 tegn · svar: 2735 tok · 50.57s">tænk: 1.0k tok / 3.9k tegn · svar: 2.7k tok · 50.6s</div><div class="cell-line3"><span class="score-leg" title="Redundans 3/5 · Sammenhæng 4.5/5">redundans 3 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -6313,13 +5963,7 @@ Samlet set er den **mest ansvarlige retning for en dansk kommune** at investere 
   </div>
 </td><td class="cell curated" data-model="glm_5_2" data-prompt="P9" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="score-leg" title="Redundans 2/5 · Koherens 4.5/5">r:2 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:1433 tok (api) · out:1550 tok · 5,530 chars · 37.39s">r:1.4k o:1.6k 5.5kch · 37.4s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="2 sprogskift">2 skift</span></div><div class="cell-stats" title="tænk: 1433 tok (api) / 5,530 tegn · svar: 1550 tok · 37.39s">tænk: 1.4k tok / 5.5k tegn · svar: 1.6k tok · 37.4s</div><div class="cell-line3"><span class="score-leg" title="Redundans 2/5 · Sammenhæng 4.5/5">redundans 2 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Stramt trace — lav redundans, høj koherens</div>
@@ -6468,13 +6112,7 @@ Ved at investere i selv-hostede (eller EU-hostede) åbne modeller sikrer kommune
   </div>
 </td><td class="cell curated" data-model="kimi_k2_7" data-prompt="P9" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="score-leg" title="Redundans 3.5/5 · Koherens 4/5">r:3.5 c:4</span>
-</div>
-<div class="cell-stats" title="reas:2122 tok (api) · out:1798 tok · 8,830 chars · 65.10s">r:2.1k o:1.8k 8.8kch · 65.1s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="3 sprogskift">3 skift</span></div><div class="cell-stats" title="tænk: 2122 tok (api) / 8,830 tegn · svar: 1798 tok · 65.10s">tænk: 2.1k tok / 8.8k tegn · svar: 1.8k tok · 65.1s</div><div class="cell-line3"><span class="score-leg" title="Redundans 3.5/5 · Sammenhæng 4/5">redundans 3.5 · sammenhæng 4</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Udskydende trace</div>
@@ -6659,13 +6297,7 @@ Dette anbefales især, hvis kommunen har en levedygtig it-afdeling eller mulighe
   </div>
 </td><td class="cell" data-model="gpt_5_5" data-prompt="P9" data-type="da_open_analysis" data-regime="count_only" data-ts="count_only">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  
-</div>
-<div class="cell-stats" title="reas:516 tok (api) · out:2028 tok · 0 chars · 92.34s">r:516 o:2.0k 0ch · 92.3s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 516 tok (api) / 0 tegn · svar: 2028 tok · 92.34s">tænk: 516 tok / 0 tegn · svar: 2.0k tok · 92.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -6816,13 +6448,7 @@ Et amerikansk API kan være hurtigere og teknisk stærkere, men indebærer stør
   </div>
 </td><td class="cell" data-model="claude_sonnet_4_6" data-prompt="P9" data-type="da_open_analysis" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  
-</div>
-<div class="cell-stats" title="reas:80 tok (api) · out:1134 tok · 312 chars · 28.39s">r:80 o:1.1k 312ch · 28.4s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 80 tok (api) / 312 tegn · svar: 1134 tok · 28.39s">tænk: 80 tok / 312 tegn · svar: 1.1k tok · 28.4s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -6929,13 +6555,7 @@ Den politiske og juridiske risiko ved at behandle borgernes data hos amerikanske
   </div>
 </td><td class="cell" data-model="gemma_4" data-prompt="P9" data-type="da_open_analysis" data-regime="raw_anchor" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="score-leg" title="Redundans 3/5 · Koherens 4.5/5">r:3 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:755 tok (api) · out:1651 tok · 2,906 chars · 116.13s">r:755 o:1.7k 2.9kch · 116.1s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 755 tok (api) / 2,906 tegn · svar: 1651 tok · 116.13s">tænk: 755 tok / 2.9k tegn · svar: 1.7k tok · 116.1s</div><div class="cell-line3"><span class="score-leg" title="Redundans 3/5 · Sammenhæng 4.5/5">redundans 3 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -7098,13 +6718,7 @@ Det mest fornuftige valg for en moderne kommune vil være en **trinvis strategi*
   </div>
 </td><td class="cell curated" data-model="opus_4_8" data-prompt="P9" data-type="da_open_analysis" data-regime="summarized" data-ts="absent">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  
-</div>
-<div class="cell-stats" title="reas:0 tok (api) · out:1067 tok · 0 chars · 24.27s">r:0 o:1.1k 0ch · 24.3s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 0 tok (api) / 0 tegn · svar: 1067 tok · 24.27s">tænk: 0 tok / 0 tegn · svar: 1.1k tok · 24.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Adaptive nul — 0 reasoning-tokens; model sprang tænkning over</div>
@@ -7184,13 +6798,7 @@ Vil du have, at jeg uddyber en af mellemvejene eller de juridiske aspekter?</pre
   </div>
 </td><td class="cell" data-model="mistral_medium_3_5" data-prompt="P9" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="score-leg" title="Redundans 2.5/5 · Koherens 4.5/5">r:2.5 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:2265 tok (api) · out:2343 tok · 8,282 chars · 76.33s">r:2.3k o:2.3k 8.3kch · 76.3s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 2265 tok (api) / 8,282 tegn · svar: 2343 tok · 76.33s">tænk: 2.3k tok / 8.3k tegn · svar: 2.3k tok · 76.3s</div><div class="cell-line3"><span class="score-leg" title="Redundans 2.5/5 · Sammenhæng 4.5/5">redundans 2.5 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -7459,13 +7067,7 @@ kundesvar, (c) en dansk taleassistent til kundeservice. Hvilket bør de
 prioritere, og hvorfor? Begrund din anbefaling.
 </span></th><td class="cell" data-model="deepseek_v4" data-prompt="P10" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="score-leg" title="Redundans 1.5/5 · Koherens 4.5/5">r:1.5 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:1090 tok (api) · out:741 tok · 3,361 chars · 36.28s">r:1.1k o:741 3.4kch · 36.3s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 1090 tok (api) / 3,361 tegn · svar: 741 tok · 36.28s">tænk: 1.1k tok / 3.4k tegn · svar: 741 tok · 36.3s</div><div class="cell-line3"><span class="score-leg" title="Redundans 1.5/5 · Sammenhæng 4.5/5">redundans 1.5 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -7553,13 +7155,7 @@ En velbygget intern vidensbase, der indekserer og strukturerer virksomhedens sam
   </div>
 </td><td class="cell" data-model="glm_5_2" data-prompt="P10" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="score-leg" title="Redundans 3.5/5 · Koherens 4.5/5">r:3.5 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:1156 tok (api) · out:774 tok · 4,438 chars · 59.73s">r:1.2k o:774 4.4kch · 59.7s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span> · <span class="sw-warn" title="2 sprogskift">2 skift</span></div><div class="cell-stats" title="tænk: 1156 tok (api) / 4,438 tegn · svar: 774 tok · 59.73s">tænk: 1.2k tok / 4.4k tegn · svar: 774 tok · 59.7s</div><div class="cell-line3"><span class="score-leg" title="Redundans 3.5/5 · Sammenhæng 4.5/5">redundans 3.5 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -7681,13 +7277,7 @@ Ved at vælge **(a)** etablerer virksomheden en fundament datastrategi og AI-kul
   </div>
 </td><td class="cell" data-model="kimi_k2_7" data-prompt="P10" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="score-leg" title="Redundans 3/5 · Koherens 4.5/5">r:3 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:1078 tok (api) · out:983 tok · 4,313 chars · 131.99s">r:1.1k o:983 4.3kch · 132.0s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 1078 tok (api) / 4,313 tegn · svar: 983 tok · 131.99s">tænk: 1.1k tok / 4.3k tegn · svar: 983 tok · 132.0s</div><div class="cell-line3"><span class="score-leg" title="Redundans 3/5 · Sammenhæng 4.5/5">redundans 3 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -7885,13 +7475,7 @@ Selvom ideen er attraktiv, er en dansk stemmebaseret kundeserviceassistent:
   </div>
 </td><td class="cell" data-model="gpt_5_5" data-prompt="P10" data-type="da_open_analysis" data-regime="count_only" data-ts="count_only">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  
-</div>
-<div class="cell-stats" title="reas:516 tok (api) · out:985 tok · 0 chars · 48.72s">r:516 o:985 0ch · 48.7s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 516 tok (api) / 0 tegn · svar: 985 tok · 48.72s">tænk: 516 tok / 0 tegn · svar: 985 tok · 48.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -7974,13 +7558,7 @@ Virksomheden bør prioritere **automatiske udkast til kundesvar**, fordi det giv
   </div>
 </td><td class="cell" data-model="claude_sonnet_4_6" data-prompt="P10" data-type="da_open_analysis" data-regime="summarized" data-ts="summarized">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  
-</div>
-<div class="cell-stats" title="reas:89 tok (api) · out:910 tok · 349 chars · 23.12s">r:89 o:910 349ch · 23.1s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 89 tok (api) / 349 tegn · svar: 910 tok · 23.12s">tænk: 89 tok / 349 tegn · svar: 910 tok · 23.1s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -8072,13 +7650,7 @@ Nu:      (b) Kundesvarudkast    → bevis ROI, byg AI-kompetence internt
   </div>
 </td><td class="cell" data-model="gemma_4" data-prompt="P10" data-type="da_open_analysis" data-regime="raw_anchor" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
-  <span class="lang-flag" title="Primær sporsprog: en">en</span>
-  <span class="score-leg" title="Redundans 4/5 · Koherens 4.5/5">r:4 c:4.5</span>
-</div>
-<div class="cell-stats" title="reas:953 tok (api) · out:943 tok · 3,658 chars · 41.63s">r:953 o:943 3.7kch · 41.6s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span> · <span class="lang-flag" title="Primær sporsprog: en">en</span></div><div class="cell-stats" title="tænk: 953 tok (api) / 3,658 tegn · svar: 943 tok · 41.63s">tænk: 953 tok / 3.7k tegn · svar: 943 tok · 41.6s</div><div class="cell-line3"><span class="score-leg" title="Redundans 4/5 · Sammenhæng 4.5/5">redundans 4 · sammenhæng 4.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -8220,13 +7792,7 @@ Dette er den mest risikable og dyre løsning.
   </div>
 </td><td class="cell" data-model="opus_4_8" data-prompt="P10" data-type="da_open_analysis" data-regime="summarized" data-ts="absent">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span>
-  <span class="lang-flag" title="Primær sporsprog: —">—</span>
-  
-</div>
-<div class="cell-stats" title="reas:52 tok (api) · out:1152 tok · 0 chars · 28.17s">r:52 o:1.2k 0ch · 28.2s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span> · <span class="lang-flag" title="Primær sporsprog: —">—</span></div><div class="cell-stats" title="tænk: 52 tok (api) / 0 tegn · svar: 1152 tok · 28.17s">tænk: 52 tok / 0 tegn · svar: 1.2k tok · 28.2s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -8303,13 +7869,7 @@ Hvis du fortæller mig mere om jeres største flaskehals og jeres datas tilstand
   </div>
 </td><td class="cell" data-model="mistral_medium_3_5" data-prompt="P10" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
-    <div class="collapsed">
-<div class="cell-header">
-  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
-  <span class="lang-flag" title="Primær sporsprog: da">da</span>
-  <span class="score-leg" title="Redundans 4/5 · Koherens 3.5/5">r:4 c:3.5</span>
-</div>
-<div class="cell-stats" title="reas:3584 tok (api) · out:1024 tok · 12,986 chars · 71.77s">r:3.6k o:1.0k 13.0kch · 71.8s</div></div>
+    <div class="collapsed"><div class="cell-header"><span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span> · <span class="lang-flag" title="Primær sporsprog: da">da</span></div><div class="cell-stats" title="tænk: 3584 tok (api) / 12,986 tegn · svar: 1024 tok · 71.77s">tænk: 3.6k tok / 13.0k tegn · svar: 1.0k tok · 71.8s</div><div class="cell-line3"><span class="score-leg" title="Redundans 4/5 · Sammenhæng 3.5/5">redundans 4 · sammenhæng 3.5</span></div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -8699,6 +8259,15 @@ function expandAll() {
   document.querySelectorAll('col[data-model]').forEach(col => col.style.width = COL_W_EXPANDED);
   const pc = document.getElementById('col-prompt');
   if (pc) pc.style.width = '220px';
+}
+
+let legendVisible = true;
+function toggleLegend() {
+  legendVisible = !legendVisible;
+  const body = document.getElementById('legendBody');
+  const btn  = document.querySelector('.legend-toggle');
+  if (body) body.style.display = legendVisible ? '' : 'none';
+  if (btn)  btn.textContent = legendVisible ? 'skjul' : 'vis';
 }
 
 // Wire up checkbox changes

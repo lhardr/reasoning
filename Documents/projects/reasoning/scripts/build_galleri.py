@@ -146,26 +146,7 @@ def render_cell(model: str, prompt: str) -> str:
     curated_note = CURATED.get(k, "")
 
     rb_text, rb_color = REGIME_BADGE.get(regime, ("?", "#64748b"))
-    regime_b = badge(rb_text, rb_color, f"Regime: {regime}")
     ts_note  = TRACE_STATUS_NOTE.get(ts, "")
-
-    # Correctness
-    corr_html = ""
-    if corr:
-        v = corr.get("verdict", "?")
-        vsym = VERDICT_SYMBOL.get(v, v)
-        vcol = VERDICT_COLOR.get(v, "#94a3b8")
-        j = corr.get("extracted_or_justification") or ""
-        corr_html = f'<span class="corr" style="color:{vcol}" title="{esc(j[:200])}">{vsym}</span>'
-
-    # Legibility badge
-    leg_html = ""
-    if red_avg is not None:
-        leg_html = (f'<span class="score-leg" title="Redundans {red_avg}/5 · Koherens {coh_avg}/5">'
-                    f'r:{red_avg} c:{coh_avg}</span>')
-
-    # Language switch flag
-    sw_flag = f'<span class="sw-warn" title="{sw_count} sprogskift">⚡{sw_count}</span>' if sw_count > 0 else ""
 
     # Reasoning chars
     reas_chars = len(trace)
@@ -174,16 +155,44 @@ def render_cell(model: str, prompt: str) -> str:
     def fmt(n: int) -> str:
         return f"{n/1000:.1f}k" if n >= 1000 else str(n)
 
+    # Correctness verdict for line 3
+    verdict_html = ""
+    if corr:
+        v = corr.get("verdict", "?")
+        vsym = VERDICT_SYMBOL.get(v, v)
+        vcol = VERDICT_COLOR.get(v, "#94a3b8")
+        j = corr.get("extracted_or_justification") or ""
+        verdict_label = {"correct": "korrekt", "partial": "delvis", "incorrect": "forkert"}.get(v, v)
+        verdict_html = (f'<span class="corr" style="color:{vcol}" title="{esc(j[:200])}">'
+                        f'{vsym} {esc(verdict_label)}</span>')
+
     # ── COLLAPSED (always visible) ──────────────────────────────────────────
-    # Single status badge (regime_b is redundant when ts matches regime label)
-    stats_tip = f"reas:{reas_tok} tok ({reas_src}) · out:{out_tok} tok · {reas_chars:,} chars · {lat:.2f}s"
-    collapsed = f"""
-<div class="cell-header">
-  <span class="ts-badge ts-{ts}" title="trace_status: {ts} ({reas_src})">{esc(rb_text)}</span>
-  <span class="lang-flag" title="Primær sporsprog: {esc(lang)}">{esc(lang)}{sw_flag}</span>
-  {corr_html}{leg_html}
-</div>
-<div class="cell-stats" title="{esc(stats_tip)}">r:{fmt(reas_tok)} o:{fmt(out_tok)} {fmt(reas_chars)}ch · {lat:.1f}s</div>"""
+    # Line 1: status badge · tænkesprog [· N skift]
+    sw_infix = (f' · <span class="sw-warn" title="{sw_count} sprogskift">{sw_count} skift</span>'
+                if sw_count > 0 else "")
+    line1 = (f'<div class="cell-header">'
+             f'<span class="ts-badge ts-{ts}" title="trace_status: {ts} ({reas_src})">{esc(rb_text)}</span>'
+             f' · <span class="lang-flag" title="Primær sporsprog: {esc(lang)}">{esc(lang)}</span>'
+             f'{sw_infix}</div>')
+
+    # Line 2: tænk: X tok / Y tegn · svar: Z tok · Ns
+    stats_tip = f"tænk: {reas_tok} tok ({reas_src}) / {reas_chars:,} tegn · svar: {out_tok} tok · {lat:.2f}s"
+    line2 = (f'<div class="cell-stats" title="{esc(stats_tip)}">'
+             f'tænk: {fmt(reas_tok)} tok / {fmt(reas_chars)} tegn'
+             f' · svar: {fmt(out_tok)} tok'
+             f' · {lat:.1f}s</div>')
+
+    # Line 3: verdict + legibility (only if something exists)
+    line3_parts = []
+    if verdict_html:
+        line3_parts.append(verdict_html)
+    if red_avg is not None:
+        line3_parts.append(
+            f'<span class="score-leg" title="Redundans {red_avg}/5 · Sammenhæng {coh_avg}/5">'
+            f'redundans {red_avg} · sammenhæng {coh_avg}</span>')
+    line3 = f'<div class="cell-line3">{" ".join(line3_parts)}</div>' if line3_parts else ""
+
+    collapsed = line1 + line2 + line3
 
     # ── EXPANDED (hidden until click) ────────────────────────────────────────
     # Regime warning
@@ -412,6 +421,54 @@ def render_controls() -> str:
   </div>
 </div>"""
 
+# ── Legend ────────────────────────────────────────────────────────────────────
+
+def render_legend() -> str:
+    ts_rows = [
+        ("raw",   "råt tankespor, hele modellens tænkning er synlig"),
+        ("raw-a", "råt anker (Gemma), samme som raw"),
+        ("sum",   "resumé, kun et sammendrag af tænkningen (fx Claude)"),
+        ("cnt",   "kun tal, tænkningen er skjult, kun token-tallet kendes (fx GPT)"),
+    ]
+    field_rows = [
+        ("tænkesprog",  "det sprog tankesporet er skrevet på (da/en/zh)"),
+        ("skift",       "antal gange sporet skifter sprog undervejs"),
+        ("tænk",        '"tok" = tokens (det du betaler) / "tegn" = rå tegn, uafhængigt af tokenizer'),
+        ("svar",        "output-tokens, altså selve svaret"),
+        ("tid",         "svartid i sekunder"),
+        ("korrekt ✓",   "svaret dømt rigtigt (kun på facit-opgaver)"),
+        ("redundans",   "skala 1–5, lavere er bedre (mindre gentagelse)"),
+        ("sammenhæng",  "skala 1–5, højere er bedre"),
+        ("k",           "tusind — fx 1.0k = 1000"),
+    ]
+    ts_html = "".join(
+        f'<div class="leg-row"><span class="leg-key">{esc(k)}</span>'
+        f'<span class="leg-desc">{esc(v)}</span></div>'
+        for k, v in ts_rows
+    )
+    field_html = "".join(
+        f'<div class="leg-row"><span class="leg-key">{esc(k)}</span>'
+        f'<span class="leg-desc">{esc(v)}</span></div>'
+        for k, v in field_rows
+    )
+    return f"""
+<div class="legend-wrap" id="legendWrap">
+  <div class="legend-hdr">
+    <span class="legend-title">Nøgle</span>
+    <button class="legend-toggle" onclick="toggleLegend()">skjul</button>
+  </div>
+  <div class="legend-body" id="legendBody">
+    <div class="leg-section">
+      <div class="leg-head">Trace-status</div>
+      {ts_html}
+    </div>
+    <div class="leg-section">
+      <div class="leg-head">Felter i hver celle</div>
+      {field_html}
+    </div>
+  </div>
+</div>"""
+
 # ── JavaScript ────────────────────────────────────────────────────────────────
 
 JS = r"""
@@ -529,6 +586,15 @@ function expandAll() {
   if (pc) pc.style.width = '220px';
 }
 
+let legendVisible = true;
+function toggleLegend() {
+  legendVisible = !legendVisible;
+  const body = document.getElementById('legendBody');
+  const btn  = document.querySelector('.legend-toggle');
+  if (body) body.style.display = legendVisible ? '' : 'none';
+  if (btn)  btn.textContent = legendVisible ? 'skjul' : 'vis';
+}
+
 // Wire up checkbox changes
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.model-check, .prompt-check').forEach(el => {
@@ -544,12 +610,34 @@ CSS = """
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px; background: #0f1117; color: #e2e8f0; line-height: 1.4;
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
 }
 a { color: #60a5fa; }
 
+/* Legend */
+.legend-wrap {
+  background: #131825; border-bottom: 1px solid #1e293b;
+  padding: 5px 12px; flex-shrink: 0;
+}
+.legend-hdr {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+}
+.legend-title { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+.legend-toggle {
+  background: none; border: 1px solid #334155; border-radius: 3px;
+  color: #475569; cursor: pointer; font-size: 10px; padding: 1px 6px;
+}
+.legend-toggle:hover { color: #94a3b8; border-color: #475569; }
+.legend-body { display: flex; gap: 24px; flex-wrap: wrap; }
+.leg-section { font-size: 10px; }
+.leg-head { color: #64748b; font-weight: 600; margin-bottom: 3px; }
+.leg-row { display: flex; gap: 6px; margin: 1px 0; }
+.leg-key { color: #cbd5e1; font-weight: 600; min-width: 72px; white-space: nowrap; }
+.leg-desc { color: #475569; }
+
 /* Controls */
 .controls {
-  position: sticky; top: 0; z-index: 100;
+  flex-shrink: 0;
   background: #1e2130; border-bottom: 1px solid #334155;
   padding: 8px 12px; display: flex; flex-direction: column; gap: 6px;
 }
@@ -574,15 +662,15 @@ a { color: #60a5fa; }
 
 /* Page header */
 .page-header {
-  padding: 12px 16px 8px; border-bottom: 1px solid #1e293b;
+  padding: 12px 16px 8px; border-bottom: 1px solid #1e293b; flex-shrink: 0;
 }
 .page-header h1 { font-size: 16px; color: #f1f5f9; }
 .page-header p  { color: #64748b; font-size: 11px; margin-top: 3px; }
 
-/* Grid — fixed-height scroll container so sticky thead works inside it */
+/* Grid — fills remaining height so sticky thead works inside it */
 .grid-wrap {
+  flex: 1; min-height: 0;
   overflow: auto;
-  height: calc(100vh - 148px);
   border-top: 1px solid #1e293b;
 }
 .gallery-grid {
@@ -669,10 +757,11 @@ a { color: #60a5fa; }
 .sw-warn   { color: #f59e0b; margin-left: 2px; font-size: 10px; }
 
 /* Cell stats */
-.cell-header { display: flex; align-items: center; flex-wrap: nowrap; gap: 3px; margin-bottom: 3px; overflow: hidden; }
-.cell-stats { color: #64748b; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.corr   { font-weight: 700; font-size: 12px; margin-left: 2px; }
-.score-leg { font-size: 10px; color: #a78bfa; }
+.cell-header { display: flex; align-items: center; flex-wrap: nowrap; gap: 2px; margin-bottom: 2px; overflow: hidden; }
+.cell-stats  { color: #64748b; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.cell-line3  { font-size: 10px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; gap: 6px; }
+.corr        { font-weight: 700; font-size: 11px; }
+.score-leg   { font-size: 10px; color: #a78bfa; }
 
 /* Missing cell */
 .cell-missing { background: #0a0f1a; text-align: center; color: #334155; }
@@ -734,6 +823,7 @@ a { color: #60a5fa; }
 
 def build() -> str:
     controls = render_controls()
+    legend   = render_legend()
     grid     = render_grid()
 
     # Stats for page header
@@ -759,6 +849,7 @@ def build() -> str:
 <body>
 {header}
 {controls}
+{legend}
 {grid}
 <script>{JS}</script>
 </body>
