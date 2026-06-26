@@ -44,8 +44,12 @@ a { color: #60a5fa; }
 .page-header h1 { font-size: 16px; color: #f1f5f9; }
 .page-header p  { color: #64748b; font-size: 11px; margin-top: 3px; }
 
-/* Grid */
-.grid-wrap { overflow-x: auto; overflow-y: visible; }
+/* Grid — fixed-height scroll container so sticky thead works inside it */
+.grid-wrap {
+  overflow: auto;
+  height: calc(100vh - 148px);
+  border-top: 1px solid #1e293b;
+}
 .gallery-grid {
   border-collapse: collapse; min-width: 100%; table-layout: fixed;
 }
@@ -53,14 +57,15 @@ a { color: #60a5fa; }
   border: 1px solid #1e293b; vertical-align: top;
 }
 
-/* Sticky headers */
+/* Sticky column headers — stick at top of grid-wrap's own scroll */
 .header-row th {
-  position: sticky; top: 120px; z-index: 10;
+  position: sticky; top: 0; z-index: 10;
   background: #161b27; padding: 6px 8px; text-align: center;
-  font-size: 12px; white-space: nowrap; min-width: 170px; max-width: 170px;
+  font-size: 12px; white-space: nowrap; min-width: 160px; max-width: 160px;
+  border-bottom: 2px solid #334155;
 }
 .header-row .corner-cell {
-  position: sticky; left: 0; top: 120px; z-index: 20;
+  position: sticky; left: 0; top: 0; z-index: 20;
   min-width: 130px; max-width: 130px;
   background: #0f1117;
 }
