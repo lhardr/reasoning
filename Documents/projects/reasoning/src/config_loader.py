@@ -57,3 +57,28 @@ def load_prompts() -> dict[str, dict]:
         )
         result[pid] = send_obj
     return result
+
+
+def load_multilang_prompts() -> dict[str, dict]:
+    """
+    Load multilingual prompts from data/prompts_multilang.yaml, keyed by prompt ID.
+
+    SECURITY INVARIANT: identical to load_prompts() — facit is stripped before
+    returning. The variants dict (da/en/zh) is safe to send; facit is not.
+    """
+    with open(DATA_DIR / "prompts_multilang.yaml") as f:
+        raw = yaml.safe_load(f)
+
+    result: dict[str, dict] = {}
+    for entry in raw["prompts"]:
+        pid = entry["id"]
+        assert "facit" in entry, (
+            f"multilang prompt {pid} is missing the 'facit' field — "
+            "add it (null is acceptable if there is no known answer)"
+        )
+        send_obj = {k: v for k, v in entry.items() if k != "facit"}
+        assert "facit" not in send_obj, (
+            f"BUG: facit leaked into the request-path object for multilang prompt {pid}"
+        )
+        result[pid] = send_obj
+    return result

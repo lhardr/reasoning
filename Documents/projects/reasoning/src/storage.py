@@ -118,6 +118,108 @@ def save_trace(
     return path
 
 
+def save_langcost_result(
+    *,
+    run_id: str,
+    model_key: str,
+    task_id: str,
+    prompt_lang: str,
+    prompt_text: str,
+    response: "ModelResponse",
+    account: "TokenAccount",
+    cost_usd: float,
+    pricing_snapshot_date: str,
+    thinking_budget: int,
+    reasoning_effort: str,
+    reasoning_chars: int,
+    output_chars: int,
+    regime: str,
+    language_metric: dict,
+    results_dir: Path,
+) -> dict:
+    """
+    Persist one (model, task, lang) langcost record to results/langcost/<run_id>.jsonl.
+    Fields follow the Phase 1 structure, extended with per-language dimensions.
+    """
+    record = {
+        "run_id": run_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "model_key": model_key,
+        "model_version": response.model_version,
+        "task_id": task_id,
+        "prompt_lang": prompt_lang,
+        "prompt_text": prompt_text,
+        "thinking_budget": thinking_budget,
+        "reasoning_effort": reasoning_effort,
+        "answer_text": response.answer_text,
+        "raw_reasoning_trace": response.raw_reasoning_trace,
+        "trace_status": response.trace_status,
+        "tokens": {
+            "input": account.input_tokens,
+            "reasoning": account.reasoning_tokens,
+            "reasoning_source": response.reasoning_source,
+            "output": account.output_tokens,
+            "cache_read": account.cache_read_tokens,
+            "cache_write": account.cache_write_tokens,
+            "reasoning_share": round(account.reasoning_share, 4),
+        },
+        "reasoning_chars": reasoning_chars,
+        "output_chars": output_chars,
+        "cost_usd": cost_usd,
+        "pricing_snapshot_date": pricing_snapshot_date,
+        "latency_s": round(response.latency_s, 3),
+        "regime": regime,
+        "language_metric": language_metric,
+        "raw_usage": response.raw_usage,
+    }
+
+    results_dir.mkdir(parents=True, exist_ok=True)
+    out_path = results_dir / f"{run_id}.jsonl"
+    with open(out_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    return record
+
+
+def save_langcost_trace(
+    *,
+    traces_dir: Path,
+    model_key: str,
+    task_id: str,
+    prompt_lang: str,
+    prompt_text: str,
+    answer_text: str,
+    reasoning_trace: Optional[str],
+    trace_status: str,
+    reasoning_tokens: int,
+    reasoning_source: str,
+) -> Path:
+    """
+    Write human-readable trace file to traces_dir/<model>_<task>_<lang>.txt.
+    """
+    traces_dir.mkdir(parents=True, exist_ok=True)
+    path = traces_dir / f"{model_key}_{task_id}_{prompt_lang}.txt"
+
+    sep = "=" * 72
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"model:            {model_key}\n")
+        f.write(f"task_id:          {task_id}\n")
+        f.write(f"prompt_lang:      {prompt_lang}\n")
+        f.write(f"trace_status:     {trace_status}\n")
+        f.write(f"reasoning_tokens: {reasoning_tokens}  [{reasoning_source}]\n")
+        f.write(f"\n{sep}\nPROMPT\n{sep}\n")
+        f.write(prompt_text.strip() + "\n")
+        f.write(f"\n{sep}\nREASONING TRACE\n{sep}\n")
+        if reasoning_trace:
+            f.write(reasoning_trace.strip() + "\n")
+        else:
+            f.write(f"[{trace_status} — reasoning text not exposed]\n")
+        f.write(f"\n{sep}\nANSWER\n{sep}\n")
+        f.write(answer_text.strip() + "\n")
+
+    return path
+
+
 def save_phase2_result(
     *,
     run_id: str,

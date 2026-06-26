@@ -24,7 +24,7 @@ load_dotenv()
 from src.accounting import build_account
 from src.adapters import PROVIDER_MAP, CredentialMissingError
 from src.adapters.base import AdapterError, ModelResponse
-from src.config_loader import load_experiment, load_panel, load_prompts
+from src.config_loader import load_experiment, load_multilang_prompts, load_panel, load_prompts
 from src.cost import compute_cost
 from src.judge import (
     DIMENSIONS,
@@ -35,7 +35,15 @@ from src.judge import (
 )
 from src.language_metric import measure_trace_language
 from src.model_resolver import print_resolution_table, resolve_models
-from src.storage import PHASE2_DIR, RESULTS_DIR, save_phase2_result, save_result, save_trace
+from src.storage import (
+    PHASE2_DIR,
+    RESULTS_DIR,
+    save_langcost_result,
+    save_langcost_trace,
+    save_phase2_result,
+    save_result,
+    save_trace,
+)
 
 # ---------------------------------------------------------------------------
 # Smoke test constants
@@ -348,6 +356,40 @@ JUDGE_PRICING_KEY: dict[str, str] = {
 
 # High-disagreement threshold (per-dimension absolute diff)
 HIGH_DISAGREEMENT_THRESHOLD: int = 2
+
+
+# ---------------------------------------------------------------------------
+# Language-cost experiment constants
+# ---------------------------------------------------------------------------
+
+# Only the five open models with exposed raw trace text.
+# Opus, Sonnet, GPT are excluded — hidden/summarized trace cannot be measured
+# for thinking language.
+LANGCOST_MODELS: list[str] = [
+    "deepseek_v4",
+    "glm_5_2",
+    "kimi_k2_7",
+    "gemma_4",
+    "mistral_medium_3_5",
+]
+
+LANGCOST_LANGS: list[str] = ["da", "en", "zh"]
+
+# Generous and equal thinking budget for all models.
+# Prevents a budget-ceiling artefact where Danish (more tokens) is cut off
+# while English is not — which would produce a spurious "da harder" result.
+LANGCOST_THINKING_BUDGET: int = 16384
+
+# Pilot runs M1 only; full run covers all six tasks.
+LANGCOST_PILOT_TASK: str = "M1"
+
+# Steering prefixes for --steer mode (Step 4 scaffold — do not run together
+# with the unsteered baseline; keep run_ids separate).
+STEER_PREFIX: dict[str, str] = {
+    "da": "Tænk og ræsonnér på dansk.\n\n",
+    "en": "Think and reason in English.\n\n",
+    "zh": "请用中文思考和推理。\n\n",
+}
 
 
 def run_pilot(prompt_ids: list[str]) -> int:
@@ -1409,6 +1451,585 @@ def run_judge(source_run_id: Optional[str] = None) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Language-cost run (Step 2)
+# ---------------------------------------------------------------------------
+
+def run_langcost(full: bool = False, steer: bool = False) -> int:
+    """
+    Language-cost experiment: same content in da/en/zh × 5 open models.
+
+    Pilot (default): M1 × 3 langs × 5 models = 15 calls, then cost projection
+    for the full 90-call grid and stop.  Lars confirms, then runs --langcost-full.
+
+    Full (--langcost-full): M1–M6 × 3 langs × 5 models = 90 calls.
+
+    Steer (--steer, scaffold — do not mix with unsteered baseline):
+    prepends a short language instruction before each prompt, e.g.
+    "Tænk og ræsonnér på dansk." See STEER_PREFIX dict above.
+    """
+    panel = load_panel()
+    experiment = load_experiment()
+    reasoning_effort: str = experiment.get("reasoning_effort", "high")
+    prompts = load_multilang_prompts()
+
+    all_task_ids = sorted(prompts.keys(), key=lambda t: int(t[1:]))
+    task_ids = all_task_ids if full else [LANGCOST_PILOT_TASK]
+
+    steer_suffix = "_steer" if steer else ""
+    mode_suffix = ("_langcost_full" if full else "_langcost_pilot") + steer_suffix
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + mode_suffix
+    mode_label = "Full" if full else "Pilot"
+
+    langcost_dir = RESULTS_DIR / "langcost"
+    traces_dir = langcost_dir / f"{run_id}_traces"
+
+    n_calls = len(task_ids) * len(LANGCOST_LANGS) * len(LANGCOST_MODELS)
+    n_full_grid = len(all_task_ids) * len(LANGCOST_LANGS) * len(LANGCOST_MODELS)
+
+    print(f"\n{'═'*112}")
+    print(f"  Language-Cost Experiment — {mode_label}   run_id={run_id}")
+    if steer:
+        print(f"  STEER MODE: language-instruction prefix prepended to each prompt")
+    print(
+        f"  Grid: {len(task_ids)} task(s) × {len(LANGCOST_LANGS)} lang(s) × "
+        f"{len(LANGCOST_MODELS)} models = {n_calls} calls"
+    )
+    print(
+        f"  thinking_budget={LANGCOST_THINKING_BUDGET}  "
+        f"(generous+equal; prevents budget-ceiling artefact for longer-token languages)"
+    )
+    print(f"  reasoning_effort={reasoning_effort!r}  (locked — experiment condition)")
+    print(f"  Models: {', '.join(LANGCOST_MODELS)}")
+    print(f"{'═'*112}")
+
+    resolved = resolve_models(panel, LANGCOST_MODELS)
+    hard_errors = print_resolution_table(resolved)
+    if hard_errors > 0:
+        print(f"\n  !! {hard_errors} model(s) not resolved. Fix panel.yaml.\n")
+        return 1
+
+    has_failure = False
+    agg: list[dict] = []
+
+    col_hdr = (
+        f"  {'Model':<22} {'Inp':>6} {'Reas':>8} {'Out':>6}  {'Reas%':>6}  "
+        f"{'ReasChars':>10}  {'Cost($)':>10}  {'Lat':>7}  {'TraceLang':<10} {'Status'}"
+    )
+    col_sep = "  " + "─" * 114
+
+    for task_id in task_ids:
+        p = prompts[task_id]
+        assert "facit" not in p, (
+            f"CRITICAL SECURITY VIOLATION: facit in request-path object for {task_id}"
+        )
+        p_type = p.get("type", "?")
+        p_load = p.get("reasoning_load", "?")
+
+        for lang in LANGCOST_LANGS:
+            prompt_text: str = p["variants"][lang]
+            if steer:
+                effective_prompt = STEER_PREFIX[lang] + prompt_text
+            else:
+                effective_prompt = prompt_text
+
+            print(f"\n{'═'*112}")
+            print(
+                f"  [{task_id}]  lang={lang}  type={p_type}  load={p_load}"
+                + ("  [STEERED]" if steer else "")
+            )
+            print(f"  Prompt (first 100 chars): {prompt_text[:100].strip()!r}")
+            print(f"{'═'*112}")
+            print(col_hdr)
+            print(col_sep)
+
+            for key in LANGCOST_MODELS:
+                cfg = panel.get(key)
+                if not cfg:
+                    print(f"  {key:<22} SKIPPED — not in panel.yaml")
+                    continue
+                provider = cfg["provider"]
+                regime = REGIME_MAP.get(key, "raw")
+
+                cls = PROVIDER_MAP.get(provider)
+                if cls is None:
+                    print(f"  {key:<22} SKIPPED (unknown provider: {provider})")
+                    continue
+
+                try:
+                    adapter = cls(key, cfg)
+                except CredentialMissingError as e:
+                    print(f"  {key:<22} SKIPPED — {e}")
+                    continue
+
+                try:
+                    response = adapter.call(
+                        effective_prompt,
+                        thinking_budget=LANGCOST_THINKING_BUDGET,
+                        reasoning_effort=reasoning_effort,
+                    )
+                except AdapterError as e:
+                    print(f"  {key:<22} ERROR — {e}")
+                    has_failure = True
+                    continue
+                except Exception as e:
+                    print(f"  {key:<22} ERROR — unexpected: {e}")
+                    has_failure = True
+                    continue
+
+                account = build_account(response)
+                cost_usd, snapshot_date = compute_cost(key, account)
+
+                reasoning_chars = len(response.raw_reasoning_trace or "")
+                output_chars = len(response.answer_text or "")
+                lm = measure_trace_language(response.raw_reasoning_trace)
+
+                save_langcost_result(
+                    run_id=run_id,
+                    model_key=key,
+                    task_id=task_id,
+                    prompt_lang=lang,
+                    prompt_text=effective_prompt,
+                    response=response,
+                    account=account,
+                    cost_usd=cost_usd,
+                    pricing_snapshot_date=snapshot_date,
+                    thinking_budget=LANGCOST_THINKING_BUDGET,
+                    reasoning_effort=reasoning_effort,
+                    reasoning_chars=reasoning_chars,
+                    output_chars=output_chars,
+                    regime=regime,
+                    language_metric=lm,
+                    results_dir=langcost_dir,
+                )
+
+                save_langcost_trace(
+                    traces_dir=traces_dir,
+                    model_key=key,
+                    task_id=task_id,
+                    prompt_lang=lang,
+                    prompt_text=effective_prompt,
+                    answer_text=response.answer_text,
+                    reasoning_trace=response.raw_reasoning_trace,
+                    trace_status=response.trace_status,
+                    reasoning_tokens=account.reasoning_tokens,
+                    reasoning_source=response.reasoning_source,
+                )
+
+                agg.append({
+                    "task_id": task_id,
+                    "lang": lang,
+                    "model_key": key,
+                    "reasoning_tokens": account.reasoning_tokens,
+                    "reasoning_chars": reasoning_chars,
+                    "cost_usd": cost_usd,
+                    "primary_trace_lang": lm.get("primary_trace_language"),
+                })
+
+                reas_share_pct = account.reasoning_share * 100
+                lang_str = lm.get("primary_trace_language") or "?"
+
+                print(
+                    f"  {key:<22} {account.input_tokens:>6} {account.reasoning_tokens:>8}"
+                    f" {account.output_tokens:>6}  {reas_share_pct:>5.1f}%  "
+                    f"{reasoning_chars:>10}  ${cost_usd:>9.5f}  {response.latency_s:>6.2f}s  "
+                    f"{lang_str:<10} {response.trace_status}"
+                )
+
+            print(col_sep)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Summary / projection
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _avg(seq: list) -> Optional[float]:
+        return sum(seq) / len(seq) if seq else None
+
+    if not full:
+        # Pilot: cost per (model, lang) + projection to full grid
+        print(f"\n{'═'*90}")
+        print(f"  PILOT SUMMARY — M1 cost per model × language")
+        print(f"{'═'*90}")
+        print(f"  {'Model':<22}  {'da':>11}  {'en':>11}  {'zh':>11}  {'Total':>11}")
+        print(f"  {'─'*66}")
+        model_pilot_totals: dict[str, float] = {}
+        for key in LANGCOST_MODELS:
+            costs = {
+                lang: sum(r["cost_usd"] for r in agg if r["model_key"] == key and r["lang"] == lang)
+                for lang in LANGCOST_LANGS
+            }
+            total = sum(costs.values())
+            model_pilot_totals[key] = total
+            print(
+                f"  {key:<22}  "
+                + "  ".join(f"${costs[l]:>9.5f}" for l in LANGCOST_LANGS)
+                + f"  ${total:>9.5f}"
+            )
+        print(f"  {'─'*66}")
+        pilot_grand = sum(model_pilot_totals.values())
+        print(f"  {'PILOT TOTAL':<22}  {'':>11}  {'':>11}  {'':>11}  ${pilot_grand:>9.5f}")
+
+        proj_label = f"{len(all_task_ids)} tasks"
+        print(f"\n{'═'*90}")
+        print(
+            f"  COST PROJECTION — Full grid "
+            f"({len(all_task_ids)} tasks × {len(LANGCOST_LANGS)} langs × "
+            f"{len(LANGCOST_MODELS)} models = {n_full_grid} calls)"
+        )
+        print(f"  Based on M1 pilot averages × {len(all_task_ids)} tasks")
+        print(f"{'═'*90}")
+        print(f"  {'Model':<22}  {'Pilot (1 task)':>16}  {'Projected ({})'.format(proj_label):>22}")
+        print(f"  {'─'*64}")
+        total_projected = 0.0
+        for key in LANGCOST_MODELS:
+            pilot_cost = model_pilot_totals.get(key, 0.0)
+            proj = pilot_cost * len(all_task_ids)
+            total_projected += proj
+            marker = "—" if pilot_cost == 0 else f"${proj:>20.4f}"
+            print(f"  {key:<22}  ${pilot_cost:>15.5f}  {marker}")
+        print(f"  {'─'*64}")
+        print(f"  {'TOTAL':<22}  {'':>16}  ${total_projected:>21.4f}")
+        print(f"{'═'*90}")
+
+        print(f"\n  Pilot complete. Review costs above.")
+        print(f"  To run the full 90-call grid:")
+        steer_flag = " --steer" if steer else ""
+        print(f"    python3 run.py --langcost-full{steer_flag}")
+        print(f"  Records: results/langcost/{run_id}.jsonl")
+        print(f"  Traces:  results/langcost/{run_id}_traces/")
+        print()
+
+    else:
+        # Full run: aggregate tables
+        print(f"\n{'═'*112}")
+        print(f"  AGGREGATE 1 — Reasoning tokens per model × language (avg over {len(all_task_ids)} tasks)")
+        print(f"{'═'*112}")
+        print(f"  {'Model':<22}  {'da avg':>10}  {'en avg':>10}  {'zh avg':>10}  {'da/en':>7}  {'zh/en':>7}")
+        print(f"  {'─'*72}")
+
+        for key in LANGCOST_MODELS:
+            tok = {
+                lang: _avg([r["reasoning_tokens"] for r in agg if r["model_key"] == key and r["lang"] == lang])
+                for lang in LANGCOST_LANGS
+            }
+            da_en = f"{tok['da']/tok['en']:.2f}" if tok["da"] and tok["en"] else "—"
+            zh_en = f"{tok['zh']/tok['en']:.2f}" if tok["zh"] and tok["en"] else "—"
+            print(
+                f"  {key:<22}  "
+                + "  ".join(f"{tok[l]:>9.0f}" if tok[l] is not None else f"{'—':>10}" for l in LANGCOST_LANGS)
+                + f"  {da_en:>7}  {zh_en:>7}"
+            )
+        print(f"  {'─'*72}")
+
+        print(f"\n{'═'*112}")
+        print(f"  AGGREGATE 2 — Reasoning chars per model × language (avg over {len(all_task_ids)} tasks)")
+        print(f"{'═'*112}")
+        print(f"  {'Model':<22}  {'da avg':>10}  {'en avg':>10}  {'zh avg':>10}  {'da/en':>7}  {'zh/en':>7}")
+        print(f"  {'─'*72}")
+
+        for key in LANGCOST_MODELS:
+            chrs = {
+                lang: _avg([r["reasoning_chars"] for r in agg if r["model_key"] == key and r["lang"] == lang])
+                for lang in LANGCOST_LANGS
+            }
+            da_en = f"{chrs['da']/chrs['en']:.2f}" if chrs["da"] and chrs["en"] else "—"
+            zh_en = f"{chrs['zh']/chrs['en']:.2f}" if chrs["zh"] and chrs["en"] else "—"
+            print(
+                f"  {key:<22}  "
+                + "  ".join(f"{chrs[l]:>9.0f}" if chrs[l] is not None else f"{'—':>10}" for l in LANGCOST_LANGS)
+                + f"  {da_en:>7}  {zh_en:>7}"
+            )
+        print(f"  {'─'*72}")
+
+        # Crosstable: prompt_lang × primary_trace_language
+        from collections import Counter
+        print(f"\n{'═'*80}")
+        print(f"  AGGREGATE 3 — Krydstabel: prompt_lang × primary_trace_language")
+        print(f"  (pooled over alle modeller og alle {len(all_task_ids)} opgaver)")
+        print(f"{'═'*80}")
+        for pl in LANGCOST_LANGS:
+            trace_langs = [r["primary_trace_lang"] or "?" for r in agg if r["lang"] == pl]
+            counts: Counter = Counter(trace_langs)
+            total = len(trace_langs)
+            print(f"  prompt_lang={pl}  (n={total}):")
+            for tl, cnt in sorted(counts.items(), key=lambda x: -x[1]):
+                pct = cnt / total * 100 if total else 0
+                print(f"    trace_lang={tl:<8}  {cnt:>4}/{total}  ({pct:.0f}%)")
+        print(f"{'═'*80}")
+
+        print(f"\n  Full run complete.")
+        print(f"  Records: results/langcost/{run_id}.jsonl")
+        print(f"  Traces:  results/langcost/{run_id}_traces/")
+        print(f"  Generate analysis report:")
+        print(f"    python3 run.py --langcost-report --source-run-id {run_id}")
+        print()
+
+    return 1 if has_failure else 0
+
+
+# ---------------------------------------------------------------------------
+# Language-cost report (Step 3)
+# ---------------------------------------------------------------------------
+
+def run_langcost_report(source_run_id: Optional[str] = None) -> int:
+    """
+    Read a completed langcost full-run JSONL and write results/syntese/sprogets_pris_data.md.
+
+    Computes:
+      1. Sprog-tax i tokens (avg reasoning_tokens per model × lang, ratios)
+      2. Sprog-tax i tegn (avg reasoning_chars per model × lang, ratios)
+      3. Dekomponering: tegn per token — encoding tax vs genuine extra thinking
+      4. Krydstabel: prompt_lang × primary_trace_language (substrat-kontrol)
+      5. Pris per sprog per model
+    """
+    import json
+    import statistics
+    from collections import Counter, defaultdict
+
+    langcost_dir = RESULTS_DIR / "langcost"
+    syntese_dir = RESULTS_DIR / "syntese"
+
+    if source_run_id:
+        path = langcost_dir / f"{source_run_id}.jsonl"
+    else:
+        candidates = sorted(langcost_dir.glob("*_langcost_full*.jsonl"))
+        if not candidates:
+            print(f"\n  ERROR: No *_langcost_full*.jsonl found in {langcost_dir}")
+            print(f"  Run the full grid first: python3 run.py --langcost-full")
+            return 1
+        path = candidates[-1]
+        source_run_id = path.stem
+
+    if not path.exists():
+        print(f"\n  ERROR: File not found: {path}")
+        return 1
+
+    rows: list[dict] = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+
+    if not rows:
+        print(f"\n  ERROR: No records in {path}")
+        return 1
+
+    print(f"\n  Loaded {len(rows)} records from {path.name}")
+
+    by_model_lang: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    for r in rows:
+        by_model_lang[(r["model_key"], r["prompt_lang"])].append(r)
+
+    def safe_avg(vals: list) -> Optional[float]:
+        return statistics.mean(vals) if vals else None
+
+    def fmt_ratio(a: Optional[float], b: Optional[float]) -> str:
+        if a is not None and b is not None and b > 0:
+            return f"{a / b:.2f}"
+        return "—"
+
+    # ─── Build markdown ───
+    L: list[str] = []
+
+    L.append("# Sprogets pris — data-note")
+    L.append("")
+    L.append(
+        "> **Forbehold:** Resultaterne er betinget af oversættelsernes troskab, "
+        "særligt de kinesiske (zh) varianter. De kinesiske prompts er maskinoversat "
+        "med engelsk som pivot-sprog og er ikke verificeret af en kyndig taler. "
+        "Alle konklusioner fra zh-sessioner er indikative, ikke endelige, "
+        "indtil oversættelserne er efterprøvet."
+    )
+    L.append("")
+    L.append(f"**Kilde:** `{source_run_id}.jsonl` — {len(rows)} records")
+    L.append(f"**Modeller:** {', '.join(LANGCOST_MODELS)}")
+    L.append(f"**Sprog:** {', '.join(LANGCOST_LANGS)}")
+    L.append(f"**Opgaver:** M1–M6 (6 kultur-neutrale opgaver)")
+    L.append(f"**thinking_budget:** {LANGCOST_THINKING_BUDGET} (generøst og ens for alle modeller)")
+    L.append("")
+
+    # ─── 1. Sprog-tax i tokens ───
+    L.append("## 1. Sprog-tax i tokens (reasoning_tokens)")
+    L.append("")
+    L.append(
+        "Gennemsnitlige reasoning-tokens per model og sprog over de 6 opgaver. "
+        "da/en og zh/en er forholdene: >1 = det sprog bruger flere tokens end engelsk."
+    )
+    L.append("")
+    L.append("| Model | da | en | zh | da/en | zh/en |")
+    L.append("|---|---:|---:|---:|---:|---:|")
+    for key in LANGCOST_MODELS:
+        t = {
+            lang: safe_avg([r["tokens"]["reasoning"] for r in by_model_lang[(key, lang)]])
+            for lang in LANGCOST_LANGS
+        }
+        L.append(
+            f"| {key} "
+            + "".join(f"| {t[l]:.0f} " if t[l] is not None else "| — " for l in LANGCOST_LANGS)
+            + f"| {fmt_ratio(t['da'], t['en'])} | {fmt_ratio(t['zh'], t['en'])} |"
+        )
+    L.append("")
+
+    # ─── 2. Sprog-tax i tegn ───
+    L.append("## 2. Sprog-tax i tegn (reasoning_chars)")
+    L.append("")
+    L.append(
+        "Antal tegn i det rå trace-tekst per model og sprog. "
+        "Tegn er et tokenizer-uafhængigt mål: en stigning her er ægte ekstra tekst."
+    )
+    L.append("")
+    L.append("| Model | da | en | zh | da/en | zh/en |")
+    L.append("|---|---:|---:|---:|---:|---:|")
+    for key in LANGCOST_MODELS:
+        c = {
+            lang: safe_avg([r["reasoning_chars"] for r in by_model_lang[(key, lang)]])
+            for lang in LANGCOST_LANGS
+        }
+        L.append(
+            f"| {key} "
+            + "".join(f"| {c[l]:.0f} " if c[l] is not None else "| — " for l in LANGCOST_LANGS)
+            + f"| {fmt_ratio(c['da'], c['en'])} | {fmt_ratio(c['zh'], c['en'])} |"
+        )
+    L.append("")
+
+    # ─── 3. Dekomponering ───
+    L.append("## 3. Dekomponering: tegn per reasoning-token")
+    L.append("")
+    L.append(
+        "Hvis **tokens stiger** men **tegn ikke gør** (tegn/token-forholdet falder), "
+        "er det en ren **kodningsskat** — det samme indhold kræver flere tokens at "
+        "repræsentere på det pågældende sprog. "
+        "Hvis **både tokens og tegn stiger** (forholdet er stabilt), er det "
+        "**ægte ekstra tænkning** — modellen ræsonnerer faktisk mere."
+    )
+    L.append("")
+    L.append("| Model | da tg/tok | en tg/tok | zh tg/tok | Konklusion (da vs en) |")
+    L.append("|---|---:|---:|---:|---|")
+    for key in LANGCOST_MODELS:
+        tok = {
+            lang: safe_avg([r["tokens"]["reasoning"] for r in by_model_lang[(key, lang)]])
+            for lang in LANGCOST_LANGS
+        }
+        chrs = {
+            lang: safe_avg([r["reasoning_chars"] for r in by_model_lang[(key, lang)]])
+            for lang in LANGCOST_LANGS
+        }
+        cpt = {
+            lang: (chrs[lang] / tok[lang]) if (tok[lang] and tok[lang] > 0) else None
+            for lang in LANGCOST_LANGS
+        }
+
+        if tok["da"] and tok["en"] and chrs["da"] and chrs["en"]:
+            tok_ratio = tok["da"] / tok["en"]
+            chr_ratio = chrs["da"] / chrs["en"]
+            if tok_ratio > 1.05 and chr_ratio < 1.05:
+                conclusion = "Kodningsskat (tok↑, tegn≈)"
+            elif tok_ratio > 1.05 and chr_ratio > 1.05:
+                conclusion = "Ægte ekstra tænkning (tok↑ og tegn↑)"
+            elif tok_ratio < 0.95:
+                conclusion = "da billigere end en"
+            else:
+                conclusion = "Ingen klar forskel"
+        else:
+            conclusion = "Utilstrækkeligt data"
+
+        L.append(
+            f"| {key} "
+            + "".join(f"| {cpt[l]:.1f} " if cpt[l] is not None else "| — " for l in LANGCOST_LANGS)
+            + f"| {conclusion} |"
+        )
+    L.append("")
+    L.append(
+        "_Note: Kinesisk bruger typisk 1.5–3 tegn per token (effektiv tokenisering af "
+        "unicode-tegn), mod 3–6 tegn per token for latin-baserede sprog. "
+        "En lav zh tg/tok kan afspejle tokenizerens effektivitet, ikke kortere tænkning._"
+    )
+    L.append("")
+
+    # ─── 4. Krydstabel ───
+    L.append("## 4. Krydstabel: prompt_lang × primary_trace_language")
+    L.append("")
+    L.append(
+        "Substrat-kontrollen: får dansk prompt modellen til at tænke på dansk, "
+        "eller falder den tilbage på engelsk? Poolet over alle modeller og alle 6 opgaver."
+    )
+    L.append("")
+
+    crosstable: dict[str, Counter] = {lang: Counter() for lang in LANGCOST_LANGS}
+    for r in rows:
+        pl = r.get("prompt_lang", "?")
+        tl = (r.get("language_metric") or {}).get("primary_trace_language") or "?"
+        if pl in crosstable:
+            crosstable[pl][tl] += 1
+
+    all_trace_langs = sorted(
+        {tl for counts in crosstable.values() for tl in counts.keys()}
+    )
+
+    L.append("| prompt_lang | " + " | ".join(all_trace_langs) + " | n |")
+    L.append("|---|" + "|".join("---:" for _ in all_trace_langs) + "|---:|")
+    for pl in LANGCOST_LANGS:
+        counts = crosstable[pl]
+        total = sum(counts.values())
+        cells = []
+        for tl in all_trace_langs:
+            n = counts.get(tl, 0)
+            pct = n / total * 100 if total else 0
+            cells.append(f"{n} ({pct:.0f}%)")
+        L.append(f"| {pl} | " + " | ".join(cells) + f" | {total} |")
+    L.append("")
+    L.append(
+        "_For per-model opdelinger: filtrer JSONL-filen på `model_key` og "
+        "`language_metric.primary_trace_language`._"
+    )
+    L.append("")
+
+    # ─── 5. Pris per sprog per model ───
+    L.append("## 5. Pris per sprog per model (USD)")
+    L.append("")
+    L.append("Samlet pris over alle 6 opgaver, fordelt på sprog og model.")
+    L.append("")
+    L.append("| Model | da | en | zh | Total |")
+    L.append("|---|---:|---:|---:|---:|")
+    for key in LANGCOST_MODELS:
+        costs = {
+            lang: sum(r["cost_usd"] for r in by_model_lang[(key, lang)])
+            for lang in LANGCOST_LANGS
+        }
+        total = sum(costs.values())
+        L.append(
+            f"| {key} "
+            + "".join(f"| ${costs[l]:.5f} " for l in LANGCOST_LANGS)
+            + f"| ${total:.5f} |"
+        )
+    lang_totals = {
+        lang: sum(r["cost_usd"] for r in rows if r["prompt_lang"] == lang)
+        for lang in LANGCOST_LANGS
+    }
+    grand_total = sum(lang_totals.values())
+    L.append(
+        "| **Total** "
+        + "".join(f"| **${lang_totals[l]:.5f}** " for l in LANGCOST_LANGS)
+        + f"| **${grand_total:.5f}** |"
+    )
+    L.append("")
+
+    # ─── Footer ───
+    L.append("---")
+    L.append("")
+    L.append(f"*Auto-genereret af `run.py --langcost-report`. Kilde: `{source_run_id}`.*")
+
+    syntese_dir.mkdir(parents=True, exist_ok=True)
+    report_path = syntese_dir / "sprogets_pris_data.md"
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(L) + "\n")
+
+    print(f"  Report written → {report_path}")
+    print()
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -1467,7 +2088,46 @@ def main() -> None:
         "--source-run-id",
         metavar="RUN_ID",
         default=None,
-        help="Phase 1 full run ID to use as source (default: most recent results/full/*.jsonl)",
+        help=(
+            "Run ID to use as source. For --validate-judges/--judge: most recent "
+            "results/full/*.jsonl. For --langcost-report: most recent langcost full JSONL."
+        ),
+    )
+    # ── Language-cost experiment (new track — does not touch main benchmark data) ──
+    parser.add_argument(
+        "--langcost",
+        action="store_true",
+        help=(
+            "Language-cost pilot: M1 × da/en/zh × 5 open models (15 calls). "
+            "Prints cost projection for the full 90-call grid and stops. "
+            "Confirm, then run --langcost-full."
+        ),
+    )
+    parser.add_argument(
+        "--langcost-full",
+        action="store_true",
+        help=(
+            "Language-cost full grid: M1–M6 × da/en/zh × 5 open models (90 calls). "
+            "Run after reviewing the pilot projection."
+        ),
+    )
+    parser.add_argument(
+        "--langcost-report",
+        action="store_true",
+        help=(
+            "Generate results/syntese/sprogets_pris_data.md from a completed "
+            "langcost full run. Use --source-run-id to specify a run; "
+            "defaults to the most recent *_langcost_full*.jsonl."
+        ),
+    )
+    parser.add_argument(
+        "--steer",
+        action="store_true",
+        help=(
+            "SCAFFOLD (Step 4) — prepend a language instruction to each prompt, "
+            "e.g. 'Tænk og ræsonnér på dansk.' Use with --langcost or --langcost-full. "
+            "Keep steered and unsteered runs in separate run_ids (handled automatically)."
+        ),
     )
     args = parser.parse_args()
 
@@ -1487,6 +2147,12 @@ def main() -> None:
         sys.exit(code)
     elif args.judge:
         code = run_judge(source_run_id=args.source_run_id)
+        sys.exit(code)
+    elif args.langcost or args.langcost_full:
+        code = run_langcost(full=args.langcost_full, steer=args.steer)
+        sys.exit(code)
+    elif args.langcost_report:
+        code = run_langcost_report(source_run_id=args.source_run_id)
         sys.exit(code)
     else:
         parser.print_help()
