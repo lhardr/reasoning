@@ -22,16 +22,14 @@ import pathlib
 import sys
 
 # Ensure project root is in sys.path.
-# resolve() / abspath() both call getcwd() which may be unavailable; fall back to
-# '' (empty string), which Python's import machinery resolves via the cwd file
-# descriptor without requiring os.getcwd().
-try:
-    _PROJECT_ROOT = str(pathlib.Path(__file__).parent.resolve())
-    if _PROJECT_ROOT not in sys.path:
-        sys.path.insert(0, _PROJECT_ROOT)
-except PermissionError:
-    if '' not in sys.path:
-        sys.path.insert(0, '')
+# pathlib.resolve() calls os.path.realpath() which follows symlinks and can fail
+# with EPERM on macOS Documents folders. os.path.abspath() is safe: Python 3.11+
+# sets __file__ to an absolute path, so abspath() is a no-op (no getcwd call).
+import os as _os
+_PROJECT_ROOT = _os.path.dirname(_os.path.abspath(__file__))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+del _os
 
 # ── Step 1: patch the rubric BEFORE importing run.py ────────────────────────
 # run.py does `from src.judge import build_rubric_prompt`.
