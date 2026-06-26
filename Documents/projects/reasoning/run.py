@@ -1024,22 +1024,25 @@ def run_validate_judges(source_run_id: Optional[str] = None) -> int:
             judge_responses[judge_key] = jr
             _print_judge_row(judge_key, jr)
 
-        # Agreement between the two judges on this trace
+        # Agreement between the two judges on this trace — only when both parsed OK
+        agr_val: Optional[dict] = None
         if len(judge_responses) == 2:
-            j_keys = JUDGE_KEYS
-            agr = compute_agreement(
-                judge_responses[j_keys[0]].scores,
-                judge_responses[j_keys[1]].scores,
-            )
-            flag = "  ← HIGH DISAGREEMENT" if agr["high_disagreement"] else ""
-            print(
-                f"\n  Agreement:  "
-                + "  ".join(
-                    f"{dim}=Δ{agr['dim_diffs'].get(dim,'?')}"
-                    for dim in DIMENSIONS
+            jr0 = judge_responses[JUDGE_KEYS[0]]
+            jr1 = judge_responses[JUDGE_KEYS[1]]
+            if jr0.parse_ok and jr1.parse_ok:
+                agr_val = compute_agreement(jr0.scores, jr1.scores)
+                flag = "  ← HIGH DISAGREEMENT" if agr_val["high_disagreement"] else ""
+                print(
+                    f"\n  Agreement:  "
+                    + "  ".join(
+                        f"{dim}=Δ{agr_val['dim_diffs'].get(dim,'?')}"
+                        for dim in DIMENSIONS
+                    )
+                    + f"  mean_diff={agr_val['mean_diff']}{flag}"
                 )
-                + f"  mean_diff={agr['mean_diff']}{flag}"
-            )
+            else:
+                failed = [k for k in JUDGE_KEYS if not judge_responses[k].parse_ok]
+                print(f"\n  Agreement:  n/a ({', '.join(failed)} parse failed)")
 
         # Save validation records
         for judge_key, jr in judge_responses.items():
@@ -1053,10 +1056,7 @@ def run_validate_judges(source_run_id: Optional[str] = None) -> int:
                 reasoning_load=p_load,
                 judge_key=judge_key,
                 judge_response=jr,
-                agreement=compute_agreement(
-                    judge_responses.get(JUDGE_KEYS[0], JudgeResponse({},{},False,"","",0,0,0.0,"",0.0)).scores,
-                    judge_responses.get(JUDGE_KEYS[1], JudgeResponse({},{},False,"","",0,0,0.0,"",0.0)).scores,
-                ) if len(judge_responses) == 2 else None,
+                agreement=agr_val,
                 phase1_language_metric=row.get("language_metric"),
                 trace_status=row.get("trace_status", "raw"),
                 results_dir=PHASE2_DIR,
@@ -1183,13 +1183,13 @@ def run_judge(source_run_id: Optional[str] = None) -> int:
                 scored_data[(model_key, pid, judge_key)] = jr
                 prompt_responses[judge_key] = jr
 
-            # Compute agreement if both judges responded
+            # Compute agreement only when both judges responded AND both parsed OK
             agr: Optional[dict] = None
             if len(prompt_responses) == 2:
-                agr = compute_agreement(
-                    prompt_responses[JUDGE_KEYS[0]].scores,
-                    prompt_responses[JUDGE_KEYS[1]].scores,
-                )
+                jr0 = prompt_responses[JUDGE_KEYS[0]]
+                jr1 = prompt_responses[JUDGE_KEYS[1]]
+                if jr0.parse_ok and jr1.parse_ok:
+                    agr = compute_agreement(jr0.scores, jr1.scores)
 
             # Print row(s) + save
             for i, judge_key in enumerate(JUDGE_KEYS):

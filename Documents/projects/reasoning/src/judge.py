@@ -128,24 +128,30 @@ def parse_judge_response(text: str) -> tuple[dict[str, int], dict[str, str], boo
     Returns (scores, justifications, parse_ok, error_message).
     On parse failure: scores default to 0 and parse_ok=False.
     """
-    # Strategy 1: full response is valid JSON
     def _extract(raw: str) -> Optional[dict]:
+        # Strip markdown code fences (Gemini often wraps responses in ```json ... ```)
+        cleaned = re.sub(r"```(?:json)?\s*", "", raw).strip()
+
+        # Strategy 1: direct parse of the entire (cleaned) response
         try:
-            return json.loads(raw.strip())
+            return json.loads(cleaned)
         except json.JSONDecodeError:
             pass
-        # Strategy 2: find the first {...} block in the response
-        m = re.search(r"\{[^{}]*\}", raw, re.DOTALL)
+
+        # Strategy 2: find the outermost {...} block — handles preamble or trailing text.
+        # Use re.DOTALL so . matches newlines, and greedy .* to capture the full object.
+        m = re.search(r"\{.*\}", cleaned, re.DOTALL)
         if m:
             try:
                 return json.loads(m.group())
             except json.JSONDecodeError:
                 pass
+
         return None
 
     parsed = _extract(text)
     if parsed is None:
-        return {}, {}, False, f"JSON parse failed; raw: {text[:200]!r}"
+        return {}, {}, False, f"JSON parse failed; raw: {text[:400]!r}"
 
     scores: dict[str, int] = {}
     justs: dict[str, str] = {}
@@ -200,12 +206,26 @@ def call_judge_openrouter(
     resp = client.chat.completions.create(
         model=openrouter_model_id,
         messages=[{"role": "user", "content": rubric_prompt}],
-        max_tokens=512,      # JSON output is short
+        max_tokens=1024,     # JSON + two justification sentences; 512 truncated some Gemini responses
         temperature=0.0,     # deterministic scoring
     )
     latency = time.perf_counter() - t0
 
     raw_text = (resp.choices[0].message.content or "").strip()
+
+    # Retry once on empty content — distinguishes transient issues from structural ones
+    # (e.g. content filters on certain topics may consistently return empty).
+    if not raw_text:
+        time.sleep(2)
+        resp2 = client.chat.completions.create(
+            model=openrouter_model_id,
+            messages=[{"role": "user", "content": rubric_prompt}],
+            max_tokens=1024,
+            temperature=0.0,
+        )
+        latency = time.perf_counter() - t0
+        raw_text = (resp2.choices[0].message.content or "").strip()
+        resp = resp2
     usage = resp.usage
     in_tok = usage.prompt_tokens
     out_tok = usage.completion_tokens
