@@ -26,9 +26,16 @@ from src.adapters import PROVIDER_MAP, CredentialMissingError
 from src.adapters.base import AdapterError, ModelResponse
 from src.config_loader import load_experiment, load_panel, load_prompts
 from src.cost import compute_cost
+from src.judge import (
+    DIMENSIONS,
+    JudgeResponse,
+    build_rubric_prompt,
+    call_judge_openrouter,
+    compute_agreement,
+)
 from src.language_metric import measure_trace_language
 from src.model_resolver import print_resolution_table, resolve_models
-from src.storage import RESULTS_DIR, save_result, save_trace
+from src.storage import PHASE2_DIR, RESULTS_DIR, save_phase2_result, save_result, save_trace
 
 # ---------------------------------------------------------------------------
 # Smoke test constants
@@ -293,6 +300,36 @@ TRACE_TEXT_MODELS: set[str] = {
     "gemma_4",
     "claude_sonnet_4_6",
 }
+
+# ---------------------------------------------------------------------------
+# Phase 2 constants
+# ---------------------------------------------------------------------------
+
+# Models scored for legibility (raw trace exists)
+LEGIBILITY_SCORED: list[str] = ["deepseek_v4", "glm_5_2", "kimi_k2_7", "gemma_4"]
+
+# Models explicitly excluded from Phase 2, with the reason
+LEGIBILITY_EXCLUDED: dict[str, str] = {
+    "claude_sonnet_4_6": (
+        "summarized — scoring would measure Anthropic's summarizer, "
+        "not the model's raw reasoning process"
+    ),
+    "gpt_5_5": (
+        "count_only — no trace text exists to score"
+    ),
+}
+
+# Judge models (from panel.yaml)
+JUDGE_KEYS: list[str] = ["minimax", "gemini_3_1_pro"]
+
+# Maps judge panel key → pricing.yaml key (for cost calculation)
+JUDGE_PRICING_KEY: dict[str, str] = {
+    "minimax": "minimax",
+    "gemini_3_1_pro": "gemini_3_1_pro",
+}
+
+# High-disagreement threshold (per-dimension absolute diff)
+HIGH_DISAGREEMENT_THRESHOLD: int = 2
 
 
 def run_pilot(prompt_ids: list[str]) -> int:
@@ -854,6 +891,495 @@ def run_full() -> int:
 
 
 # ---------------------------------------------------------------------------
+# Phase 2 helpers
+# ---------------------------------------------------------------------------
+
+def _load_phase1_jsonl(run_id: Optional[str] = None) -> tuple[list[dict], str]:
+    """
+    Load the Phase 1 full-run JSONL. Returns (rows, run_id).
+    Uses most-recent results/full/*.jsonl when run_id is None.
+    """
+    full_dir = RESULTS_DIR / "full"
+    if run_id:
+        path = full_dir / f"{run_id}.jsonl"
+    else:
+        candidates = sorted(full_dir.glob("*_full.jsonl"))
+        if not candidates:
+            raise FileNotFoundError(f"No full-run JSONL found in {full_dir}")
+        path = candidates[-1]
+    if not path.exists():
+        raise FileNotFoundError(f"Phase 1 JSONL not found: {path}")
+    rows = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                rows.append(__import__("json").loads(line))
+    return rows, path.stem  # stem = run_id without .jsonl
+
+
+def _judge_one(
+    judge_key: str,
+    judge_cfg: dict,
+    prompt_text: str,
+    trace_text: str,
+) -> JudgeResponse:
+    """Call one judge on one (prompt, trace) pair."""
+    rubric = build_rubric_prompt(prompt_text, trace_text)
+    model_id = judge_cfg["openrouter_model_id"]
+    pricing_key = JUDGE_PRICING_KEY[judge_key]
+    return call_judge_openrouter(model_id, rubric, pricing_key)
+
+
+def _print_judge_row(
+    judge_key: str,
+    jr: JudgeResponse,
+) -> None:
+    """Print a compact two-line judge result block."""
+    if jr.parse_ok:
+        r = jr.scores.get("redundancy", "?")
+        c = jr.scores.get("coherence", "?")
+        r_just = jr.justifications.get("redundancy", "")
+        c_just = jr.justifications.get("coherence", "")
+        print(f"  {judge_key:<18}  Redund={r}  Coher={c}"
+              f"  ({jr.latency_s:.1f}s  ${jr.cost_usd:.5f})")
+        print(f"    redundancy:  {r_just[:90]}")
+        print(f"    coherence:   {c_just[:90]}")
+    else:
+        print(f"  {judge_key:<18}  PARSE ERROR — {jr.parse_error[:80]}")
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — validate-judges gate (Gemma only)
+# ---------------------------------------------------------------------------
+
+def run_validate_judges(source_run_id: Optional[str] = None) -> int:
+    """
+    Gate step: run both judges on Gemma's traces only (English/Danish — readable
+    by Lars). Print a side-by-side of trace excerpt + judge scores + justifications
+    so the human can verify judge quality before trusting them on Chinese traces.
+
+    STOPS HERE. Does not proceed to Chinese traces. Run --judge after confirmation.
+    """
+    panel = load_panel()
+
+    try:
+        phase1_rows, p1_run_id = _load_phase1_jsonl(source_run_id)
+    except FileNotFoundError as e:
+        print(f"\n  ERROR: {e}\n")
+        return 1
+
+    gemma_rows = [r for r in phase1_rows if r["model_key"] == "gemma_4"]
+    gemma_rows.sort(key=lambda r: int(r["prompt_id"][1:]))
+
+    if not gemma_rows:
+        print("\n  ERROR: No gemma_4 records in Phase 1 JSONL.\n")
+        return 1
+
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_validate"
+
+    print(f"\n{'═'*100}")
+    print(f"  PHASE 2 — JUDGE VALIDATION GATE")
+    print(f"  Source: {p1_run_id}  |  Scoring: gemma_4 only ({len(gemma_rows)} traces)")
+    print(f"  Both judges read Gemma traces (English) — Lars can verify scores before trusting on Chinese.")
+    print(f"  LEGIBILITY ONLY: correctness and faithfulness are out of scope.")
+    print(f"{'═'*100}")
+
+    has_error = False
+    validation_records: list[dict] = []
+
+    for row in gemma_rows:
+        pid = row["prompt_id"]
+        p_type = row.get("prompt_type", "?")
+        p_probe = row.get("language_probe", "?")
+        p_load = row.get("reasoning_load", "?")
+        prompt_text = row["prompt"]
+        trace_text = row.get("raw_reasoning_trace") or ""
+
+        print(f"\n{'─'*100}")
+        print(f"  [{pid}]  {p_type} / {p_probe}  (load: {p_load})")
+        print(f"  Prompt: {prompt_text[:90].strip()!r}")
+
+        if not trace_text.strip():
+            print(f"  SKIPPED — no trace text (trace_status={row.get('trace_status')})")
+            continue
+
+        trace_excerpt = trace_text[:500].replace("\n", " ↵ ")
+        print(f"\n  Trace excerpt (first 500 chars):")
+        print(f"  {trace_excerpt!r}")
+        print()
+
+        judge_responses: dict[str, JudgeResponse] = {}
+        for judge_key in JUDGE_KEYS:
+            judge_cfg = panel.get(judge_key, {})
+            if not judge_cfg.get("openrouter_model_id"):
+                print(f"  {judge_key}: SKIPPED — no openrouter_model_id in panel.yaml")
+                continue
+            try:
+                jr = _judge_one(judge_key, judge_cfg, prompt_text, trace_text)
+            except Exception as e:
+                print(f"  {judge_key}: ERROR — {e}")
+                has_error = True
+                continue
+            judge_responses[judge_key] = jr
+            _print_judge_row(judge_key, jr)
+
+        # Agreement between the two judges on this trace
+        if len(judge_responses) == 2:
+            j_keys = JUDGE_KEYS
+            agr = compute_agreement(
+                judge_responses[j_keys[0]].scores,
+                judge_responses[j_keys[1]].scores,
+            )
+            flag = "  ← HIGH DISAGREEMENT" if agr["high_disagreement"] else ""
+            print(
+                f"\n  Agreement:  "
+                + "  ".join(
+                    f"{dim}=Δ{agr['dim_diffs'].get(dim,'?')}"
+                    for dim in DIMENSIONS
+                )
+                + f"  mean_diff={agr['mean_diff']}{flag}"
+            )
+
+        # Save validation records
+        for judge_key, jr in judge_responses.items():
+            save_phase2_result(
+                run_id=run_id,
+                source_run_id=p1_run_id,
+                model_key="gemma_4",
+                prompt_id=pid,
+                prompt_type=p_type,
+                language_probe=p_probe,
+                reasoning_load=p_load,
+                judge_key=judge_key,
+                judge_response=jr,
+                agreement=compute_agreement(
+                    judge_responses.get(JUDGE_KEYS[0], JudgeResponse({},{},False,"","",0,0,0.0,"",0.0)).scores,
+                    judge_responses.get(JUDGE_KEYS[1], JudgeResponse({},{},False,"","",0,0,0.0,"",0.0)).scores,
+                ) if len(judge_responses) == 2 else None,
+                phase1_language_metric=row.get("language_metric"),
+                trace_status=row.get("trace_status", "raw"),
+                results_dir=PHASE2_DIR,
+            )
+            validation_records.append({"pid": pid, "judge": judge_key, "jr": jr})
+
+    print(f"\n{'═'*100}")
+    print(f"  GATE REACHED")
+    print(f"  {len(gemma_rows)} Gemma traces scored by both judges.")
+    print(f"  Validation records saved → results/phase2/{run_id}.jsonl")
+    print()
+    print(f"  Review the trace excerpts and judge scores above.")
+    print(f"  If the scores match your reading of the traces, proceed with:")
+    print()
+    print(f"    python3 run.py --judge")
+    print()
+    print(f"  This will score all four raw-trace models (deepseek/glm/kimi + gemma).")
+    print(f"  Claude and GPT are excluded — no scorable trace text exists for them.")
+    print(f"{'═'*100}\n")
+
+    return 1 if has_error else 0
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — full legibility scoring
+# ---------------------------------------------------------------------------
+
+def run_judge(source_run_id: Optional[str] = None) -> int:
+    """
+    Phase 2 full legibility scoring.
+    Both judges score all 4 raw-trace models (deepseek/glm/kimi + gemma).
+    Claude and GPT are explicitly excluded — reasons stated in output.
+    LEGIBILITY ONLY — no correctness, no faithfulness, no economy mixing.
+    """
+    import statistics
+
+    panel = load_panel()
+
+    try:
+        phase1_rows, p1_run_id = _load_phase1_jsonl(source_run_id)
+    except FileNotFoundError as e:
+        print(f"\n  ERROR: {e}\n")
+        return 1
+
+    # Build index: (model_key, prompt_id) → row
+    p1_index: dict[tuple[str, str], dict] = {
+        (r["model_key"], r["prompt_id"]): r
+        for r in phase1_rows
+        if r["model_key"] in LEGIBILITY_SCORED
+    }
+
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_phase2"
+    all_pids = sorted(
+        {r["prompt_id"] for r in phase1_rows},
+        key=lambda p: int(p[1:])
+    )
+
+    n_total = len(LEGIBILITY_SCORED) * len(all_pids) * len(JUDGE_KEYS)
+
+    print(f"\n{'═'*110}")
+    print(f"  PHASE 2 — Legibility Scoring   run_id={run_id}")
+    print(f"  Source: {p1_run_id}")
+    print(f"  Models: {', '.join(LEGIBILITY_SCORED)}")
+    print(f"  Judges: {', '.join(JUDGE_KEYS)}")
+    print(f"  Calls: {len(LEGIBILITY_SCORED)} models × {len(all_pids)} prompts × {len(JUDGE_KEYS)} judges = {n_total}")
+    print(f"  LEGIBILITY ONLY — correctness, faithfulness, and economy are out of scope.")
+    print(f"{'═'*110}")
+
+    # Explicit exclusion note
+    print(f"\n  EXCLUDED FROM LEGIBILITY SCORING (transparency finding):")
+    for mk, reason in LEGIBILITY_EXCLUDED.items():
+        print(f"    {mk:<24}  {reason}")
+    print(
+        f"\n  This is a structural finding: the qualitative legibility axis cannot run"
+        f"\n  on closed or summarized traces. Only raw-trace models can be assessed.\n"
+    )
+
+    has_error = False
+    # scored_data[(model_key, pid, judge_key)] = JudgeResponse
+    scored_data: dict[tuple[str, str, str], JudgeResponse] = {}
+    # agg list for aggregate tables
+    agg_records: list[dict] = []
+
+    SEP = "─" * 110
+
+    for model_key in LEGIBILITY_SCORED:
+        print(f"\n{'═'*110}")
+        print(f"  Model: {model_key}")
+        print(f"{'═'*110}")
+        print(f"\n  {'Prompt':<8}  {'Load':<10}  {'Judge':<18}  {'Redund':>7}  {'Coher':>7}  {'Δ':>4}  {'Cost':>10}  Justifications")
+        print(f"  {SEP}")
+
+        for pid in all_pids:
+            p1_row = p1_index.get((model_key, pid))
+            if p1_row is None:
+                print(f"  {pid:<8}  MISSING in Phase 1 JSONL — skipping")
+                continue
+
+            trace_text = p1_row.get("raw_reasoning_trace") or ""
+            prompt_text = p1_row["prompt"]
+            p_type = p1_row.get("prompt_type", "?")
+            p_probe = p1_row.get("language_probe", "?")
+            p_load = p1_row.get("reasoning_load", "?")
+
+            if not trace_text.strip():
+                print(f"  {pid:<8}  {p_load:<10}  SKIPPED — no trace text")
+                continue
+
+            prompt_responses: dict[str, JudgeResponse] = {}
+
+            for judge_key in JUDGE_KEYS:
+                judge_cfg = panel.get(judge_key, {})
+                if not judge_cfg.get("openrouter_model_id"):
+                    print(f"  {pid:<8}  {p_load:<10}  {judge_key:<18}  SKIPPED — no openrouter_model_id")
+                    continue
+
+                try:
+                    jr = _judge_one(judge_key, judge_cfg, prompt_text, trace_text)
+                except Exception as e:
+                    print(f"  {pid:<8}  {p_load:<10}  {judge_key:<18}  ERROR — {e}")
+                    has_error = True
+                    continue
+
+                scored_data[(model_key, pid, judge_key)] = jr
+                prompt_responses[judge_key] = jr
+
+            # Compute agreement if both judges responded
+            agr: Optional[dict] = None
+            if len(prompt_responses) == 2:
+                agr = compute_agreement(
+                    prompt_responses[JUDGE_KEYS[0]].scores,
+                    prompt_responses[JUDGE_KEYS[1]].scores,
+                )
+
+            # Print row(s) + save
+            for i, judge_key in enumerate(JUDGE_KEYS):
+                jr = prompt_responses.get(judge_key)
+                if jr is None:
+                    continue
+
+                # Save
+                save_phase2_result(
+                    run_id=run_id,
+                    source_run_id=p1_run_id,
+                    model_key=model_key,
+                    prompt_id=pid,
+                    prompt_type=p_type,
+                    language_probe=p_probe,
+                    reasoning_load=p_load,
+                    judge_key=judge_key,
+                    judge_response=jr,
+                    agreement=agr if i == 0 else None,
+                    phase1_language_metric=p1_row.get("language_metric"),
+                    trace_status=p1_row.get("trace_status", "raw"),
+                    results_dir=PHASE2_DIR,
+                )
+
+                # Print
+                if jr.parse_ok:
+                    r = jr.scores.get("redundancy", "?")
+                    c = jr.scores.get("coherence", "?")
+                    delta_str = ""
+                    if agr and i == 1:
+                        d = agr["max_diff"]
+                        flag = "!" if agr["high_disagreement"] else " "
+                        delta_str = f"{d}{flag}"
+                    r_just = jr.justifications.get("redundancy", "")[:40]
+                    c_just = jr.justifications.get("coherence", "")[:40]
+                    print(
+                        f"  {pid:<8}  {p_load:<10}  {judge_key:<18}  {r:>7}  {c:>7}  "
+                        f"{delta_str:>4}  ${jr.cost_usd:>8.5f}  "
+                        f"R:{r_just!r} / C:{c_just!r}"
+                    )
+                else:
+                    print(
+                        f"  {pid:<8}  {p_load:<10}  {judge_key:<18}  "
+                        f"PARSE ERROR — {jr.parse_error[:60]}"
+                    )
+                    has_error = True
+
+                # Collect for aggregates
+                if jr.parse_ok:
+                    agg_records.append({
+                        "model_key": model_key,
+                        "prompt_id": pid,
+                        "prompt_type": p_type,
+                        "reasoning_load": p_load,
+                        "judge_key": judge_key,
+                        "redundancy": jr.scores.get("redundancy", 0),
+                        "coherence": jr.scores.get("coherence", 0),
+                        "cost_usd": jr.cost_usd,
+                        "high_disagreement": agr["high_disagreement"] if agr else False,
+                        "max_diff": agr["max_diff"] if agr else 0,
+                    })
+
+        print(f"  {SEP}")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # AGGREGATE TABLES
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def avg(vals: list) -> str:
+        return f"{statistics.mean(vals):.2f}" if vals else "—"
+
+    # --- Table 1: Average legibility scores by model and judge ---
+    print(f"\n{'═'*90}")
+    print(f"  AGGREGATE 1 — Average legibility by model  (1–5 scale; higher coher = better, lower redund = better)")
+    print(f"{'═'*90}")
+    print(f"  {'Model':<22}  {'Judge':<18}  {'Avg Redund':>10}  {'Avg Coher':>10}  {'Calls':>6}")
+    print(f"  {'─'*70}")
+    for model_key in LEGIBILITY_SCORED:
+        for judge_key in JUDGE_KEYS:
+            recs = [r for r in agg_records if r["model_key"] == model_key and r["judge_key"] == judge_key]
+            r_vals = [r["redundancy"] for r in recs]
+            c_vals = [r["coherence"] for r in recs]
+            print(
+                f"  {model_key:<22}  {judge_key:<18}  {avg(r_vals):>10}  "
+                f"{avg(c_vals):>10}  {len(recs):>6}"
+            )
+        print(f"  {'·'*70}")
+    print(f"  {'─'*70}")
+
+    # --- Table 2: Average legibility by prompt type and judge ---
+    print(f"\n{'═'*90}")
+    print(f"  AGGREGATE 2 — Average legibility by prompt type (raw-trace models pooled)")
+    print(f"{'═'*90}")
+    print(f"  {'Type':<22}  {'Load':<12}  {'Judge':<18}  {'Avg Redund':>10}  {'Avg Coher':>10}  {'n':>4}")
+    print(f"  {'─'*78}")
+    prompt_types: list[str] = []
+    seen_types: set[str] = set()
+    for r in agg_records:
+        key = (r["prompt_type"], r["reasoning_load"])
+        if key not in seen_types:
+            seen_types.add(key)
+            prompt_types.append(key)
+    prompt_types.sort(key=lambda x: x[1])  # sort by load
+    for (p_type, p_load) in prompt_types:
+        for judge_key in JUDGE_KEYS:
+            recs = [
+                r for r in agg_records
+                if r["prompt_type"] == p_type and r["judge_key"] == judge_key
+            ]
+            r_vals = [r["redundancy"] for r in recs]
+            c_vals = [r["coherence"] for r in recs]
+            print(
+                f"  {p_type:<22}  {p_load:<12}  {judge_key:<18}  {avg(r_vals):>10}  "
+                f"{avg(c_vals):>10}  {len(recs):>4}"
+            )
+    print(f"  {'─'*78}")
+
+    # --- Table 3: Inter-judge agreement by model ---
+    print(f"\n{'═'*80}")
+    print(f"  AGGREGATE 3 — Inter-judge agreement by model")
+    print(f"  (Δ = |minimax_score − gemini_score|; high disagreement = max Δ ≥ {HIGH_DISAGREEMENT_THRESHOLD})")
+    print(f"{'═'*80}")
+    print(f"  {'Model':<22}  {'Avg ΔRedund':>12}  {'Avg ΔCoher':>11}  {'Max Δ':>7}  {'Flagged':>8}")
+    print(f"  {'─'*65}")
+    flagged_traces: list[dict] = []
+    for model_key in LEGIBILITY_SCORED:
+        mm_recs = {r["prompt_id"]: r for r in agg_records if r["model_key"] == model_key and r["judge_key"] == JUDGE_KEYS[0]}
+        gm_recs = {r["prompt_id"]: r for r in agg_records if r["model_key"] == model_key and r["judge_key"] == JUDGE_KEYS[1]}
+        shared_pids = set(mm_recs) & set(gm_recs)
+
+        r_diffs, c_diffs, max_diffs = [], [], []
+        for pid in shared_pids:
+            rd = abs(mm_recs[pid]["redundancy"] - gm_recs[pid]["redundancy"])
+            cd = abs(mm_recs[pid]["coherence"] - gm_recs[pid]["coherence"])
+            r_diffs.append(rd)
+            c_diffs.append(cd)
+            max_d = max(rd, cd)
+            max_diffs.append(max_d)
+            if max_d >= HIGH_DISAGREEMENT_THRESHOLD:
+                flagged_traces.append({
+                    "model": model_key, "pid": pid,
+                    "redund_diff": rd, "coher_diff": cd,
+                    "minimax_r": mm_recs[pid]["redundancy"],
+                    "minimax_c": mm_recs[pid]["coherence"],
+                    "gemini_r": gm_recs[pid]["redundancy"],
+                    "gemini_c": gm_recs[pid]["coherence"],
+                })
+
+        n_flagged = sum(1 for d in max_diffs if d >= HIGH_DISAGREEMENT_THRESHOLD)
+        print(
+            f"  {model_key:<22}  {avg(r_diffs):>12}  {avg(c_diffs):>11}  "
+            f"{max(max_diffs) if max_diffs else 0:>7}  {n_flagged:>8}"
+        )
+    print(f"  {'─'*65}")
+
+    if flagged_traces:
+        print(f"\n  High-disagreement traces (Δ ≥ {HIGH_DISAGREEMENT_THRESHOLD} — legibility signal least reliable here):")
+        print(f"  {'Model':<22}  {'Pid':<6}  {'Dim':<10}  {'MiniMax':>8}  {'Gemini':>7}  {'Diff':>5}")
+        print(f"  {'·'*62}")
+        for t in flagged_traces:
+            if t["redund_diff"] >= HIGH_DISAGREEMENT_THRESHOLD:
+                print(f"  {t['model']:<22}  {t['pid']:<6}  {'redundancy':<10}  {t['minimax_r']:>8}  {t['gemini_r']:>7}  {t['redund_diff']:>5}")
+            if t["coher_diff"] >= HIGH_DISAGREEMENT_THRESHOLD:
+                print(f"  {t['model']:<22}  {t['pid']:<6}  {'coherence':<10}  {t['minimax_c']:>8}  {t['gemini_c']:>7}  {t['coher_diff']:>5}")
+
+    # --- Cost summary ---
+    total_cost = sum(r["cost_usd"] for r in agg_records)
+    print(f"\n  Phase 2 total judge cost: ${total_cost:.5f}")
+
+    # --- Scope firewall reminder ---
+    print(f"\n{'═'*90}")
+    print(f"  SCOPE FIREWALL")
+    print(f"  These scores measure LEGIBILITY only: is the trace readable and monitorable?")
+    print(f"  They do NOT measure:")
+    print(f"    - Correctness  (whether the answer is right — Phase 3)")
+    print(f"    - Faithfulness (whether the trace drove the output — not measured here)")
+    print(f"  Do not mix legibility scores into economy or correctness tables.")
+    print(f"{'═'*90}")
+
+    # --- Footer ---
+    status = "ALL CALLS COMPLETED" if not has_error else "ERRORS DETECTED — see rows above"
+    print(f"\n  {status}")
+    print(f"  Records → results/phase2/{run_id}.jsonl")
+    print(f"  Calls completed: {len(agg_records)} judge scores recorded")
+    print()
+
+    return 1 if has_error else 0
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -886,6 +1412,28 @@ def main() -> None:
         action="store_true",
         help="Run Phase 1 full economy run: all 10 prompts × all scored+anchor models",
     )
+    parser.add_argument(
+        "--validate-judges",
+        action="store_true",
+        help=(
+            "Phase 2 gate: run both judges on Gemma traces only (English) "
+            "for human verification before proceeding to Chinese traces"
+        ),
+    )
+    parser.add_argument(
+        "--judge",
+        action="store_true",
+        help=(
+            "Phase 2 full legibility scoring: both judges on deepseek/glm/kimi + gemma. "
+            "Run --validate-judges first and confirm results."
+        ),
+    )
+    parser.add_argument(
+        "--source-run-id",
+        metavar="RUN_ID",
+        default=None,
+        help="Phase 1 full run ID to use as source (default: most recent results/full/*.jsonl)",
+    )
     args = parser.parse_args()
 
     if args.smoke:
@@ -897,6 +1445,12 @@ def main() -> None:
         sys.exit(code)
     elif args.full:
         code = run_full()
+        sys.exit(code)
+    elif args.validate_judges:
+        code = run_validate_judges(source_run_id=args.source_run_id)
+        sys.exit(code)
+    elif args.judge:
+        code = run_judge(source_run_id=args.source_run_id)
         sys.exit(code)
     else:
         parser.print_help()

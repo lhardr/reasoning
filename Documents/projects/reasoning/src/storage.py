@@ -8,8 +8,10 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from .adapters.base import ModelResponse
     from .accounting import TokenAccount
+    from .judge import JudgeResponse
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
+PHASE2_DIR = RESULTS_DIR / "phase2"
 
 
 def save_result(
@@ -114,3 +116,63 @@ def save_trace(
         f.write(answer_text.strip() + "\n")
 
     return path
+
+
+def save_phase2_result(
+    *,
+    run_id: str,
+    source_run_id: str,
+    model_key: str,
+    prompt_id: str,
+    prompt_type: str,
+    language_probe: str,
+    reasoning_load: str,
+    judge_key: str,
+    judge_response: "JudgeResponse",
+    agreement: Optional[dict] = None,
+    phase1_language_metric: Optional[dict] = None,
+    trace_status: str,
+    results_dir: Optional[Path] = None,
+) -> dict:
+    """
+    Persist one (model, prompt, judge) Phase 2 legibility record.
+
+    FIREWALL: no correctness or faithfulness fields are stored here.
+    Legibility scores are kept strictly separate from Phase 1 economy records.
+    """
+    record = {
+        "phase": 2,
+        "run_id": run_id,
+        "source_run_id": source_run_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "model_key": model_key,
+        "prompt_id": prompt_id,
+        "prompt_type": prompt_type,
+        "language_probe": language_probe,
+        "reasoning_load": reasoning_load,
+        "trace_status": trace_status,
+        "judge": judge_key,
+        "judge_model_version": judge_response.model_version,
+        # Legibility scores — do not mix into economy or correctness tables
+        "scores": judge_response.scores,
+        "justifications": judge_response.justifications,
+        "parse_ok": judge_response.parse_ok,
+        "parse_error": judge_response.parse_error,
+        "agreement": agreement,
+        # Phase 1 language metric carried for reference only — not re-scored here
+        "phase1_language_metric": phase1_language_metric,
+        "judge_tokens": {
+            "input": judge_response.input_tokens,
+            "output": judge_response.output_tokens,
+        },
+        "cost_usd": judge_response.cost_usd,
+        "latency_s": round(judge_response.latency_s, 3),
+    }
+
+    out_dir = results_dir if results_dir is not None else PHASE2_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{run_id}.jsonl"
+    with open(out_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    return record
