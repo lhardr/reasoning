@@ -22,6 +22,8 @@ INTENDED_NAMES: dict[str, str] = {
     "gpt_5_5": "GPT-5.5 (OpenAI)",
     "claude_sonnet_4_6": "Claude Sonnet 4.6 (Anthropic)",
     "gemma_4": "Gemma 4 (OpenRouter)",
+    "opus_4_8": "Claude Opus 4.8 (Anthropic)",
+    "mistral_medium_3_5": "Mistral Medium 3.5 (OpenRouter)",
     "minimax": "MiniMax M3 (judge)",
     "gemini_3_1_pro": "Gemini 3.1 Pro (judge)",
 }
@@ -165,6 +167,7 @@ def _required_env_var(provider: str) -> str | None:
         "openai": "OPENAI_API_KEY",
         "anthropic": "ANTHROPIC_API_KEY",
         "gemma": None,           # Gemma uses OPENROUTER_API_KEY (checked via has_or)
+        "mistral": None,         # Mistral uses OPENROUTER_API_KEY (checked via has_or)
         "minimax": "MINIMAX_API_KEY",
         "google": "GOOGLE_API_KEY",
         "local": None,

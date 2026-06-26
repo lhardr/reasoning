@@ -57,7 +57,7 @@ models:
     cache_write_per_mtok: 6.25
 
   mistral_medium_3_5:
-    # mistralai/mistral-medium-3.5 — confirmed OpenRouter 2026-06-26
+    # mistralai/mistral-medium-3-5 — confirmed OpenRouter 2026-06-26 (hyphens)
     input_per_mtok: 1.50
     output_per_mtok: 7.50
     cache_read_per_mtok: 0.00

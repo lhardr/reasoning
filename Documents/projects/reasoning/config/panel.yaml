@@ -80,7 +80,7 @@ models:
     trace_exposure: raw                 # EXPECTED. Smoke test MUST confirm OpenRouter returns raw trace.
                                         # If not: stop, correct trace_exposure, report before proceeding.
     model_id: mistral-medium-3.5        # Confirmed OpenRouter 2026-06-26
-    openrouter_model_id: mistralai/mistral-medium-3.5  # Confirmed OpenRouter 2026-06-26
+    openrouter_model_id: mistralai/mistral-medium-3-5  # Confirmed OpenRouter 2026-06-26 (hyphens, not dots)
     thinking_budget: 4096
 
   minimax:
