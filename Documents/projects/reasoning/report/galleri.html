@@ -57,7 +57,7 @@ a { color: #60a5fa; }
 .header-row th {
   position: sticky; top: 120px; z-index: 10;
   background: #161b27; padding: 6px 8px; text-align: center;
-  font-size: 12px; white-space: nowrap; min-width: 190px; max-width: 190px;
+  font-size: 12px; white-space: nowrap; min-width: 170px; max-width: 170px;
 }
 .header-row .corner-cell {
   position: sticky; left: 0; top: 120px; z-index: 20;
@@ -79,7 +79,7 @@ a { color: #60a5fa; }
 
 /* Cell */
 .cell {
-  min-width: 190px; max-width: 190px; width: 190px;
+  min-width: 160px; max-width: 160px; width: 160px;
   padding: 0; vertical-align: top;
 }
 .cell-inner {
@@ -124,8 +124,8 @@ a { color: #60a5fa; }
 .sw-warn   { color: #f59e0b; margin-left: 2px; font-size: 10px; }
 
 /* Cell stats */
-.cell-header { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin-bottom: 3px; }
-.cell-stats { color: #64748b; font-size: 10px; }
+.cell-header { display: flex; align-items: center; flex-wrap: nowrap; gap: 3px; margin-bottom: 3px; overflow: hidden; }
+.cell-stats { color: #64748b; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .corr   { font-weight: 700; font-size: 12px; margin-left: 2px; }
 .score-leg { font-size: 10px; color: #a78bfa; }
 
@@ -184,8 +184,8 @@ a { color: #60a5fa; }
 
 /* Responsive */
 @media (max-width: 900px) {
-  .header-row th { min-width: 160px; max-width: 160px; }
-  .cell { min-width: 160px; max-width: 160px; width: 160px; }
+  .header-row th { min-width: 140px; max-width: 140px; }
+  .cell { min-width: 140px; max-width: 140px; width: 140px; }
 }
 </style>
 </head>
@@ -239,18 +239,11 @@ a { color: #60a5fa; }
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
   <span class="score-leg" title="Redundans 1.5/5 · Koherens 4.5/5">r:1.5 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1028 tok</span>
-  · <span title="Reasoning tegn">2,738 chars</span>
-  · <span title="Output tokens">out: 178 tok</span>
-  · <span title="Latens">16.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:1028 tok (api) · out:178 tok · 2,738 chars · 16.59s">r:1.0k o:178 2.7kch · 16.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Clerical optælling — 932 reas-tok på simpel forespørgsel</div>
@@ -315,18 +308,11 @@ Forslag: &quot;Din folkeregisteradresse er den officielle adresse, du er registr
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
   <span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 688 tok</span>
-  · <span title="Reasoning tegn">2,619 chars</span>
-  · <span title="Output tokens">out: 393 tok</span>
-  · <span title="Latens">15.0s</span>
-</div></div>
+<div class="cell-stats" title="reas:688 tok (api) · out:393 tok · 2,619 chars · 15.01s">r:688 o:393 2.6kch · 15.0s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -414,18 +400,11 @@ Det tager heldigvis kun fem minutter at melde flytningen online, og det gør hve
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
   <span class="score-leg" title="Redundans 1.5/5 · Koherens 4.5/5">r:1.5 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 153 tok</span>
-  · <span title="Reasoning tegn">563 chars</span>
-  · <span title="Output tokens">out: 178 tok</span>
-  · <span title="Latens">13.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:153 tok (api) · out:178 tok · 563 chars · 13.60s">r:153 o:178 563ch · 13.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -490,18 +469,11 @@ Du skal melde flytning, så myndigheder, kommune og post Nord ved, hvor de kan n
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#94a3b8;color:#fff" title="Regime: count_only">cnt</span>
-  <span class="ts-badge ts-count_only" title="trace_status: count_only">count_only</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
-  
+  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 185 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 130 tok</span>
-  · <span title="Latens">7.1s</span>
-</div></div>
+<div class="cell-stats" title="reas:185 tok (api) · out:130 tok · 0 chars · 7.11s">r:185 o:130 0ch · 7.1s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -540,18 +512,11 @@ Kort sagt: Din korrekte adresse hjælper både dig og det offentlige med at få 
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 49 tok</span>
-  · <span title="Reasoning tegn">196 chars</span>
-  · <span title="Output tokens">out: 214 tok</span>
-  · <span title="Latens">7.7s</span>
-</div></div>
+<div class="cell-stats" title="reas:49 tok (api) · out:214 tok · 196 chars · 7.69s">r:49 o:214 196ch · 7.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -594,18 +559,11 @@ Heldigvis er det nemt – flytning meldes hurtigt og gratis på **borger.dk**. �
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#86efac;color:#fff" title="Regime: raw_anchor">raw-a</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
   <span class="score-leg" title="Redundans 1.5/5 · Koherens 4.5/5">r:1.5 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 301 tok</span>
-  · <span title="Reasoning tegn">1,138 chars</span>
-  · <span title="Output tokens">out: 178 tok</span>
-  · <span title="Latens">21.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:301 tok (api) · out:178 tok · 1,138 chars · 21.56s">r:301 o:178 1.1kch · 21.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -681,18 +639,11 @@ Det sikrer, at alt det praktiske kører glat, og det er samtidig et lovkrav. God
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-absent" title="trace_status: absent">absent</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
-  
+  <span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 49 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 279 tok</span>
-  · <span title="Latens">7.3s</span>
-</div></div>
+<div class="cell-stats" title="reas:49 tok (api) · out:279 tok · 0 chars · 7.28s">r:49 o:279 0ch · 7.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -735,18 +686,11 @@ Melder du korrekt flytning, sikrer du, at vigtig post og beskeder når frem til 
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
   <span class="score-leg" title="Redundans 5/5 · Koherens 4/5">r:5 c:4</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 3167 tok</span>
-  · <span title="Reasoning tegn">10,529 chars</span>
-  · <span title="Output tokens">out: 1441 tok</span>
-  · <span title="Latens">83.0s</span>
-</div></div>
+<div class="cell-stats" title="reas:3167 tok (api) · out:1441 tok · 10,529 chars · 82.98s">r:3.2k o:1.4k 10.5kch · 83.0s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1392,18 +1336,11 @@ Lad os prøve dette:
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
   <span class="score-leg" title="Redundans 2.5/5 · Koherens 4/5">r:2.5 c:4</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 775 tok</span>
-  · <span title="Reasoning tegn">2,838 chars</span>
-  · <span title="Output tokens">out: 285 tok</span>
-  · <span title="Latens">35.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:775 tok (api) · out:285 tok · 2,838 chars · 35.65s">r:775 o:285 2.8kch · 35.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1482,18 +1419,11 @@ Jeg vil præsentere svaret med denne omskrivning.</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da<span class="sw-warn" title="10 sprogskift">⚡10</span></span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="10 sprogskift">⚡10</span></span>
   <span class="score-leg" title="Redundans 2/5 · Koherens 5/5">r:2 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 879 tok</span>
-  · <span title="Reasoning tegn">3,313 chars</span>
-  · <span title="Output tokens">out: 333 tok</span>
-  · <span title="Latens">39.9s</span>
-</div></div>
+<div class="cell-stats" title="reas:879 tok (api) · out:333 tok · 3,313 chars · 39.88s">r:879 o:333 3.3kch · 39.9s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1596,18 +1526,11 @@ Jeg vil præsentere svaret med denne omskrivning.</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
   <span class="score-leg" title="Redundans 2/5 · Koherens 4.5/5">r:2 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 236 tok</span>
-  · <span title="Reasoning tegn">905 chars</span>
-  · <span title="Output tokens">out: 93 tok</span>
-  · <span title="Latens">5.3s</span>
-</div></div>
+<div class="cell-stats" title="reas:236 tok (api) · out:93 tok · 905 chars · 5.34s">r:236 o:93 905ch · 5.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1668,18 +1591,11 @@ Need ensure no extra fluff. Final in Danish.</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#94a3b8;color:#fff" title="Regime: count_only">cnt</span>
-  <span class="ts-badge ts-count_only" title="trace_status: count_only">count_only</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
-  
+  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 119 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 59 tok</span>
-  · <span title="Latens">5.5s</span>
-</div></div>
+<div class="cell-stats" title="reas:119 tok (api) · out:59 tok · 0 chars · 5.48s">r:119 o:59 0ch · 5.5s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1714,18 +1630,11 @@ Need ensure no extra fluff. Final in Danish.</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 80 tok</span>
-  · <span title="Reasoning tegn">314 chars</span>
-  · <span title="Output tokens">out: 146 tok</span>
-  · <span title="Latens">6.8s</span>
-</div></div>
+<div class="cell-stats" title="reas:80 tok (api) · out:146 tok · 314 chars · 6.76s">r:80 o:146 314ch · 6.8s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1771,18 +1680,11 @@ The original sentence means: If you want to complain about the decision, you mus
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#86efac;color:#fff" title="Regime: raw_anchor">raw-a</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="5 sprogskift">⚡5</span></span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="5 sprogskift">⚡5</span></span>
   <span class="score-leg" title="Redundans 2/5 · Koherens 4.5/5">r:2 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 742 tok</span>
-  · <span title="Reasoning tegn">2,809 chars</span>
-  · <span title="Output tokens">out: 551 tok</span>
-  · <span title="Latens">41.2s</span>
-</div></div>
+<div class="cell-stats" title="reas:742 tok (api) · out:551 tok · 2,809 chars · 41.16s">r:742 o:551 2.8kch · 41.2s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1888,18 +1790,11 @@ The original sentence means: If you want to complain about the decision, you mus
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 17 tok</span>
-  · <span title="Reasoning tegn">66 chars</span>
-  · <span title="Output tokens">out: 339 tok</span>
-  · <span title="Latens">11.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:17 tok (api) · out:339 tok · 66 chars · 11.55s">r:17 o:339 66ch · 11.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -1942,18 +1837,11 @@ Henvisningen til forvaltningsloven (&quot;jf. forvaltningslovens regler herom&qu
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
   <span class="score-leg" title="Redundans 4.5/5 · Koherens 4/5">r:4.5 c:4</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1109 tok</span>
-  · <span title="Reasoning tegn">4,040 chars</span>
-  · <span title="Output tokens">out: 220 tok</span>
-  · <span title="Latens">28.8s</span>
-</div></div>
+<div class="cell-stats" title="reas:1109 tok (api) · out:220 tok · 4,040 chars · 28.80s">r:1.1k o:220 4.0kch · 28.8s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -2068,18 +1956,11 @@ Jeg tror, det er den bedste version. Den er klar, enkel og forståelig for alle.
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and accurately calculates the four-week deadline from March 6 to April 3.">✓</span>
-  <span class="score-leg" title="Redundans 3.5/5 · Koherens 4.5/5">r:3.5 c:4.5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
+  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and accurately calculates the four-week deadline from March 6 to April 3.">✓</span><span class="score-leg" title="Redundans 3.5/5 · Koherens 4.5/5">r:3.5 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 2405 tok</span>
-  · <span title="Reasoning tegn">8,096 chars</span>
-  · <span title="Output tokens">out: 138 tok</span>
-  · <span title="Latens">47.4s</span>
-</div></div>
+<div class="cell-stats" title="reas:2405 tok (api) · out:138 tok · 8,096 chars · 47.36s">r:2.4k o:138 8.1kch · 47.4s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2162,18 +2043,11 @@ Thus the answer is yes.</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and accurately calculates the 4-week deadline as April 3.">✓</span>
-  <span class="score-leg" title="Redundans 2/5 · Koherens 5/5">r:2 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
+  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and accurately calculates the 4-week deadline as April 3.">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 5/5">r:2 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 660 tok</span>
-  · <span title="Reasoning tegn">2,511 chars</span>
-  · <span title="Output tokens">out: 152 tok</span>
-  · <span title="Latens">10.3s</span>
-</div></div>
+<div class="cell-stats" title="reas:660 tok (api) · out:152 tok · 2,511 chars · 10.28s">r:660 o:152 2.5kch · 10.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2275,18 +2149,11 @@ Når en klagefrist beregnes i uger, udløber den på samme ugedag, som den dag a
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the four-week deadline ends on April 3, which is the exact day the appeal was received.">✓</span>
-  <span class="score-leg" title="Redundans 2.5/5 · Koherens 4.5/5">r:2.5 c:4.5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
+  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the four-week deadline ends on April 3, which is the exact day the appeal was received.">✓</span><span class="score-leg" title="Redundans 2.5/5 · Koherens 4.5/5">r:2.5 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 620 tok</span>
-  · <span title="Reasoning tegn">2,214 chars</span>
-  · <span title="Output tokens">out: 101 tok</span>
-  · <span title="Latens">19.7s</span>
-</div></div>
+<div class="cell-stats" title="reas:620 tok (api) · out:101 tok · 2,214 chars · 19.72s">r:620 o:101 2.2kch · 19.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2359,18 +2226,11 @@ Klagefristen begynder at løbe dagen efter meddelelsen, altså lørdag den 7. ma
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#94a3b8;color:#fff" title="Regime: count_only">cnt</span>
-  <span class="ts-badge ts-count_only" title="trace_status: count_only">count_only</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
+  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the four-week deadline from March 6 expires on April 3, which is the day the complaint was received.">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1034 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 137 tok</span>
-  · <span title="Latens">23.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:1034 tok (api) · out:137 tok · 0 chars · 23.56s">r:1.0k o:137 0ch · 23.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2415,18 +2275,11 @@ Desuden var 3. april 2026 langfredag; hvis fristen udløber på en helligdag, ud
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the four-week deadline from March 6 ends on April 3, which is the day the appeal was received.">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 311 tok</span>
-  · <span title="Reasoning tegn">1,202 chars</span>
-  · <span title="Output tokens">out: 695 tok</span>
-  · <span title="Latens">19.1s</span>
-</div></div>
+<div class="cell-stats" title="reas:311 tok (api) · out:695 tok · 1,202 chars · 19.09s">r:311 o:695 1.2kch · 19.1s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2500,18 +2353,11 @@ Klagefristen udløber **fredag den 3. april 2026**, og klagen er modtaget netop 
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#86efac;color:#fff" title="Regime: raw_anchor">raw-a</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because four weeks from March 6 is April 3, matching the reasoning in the grading key.">✓</span>
-  <span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
+  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because four weeks from March 6 is April 3, matching the reasoning in the grading key.">✓</span><span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 292 tok</span>
-  · <span title="Reasoning tegn">1,099 chars</span>
-  · <span title="Output tokens">out: 120 tok</span>
-  · <span title="Latens">27.5s</span>
-</div></div>
+<div class="cell-stats" title="reas:292 tok (api) · out:120 tok · 1,099 chars · 27.53s">r:292 o:120 1.1kch · 27.5s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2599,18 +2445,11 @@ Fristen på fire uger regnes fra meddelelsen fredag den 6. marts. Fire uger efte
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely because the 4-week deadline from March 6 falls on April 3, which is the day the complaint was received.">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 146 tok</span>
-  · <span title="Reasoning tegn">571 chars</span>
-  · <span title="Output tokens">out: 570 tok</span>
-  · <span title="Latens">12.2s</span>
-</div></div>
+<div class="cell-stats" title="reas:146 tok (api) · out:570 tok · 571 chars · 12.15s">r:146 o:570 571ch · 12.2s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2670,18 +2509,11 @@ Da klagen er **modtaget hos kommunen fredag den 3. april 2026** — dvs. på sel
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and provides the correct reasoning that 4 weeks equals 28 days, making the deadline April 3rd.">✓</span>
-  <span class="score-leg" title="Redundans 4/5 · Koherens 2/5">r:4 c:2</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
+  <span class="corr" style="color:#22c55e" title="The student correctly concludes that the appeal is timely and provides the correct reasoning that 4 weeks equals 28 days, making the deadline April 3rd.">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 2/5">r:4 c:2</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1044 tok</span>
-  · <span title="Reasoning tegn">3,768 chars</span>
-  · <span title="Output tokens">out: 497 tok</span>
-  · <span title="Latens">19.3s</span>
-</div></div>
+<div class="cell-stats" title="reas:1044 tok (api) · out:497 tok · 3,768 chars · 19.34s">r:1.0k o:497 3.8kch · 19.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Langfredag-taksonomi: 3. april 2026 = Langfredag</div>
@@ -2814,18 +2646,11 @@ Klagefristen på fire uger udløber ved udgangen af **fredag den 3. april 2026**
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøringspligten (§ 19) and begrundelsespligten (§ 22) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldi">✓</span>
-  <span class="score-leg" title="Redundans 2/5 · Koherens 4/5">r:2 c:4</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
+  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøringspligten (§ 19) and begrundelsespligten (§ 22) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldi">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 4/5">r:2 c:4</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1248 tok</span>
-  · <span title="Reasoning tegn">4,795 chars</span>
-  · <span title="Output tokens">out: 341 tok</span>
-  · <span title="Latens">36.7s</span>
-</div></div>
+<div class="cell-stats" title="reas:1248 tok (api) · out:341 tok · 4,795 chars · 36.69s">r:1.2k o:341 4.8kch · 36.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -2904,18 +2729,11 @@ Afgørelsen er som udgangspunkt ugyldig. Manglende partshøring er en væsentlig
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§ 24) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓</span>
-  <span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
+  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§ 24) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓</span><span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 751 tok</span>
-  · <span title="Reasoning tegn">3,007 chars</span>
-  · <span title="Output tokens">out: 541 tok</span>
-  · <span title="Latens">27.9s</span>
-</div></div>
+<div class="cell-stats" title="reas:751 tok (api) · out:541 tok · 3,007 chars · 27.88s">r:751 o:541 3.0kch · 27.9s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3017,18 +2835,11 @@ Ifølge Forvaltningslovens § 38 er en afgørelse ugyldig, hvis der er begået s
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§ 22) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓</span>
-  <span class="score-leg" title="Redundans 4/5 · Koherens 3.5/5">r:4 c:3.5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
+  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§ 22) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 3.5/5">r:4 c:3.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1900 tok</span>
-  · <span title="Reasoning tegn">7,575 chars</span>
-  · <span title="Output tokens">out: 375 tok</span>
-  · <span title="Latens">71.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:1900 tok (api) · out:375 tok · 7,575 chars · 71.56s">r:1.9k o:375 7.6kch · 71.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3137,18 +2948,11 @@ Afgørelsen er som udgangspunkt **ugyldig**. Når kommunen både har undladt at 
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#94a3b8;color:#fff" title="Regime: count_only">cnt</span>
-  <span class="ts-badge ts-count_only" title="trace_status: count_only">count_only</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
+  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) and concludes that the decision is as a starting point invalid (ugyldig).">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 516 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 306 tok</span>
-  · <span title="Latens">43.1s</span>
-</div></div>
+<div class="cell-stats" title="reas:516 tok (api) · out:306 tok · 0 chars · 43.08s">r:516 o:306 0ch · 43.1s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3198,18 +3002,11 @@ Manglende partshøring er en væsentlig sagsbehandlingsfejl, især når borgeren
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) as the violated rules and concludes that the decision is as a starting point invalid (ugyldig).">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 385 tok</span>
-  · <span title="Reasoning tegn">1,488 chars</span>
-  · <span title="Output tokens">out: 720 tok</span>
-  · <span title="Latens">24.1s</span>
-</div></div>
+<div class="cell-stats" title="reas:385 tok (api) · out:720 tok · 1,488 chars · 24.15s">r:385 o:720 1.5kch · 24.1s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3279,18 +3076,11 @@ Afgørelsen er **som udgangspunkt ugyldig**. Det afgørende er, at den manglende
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#86efac;color:#fff" title="Regime: raw_anchor">raw-a</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓</span>
-  <span class="score-leg" title="Redundans 2/5 · Koherens 4.5/5">r:2 c:4.5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
+  <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) as the violated rules, and accurately concludes that the decision is as a starting point invalid (ugyldig).">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 4.5/5">r:2 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 550 tok</span>
-  · <span title="Reasoning tegn">2,074 chars</span>
-  · <span title="Output tokens">out: 484 tok</span>
-  · <span title="Latens">19.9s</span>
-</div></div>
+<div class="cell-stats" title="reas:550 tok (api) · out:484 tok · 2,074 chars · 19.86s">r:550 o:484 2.1kch · 19.9s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3400,18 +3190,11 @@ I denne konkrete sag er vurderingen følgende:
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="corr" style="color:#22c55e" title="The student correctly identifies both partshøring (§ 19) and begrundelsespligten (§§ 22-24) as the violated rules and accurately concludes that the decision is invalid (ugyldig) as a starting point.">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 215 tok</span>
-  · <span title="Reasoning tegn">850 chars</span>
-  · <span title="Output tokens">out: 1029 tok</span>
-  · <span title="Latens">22.2s</span>
-</div></div>
+<div class="cell-stats" title="reas:215 tok (api) · out:1029 tok · 850 chars · 22.22s">r:215 o:1.0k 850ch · 22.2s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3473,18 +3256,11 @@ Afgørende er dog den **konkrete væsentlighedsvurdering**: Har fejlen kunkret k
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  <span class="corr" style="color:#22c55e" title="partial parse: verdict=&#x27;correct&#x27; extracted from truncated JSON; raw: &#x27;```json\n{\n  &quot;verdict&quot;: &quot;correct&quot;,\n  &quot;justification&quot;: &quot;The&#x27;">✓</span>
-  <span class="score-leg" title="Redundans 2/5 · Koherens 4/5">r:2 c:4</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
+  <span class="corr" style="color:#22c55e" title="partial parse: verdict=&#x27;correct&#x27; extracted from truncated JSON; raw: &#x27;```json\n{\n  &quot;verdict&quot;: &quot;correct&quot;,\n  &quot;justification&quot;: &quot;The&#x27;">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 4/5">r:2 c:4</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 524 tok</span>
-  · <span title="Reasoning tegn">1,862 chars</span>
-  · <span title="Output tokens">out: 396 tok</span>
-  · <span title="Latens">26.9s</span>
-</div></div>
+<div class="cell-stats" title="reas:524 tok (api) · out:396 tok · 1,862 chars · 26.91s">r:524 o:396 1.9kch · 26.9s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ §17-fejlen — forkert paragrafhenvisning for partshøring</div>
@@ -3572,18 +3348,11 @@ Afgørelsen er **som udgangspunkt ugyldig**, da overtrædelsen af begge regler (
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span>
-  <span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
+  <span class="corr" style="color:#22c55e" title="Found 168">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 205 tok</span>
-  · <span title="Reasoning tegn">551 chars</span>
-  · <span title="Output tokens">out: 3 tok</span>
-  · <span title="Latens">3.7s</span>
-</div></div>
+<div class="cell-stats" title="reas:205 tok (api) · out:3 tok · 551 chars · 3.71s">r:205 o:3 551ch · 3.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3658,18 +3427,11 @@ Svaret skal være ét tal: 168.</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span>
-  <span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
+  <span class="corr" style="color:#22c55e" title="Found 168">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 182 tok</span>
-  · <span title="Reasoning tegn">729 chars</span>
-  · <span title="Output tokens">out: 65 tok</span>
-  · <span title="Latens">5.7s</span>
-</div></div>
+<div class="cell-stats" title="reas:182 tok (api) · out:65 tok · 729 chars · 5.65s">r:182 o:65 729ch · 5.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3750,18 +3512,11 @@ So the answer should be just 168.</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span>
-  <span class="score-leg" title="Redundans 2.5/5 · Koherens 5/5">r:2.5 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
+  <span class="corr" style="color:#22c55e" title="Found 168">✓</span><span class="score-leg" title="Redundans 2.5/5 · Koherens 5/5">r:2.5 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 114 tok</span>
-  · <span title="Reasoning tegn">452 chars</span>
-  · <span title="Output tokens">out: 15 tok</span>
-  · <span title="Latens">17.1s</span>
-</div></div>
+<div class="cell-stats" title="reas:114 tok (api) · out:15 tok · 452 chars · 17.11s">r:114 o:15 452ch · 17.1s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3824,18 +3579,11 @@ So the answer should be just 168.</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#94a3b8;color:#fff" title="Regime: count_only">cnt</span>
-  <span class="ts-badge ts-count_only" title="trace_status: count_only">count_only</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
+  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   <span class="corr" style="color:#22c55e" title="Found 168">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 51 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 7 tok</span>
-  · <span title="Latens">3.5s</span>
-</div></div>
+<div class="cell-stats" title="reas:51 tok (api) · out:7 tok · 0 chars · 3.53s">r:51 o:7 0ch · 3.5s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3876,18 +3624,11 @@ So the answer should be just 168.</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="corr" style="color:#22c55e" title="Found 168">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 48 tok</span>
-  · <span title="Reasoning tegn">172 chars</span>
-  · <span title="Output tokens">out: 144 tok</span>
-  · <span title="Latens">4.3s</span>
-</div></div>
+<div class="cell-stats" title="reas:48 tok (api) · out:144 tok · 172 chars · 4.27s">r:48 o:144 172ch · 4.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -3939,18 +3680,11 @@ Total = 48 + 120 = 168 minutes</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#86efac;color:#fff" title="Regime: raw_anchor">raw-a</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span>
-  <span class="score-leg" title="Redundans 1/5 · Koherens 4.5/5">r:1 c:4.5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
+  <span class="corr" style="color:#22c55e" title="Found 168">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 4.5/5">r:1 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 345 tok</span>
-  · <span title="Reasoning tegn">767 chars</span>
-  · <span title="Output tokens">out: 4 tok</span>
-  · <span title="Latens">32.0s</span>
-</div></div>
+<div class="cell-stats" title="reas:345 tok (api) · out:4 tok · 767 chars · 32.04s">r:345 o:4 767ch · 32.0s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4036,18 +3770,11 @@ Total = 48 + 120 = 168 minutes</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="corr" style="color:#22c55e" title="Found 168">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 66 tok</span>
-  · <span title="Reasoning tegn">261 chars</span>
-  · <span title="Output tokens">out: 116 tok</span>
-  · <span title="Latens">5.3s</span>
-</div></div>
+<div class="cell-stats" title="reas:66 tok (api) · out:116 tok · 261 chars · 5.31s">r:66 o:116 261ch · 5.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4093,18 +3820,11 @@ Beregning:
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  <span class="corr" style="color:#22c55e" title="Found 168">✓</span>
-  <span class="score-leg" title="Redundans 3/5 · Koherens 5/5">r:3 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
+  <span class="corr" style="color:#22c55e" title="Found 168">✓</span><span class="score-leg" title="Redundans 3/5 · Koherens 5/5">r:3 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 344 tok</span>
-  · <span title="Reasoning tegn">1,274 chars</span>
-  · <span title="Output tokens">out: 473 tok</span>
-  · <span title="Latens">8.7s</span>
-</div></div>
+<div class="cell-stats" title="reas:344 tok (api) · out:473 tok · 1,274 chars · 8.71s">r:344 o:473 1.3kch · 8.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4195,18 +3915,11 @@ Tid = afstand / hastighed. Så første del tid: 120 / 150 = 0,8 timer. 0,8 timer
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="1 sprogskift">⚡1</span></span>
-  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span>
-  <span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="1 sprogskift">⚡1</span></span>
+  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 477 tok</span>
-  · <span title="Reasoning tegn">1,355 chars</span>
-  · <span title="Output tokens">out: 42 tok</span>
-  · <span title="Latens">11.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:477 tok (api) · out:42 tok · 1,355 chars · 11.56s">r:477 o:42 1.4kch · 11.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4298,18 +4011,11 @@ So the complete order is David, Anna, Bo, Clara.</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span>
-  <span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
+  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 251 tok</span>
-  · <span title="Reasoning tegn">929 chars</span>
-  · <span title="Output tokens">out: 114 tok</span>
-  · <span title="Latens">5.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:251 tok (api) · out:114 tok · 929 chars · 5.63s">r:251 o:114 929ch · 5.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4401,18 +4107,11 @@ So the order from 1 to 4 is: David, Anna, Bo, Clara.</pre>
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span>
-  <span class="score-leg" title="Redundans 2/5 · Koherens 5/5">r:2 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
+  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 5/5">r:2 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 201 tok</span>
-  · <span title="Reasoning tegn">749 chars</span>
-  · <span title="Output tokens">out: 87 tok</span>
-  · <span title="Latens">15.2s</span>
-</div></div>
+<div class="cell-stats" title="reas:201 tok (api) · out:87 tok · 749 chars · 15.18s">r:201 o:87 749ch · 15.2s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4489,18 +4188,11 @@ Den eneste mulighed er derfor:
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#94a3b8;color:#fff" title="Regime: count_only">cnt</span>
-  <span class="ts-badge ts-count_only" title="trace_status: count_only">count_only</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
+  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 147 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 29 tok</span>
-  · <span title="Latens">3.5s</span>
-</div></div>
+<div class="cell-stats" title="reas:147 tok (api) · out:29 tok · 0 chars · 3.49s">r:147 o:29 0ch · 3.5s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4546,18 +4238,11 @@ Den eneste mulighed er derfor:
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="corr" style="color:#22c55e" title="Name order: david, anna, bo, clara">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 98 tok</span>
-  · <span title="Reasoning tegn">356 chars</span>
-  · <span title="Output tokens">out: 260 tok</span>
-  · <span title="Latens">8.2s</span>
-</div></div>
+<div class="cell-stats" title="reas:98 tok (api) · out:260 tok · 356 chars · 8.16s">r:98 o:260 356ch · 8.2s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4638,18 +4323,11 @@ Det passer præcist ind på pladserne 2, 3 og 4.
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#86efac;color:#fff" title="Regime: raw_anchor">raw-a</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span>
-  <span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
+  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span><span class="score-leg" title="Redundans 1/5 · Koherens 5/5">r:1 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 225 tok</span>
-  · <span title="Reasoning tegn">811 chars</span>
-  · <span title="Output tokens">out: 147 tok</span>
-  · <span title="Latens">12.2s</span>
-</div></div>
+<div class="cell-stats" title="reas:225 tok (api) · out:147 tok · 811 chars · 12.23s">r:225 o:147 811ch · 12.2s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4748,18 +4426,11 @@ Det passer præcist ind på pladserne 2, 3 og 4.
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="corr" style="color:#22c55e" title="Name order: david, anna, bo, clara">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 63 tok</span>
-  · <span title="Reasoning tegn">251 chars</span>
-  · <span title="Output tokens">out: 378 tok</span>
-  · <span title="Latens">6.9s</span>
-</div></div>
+<div class="cell-stats" title="reas:63 tok (api) · out:378 tok · 251 chars · 6.90s">r:63 o:378 251ch · 6.9s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4827,18 +4498,11 @@ Det giver kun én mulig rækkefølge for de tre pladser:
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span>
-  <span class="score-leg" title="Redundans 4/5 · Koherens 4.5/5">r:4 c:4.5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
+  <span class="corr" style="color:#22c55e" title="Numbered list: david, anna, bo, clara">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 4.5/5">r:4 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 909 tok</span>
-  · <span title="Reasoning tegn">3,247 chars</span>
-  · <span title="Output tokens">out: 251 tok</span>
-  · <span title="Latens">19.2s</span>
-</div></div>
+<div class="cell-stats" title="reas:909 tok (api) · out:251 tok · 3,247 chars · 19.23s">r:909 o:251 3.2kch · 19.2s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -4942,18 +4606,11 @@ Alle fire er placeret. Der er ingen andre muligheder. Så dette skal være løsn
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span>
-  <span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
+  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span><span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 162 tok</span>
-  · <span title="Reasoning tegn">452 chars</span>
-  · <span title="Output tokens">out: 36 tok</span>
-  · <span title="Latens">4.9s</span>
-</div></div>
+<div class="cell-stats" title="reas:162 tok (api) · out:36 tok · 452 chars · 4.87s">r:162 o:36 452ch · 4.9s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5033,18 +4690,11 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span>
-  <span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
+  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span><span class="score-leg" title="Redundans 1.5/5 · Koherens 5/5">r:1.5 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 307 tok</span>
-  · <span title="Reasoning tegn">1,114 chars</span>
-  · <span title="Output tokens">out: 67 tok</span>
-  · <span title="Latens">9.4s</span>
-</div></div>
+<div class="cell-stats" title="reas:307 tok (api) · out:67 tok · 1,114 chars · 9.45s">r:307 o:67 1.1kch · 9.4s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5144,18 +4794,11 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span>
-  <span class="score-leg" title="Redundans 3.5/5 · Koherens 4/5">r:3.5 c:4</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
+  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span><span class="score-leg" title="Redundans 3.5/5 · Koherens 4/5">r:3.5 c:4</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 131 tok</span>
-  · <span title="Reasoning tegn">517 chars</span>
-  · <span title="Output tokens">out: 52 tok</span>
-  · <span title="Latens">8.8s</span>
-</div></div>
+<div class="cell-stats" title="reas:131 tok (api) · out:52 tok · 517 chars · 8.82s">r:131 o:52 517ch · 8.8s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5218,18 +4861,11 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#94a3b8;color:#fff" title="Regime: count_only">cnt</span>
-  <span class="ts-badge ts-count_only" title="trace_status: count_only">count_only</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
+  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 48 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 30 tok</span>
-  · <span title="Latens">2.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:48 tok (api) · out:30 tok · 0 chars · 2.61s">r:48 o:30 0ch · 2.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5270,18 +4906,11 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 11 tok</span>
-  · <span title="Reasoning tegn">44 chars</span>
-  · <span title="Output tokens">out: 48 tok</span>
-  · <span title="Latens">1.9s</span>
-</div></div>
+<div class="cell-stats" title="reas:11 tok (api) · out:48 tok · 44 chars · 1.94s">r:11 o:48 44ch · 1.9s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5324,18 +4953,11 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#86efac;color:#fff" title="Regime: raw_anchor">raw-a</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span>
-  <span class="score-leg" title="Redundans 2/5 · Koherens 5/5">r:2 c:5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
+  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span><span class="score-leg" title="Redundans 2/5 · Koherens 5/5">r:2 c:5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 224 tok</span>
-  · <span title="Reasoning tegn">802 chars</span>
-  · <span title="Output tokens">out: 107 tok</span>
-  · <span title="Latens">10.5s</span>
-</div></div>
+<div class="cell-stats" title="reas:224 tok (api) · out:107 tok · 802 chars · 10.47s">r:224 o:107 802ch · 10.5s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5431,18 +5053,11 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-absent" title="trace_status: absent">absent</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
+  <span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 0 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 57 tok</span>
-  · <span title="Latens">1.5s</span>
-</div></div>
+<div class="cell-stats" title="reas:0 tok (api) · out:57 tok · 0 chars · 1.53s">r:0 o:57 0ch · 1.5s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5490,18 +5105,11 @@ Så JSON-outputtet skal være præcis det. Vi skal kun returnere JSON, intet and
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span>
-  <span class="score-leg" title="Redundans 3/5 · Koherens 4.5/5">r:3 c:4.5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
+  <span class="corr" style="color:#22c55e" title="JSON correct: {&quot;navn&quot;: &quot;Mette Sørensen&quot;, &quot;alder&quot;: 34, &quot;by&quot;: &quot;Odense&quot;, &quot;abonnement&quot;: &quot;premium&quot;}">✓</span><span class="score-leg" title="Redundans 3/5 · Koherens 4.5/5">r:3 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 541 tok</span>
-  · <span title="Reasoning tegn">1,912 chars</span>
-  · <span title="Output tokens">out: 128 tok</span>
-  · <span title="Latens">11.7s</span>
-</div></div>
+<div class="cell-stats" title="reas:541 tok (api) · out:128 tok · 1,912 chars · 11.74s">r:541 o:128 1.9kch · 11.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5616,18 +5224,11 @@ Jeg skal blot sikre mig, at der ikke er nogen ekstra karakterer eller forklaring
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing &#x27;største = 0&#x27; fails for lists with only negative numbers and provides the correct fix of initializing it to &#x27;tal[0]&#x27;.">✓</span>
-  <span class="score-leg" title="Redundans 4/5 · Koherens 4/5">r:4 c:4</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
+  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing &#x27;største = 0&#x27; fails for lists with only negative numbers and provides the correct fix of initializing it to &#x27;tal[0]&#x27;.">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 4/5">r:4 c:4</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 895 tok</span>
-  · <span title="Reasoning tegn">3,372 chars</span>
-  · <span title="Output tokens">out: 362 tok</span>
-  · <span title="Latens">18.0s</span>
-</div></div>
+<div class="cell-stats" title="reas:895 tok (api) · out:362 tok · 3,372 chars · 18.02s">r:895 o:362 3.4kch · 18.0s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5727,18 +5328,11 @@ Man kan yderligere optimere ved at iterere fra indeks 1 (`for t in tal[1:]:`), m
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies the initialization bug with negative numbers and provides the exact fix required by the grading key.">✓</span>
-  <span class="score-leg" title="Redundans 3.5/5 · Koherens 4.5/5">r:3.5 c:4.5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="4 sprogskift">⚡4</span></span>
+  <span class="corr" style="color:#22c55e" title="The student correctly identifies the initialization bug with negative numbers and provides the exact fix required by the grading key.">✓</span><span class="score-leg" title="Redundans 3.5/5 · Koherens 4.5/5">r:3.5 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 837 tok</span>
-  · <span title="Reasoning tegn">3,076 chars</span>
-  · <span title="Output tokens">out: 388 tok</span>
-  · <span title="Latens">9.0s</span>
-</div></div>
+<div class="cell-stats" title="reas:837 tok (api) · out:388 tok · 3,076 chars · 9.00s">r:837 o:388 3.1kch · 9.0s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5860,18 +5454,11 @@ med:
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing to 0 fails for lists with only negative numbers, and provides the correct fix of initializing the variable with the first element of the list.">✓</span>
-  <span class="score-leg" title="Redundans 4/5 · Koherens 3.5/5">r:4 c:3.5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
+  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing to 0 fails for lists with only negative numbers, and provides the correct fix of initializing the variable with the first element of the list.">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 3.5/5">r:4 c:3.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 783 tok</span>
-  · <span title="Reasoning tegn">2,981 chars</span>
-  · <span title="Output tokens">out: 310 tok</span>
-  · <span title="Latens">29.2s</span>
-</div></div>
+<div class="cell-stats" title="reas:783 tok (api) · out:310 tok · 2,981 chars · 29.19s">r:783 o:310 3.0kch · 29.2s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -5998,18 +5585,11 @@ største = tal[0]
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#94a3b8;color:#fff" title="Regime: count_only">cnt</span>
-  <span class="ts-badge ts-count_only" title="trace_status: count_only">count_only</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
+  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing the variable to 0 fails for lists with only negative numbers and provides the correct fix of initializing it to the first element of the list.">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 516 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 178 tok</span>
-  · <span title="Latens">11.7s</span>
-</div></div>
+<div class="cell-stats" title="reas:516 tok (api) · out:178 tok · 0 chars · 11.65s">r:516 o:178 0ch · 11.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -6083,18 +5663,11 @@ Bemærk: Dette forudsætter, at listen ikke er tom. En tom liste har ikke noget 
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing to 0 fails for lists with only negative numbers and provides the correct fix of initializing to the first element of the list.">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 82 tok</span>
-  · <span title="Reasoning tegn">316 chars</span>
-  · <span title="Output tokens">out: 442 tok</span>
-  · <span title="Latens">10.8s</span>
-</div></div>
+<div class="cell-stats" title="reas:82 tok (api) · out:442 tok · 316 chars · 10.81s">r:82 o:442 316ch · 10.8s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -6185,18 +5758,11 @@ største = float(&#x27;-inf&#x27;)       # ← Alternativ rettelse
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#86efac;color:#fff" title="Regime: raw_anchor">raw-a</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing to 0 fails for lists with only negative numbers and provides the correct fix of initializing the variable to the first element of the list.">✓</span>
-  <span class="score-leg" title="Redundans 1.5/5 · Koherens 4.5/5">r:1.5 c:4.5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
+  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing to 0 fails for lists with only negative numbers and provides the correct fix of initializing the variable to the first element of the list.">✓</span><span class="score-leg" title="Redundans 1.5/5 · Koherens 4.5/5">r:1.5 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 603 tok</span>
-  · <span title="Reasoning tegn">2,242 chars</span>
-  · <span title="Output tokens">out: 401 tok</span>
-  · <span title="Latens">40.4s</span>
-</div></div>
+<div class="cell-stats" title="reas:603 tok (api) · out:401 tok · 2,242 chars · 40.43s">r:603 o:401 2.2kch · 40.4s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -6323,18 +5889,11 @@ def find_største(tal):
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing &#x27;største = 0&#x27; fails for lists with only negative numbers and provides the correct fix of initializing it to &#x27;tal[0]&#x27;.">✓</span>
-  
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 41 tok</span>
-  · <span title="Reasoning tegn">163 chars</span>
-  · <span title="Output tokens">out: 564 tok</span>
-  · <span title="Latens">13.1s</span>
-</div></div>
+<div class="cell-stats" title="reas:41 tok (api) · out:564 tok · 163 chars · 13.11s">r:41 o:564 163ch · 13.1s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -6436,18 +5995,11 @@ I praksis kan man i Python blot bruge den indbyggede funktion `max(tal)`, som h�
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing the variable to 0 fails for lists with only negative numbers and provides the correct fix of initializing it to the first element of the list.">✓</span>
-  <span class="score-leg" title="Redundans 4/5 · Koherens 4.5/5">r:4 c:4.5</span>
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
+  <span class="corr" style="color:#22c55e" title="The student correctly identifies that initializing the variable to 0 fails for lists with only negative numbers and provides the correct fix of initializing it to the first element of the list.">✓</span><span class="score-leg" title="Redundans 4/5 · Koherens 4.5/5">r:4 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1091 tok</span>
-  · <span title="Reasoning tegn">3,917 chars</span>
-  · <span title="Output tokens">out: 299 tok</span>
-  · <span title="Latens">23.5s</span>
-</div></div>
+<div class="cell-stats" title="reas:1091 tok (api) · out:299 tok · 3,917 chars · 23.45s">r:1.1k o:299 3.9kch · 23.5s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -6556,18 +6108,11 @@ Denne ændring sikrer, at funktionen korrekt identificerer det største tal i li
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
   <span class="score-leg" title="Redundans 3/5 · Koherens 4.5/5">r:3 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1040 tok</span>
-  · <span title="Reasoning tegn">3,917 chars</span>
-  · <span title="Output tokens">out: 2735 tok</span>
-  · <span title="Latens">50.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:1040 tok (api) · out:2735 tok · 3,917 chars · 50.57s">r:1.0k o:2.7k 3.9kch · 50.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -6726,18 +6271,11 @@ Samlet set er den **mest ansvarlige retning for en dansk kommune** at investere 
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
   <span class="score-leg" title="Redundans 2/5 · Koherens 4.5/5">r:2 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1433 tok</span>
-  · <span title="Reasoning tegn">5,530 chars</span>
-  · <span title="Output tokens">out: 1550 tok</span>
-  · <span title="Latens">37.4s</span>
-</div></div>
+<div class="cell-stats" title="reas:1433 tok (api) · out:1550 tok · 5,530 chars · 37.39s">r:1.4k o:1.6k 5.5kch · 37.4s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Stramt trace — lav redundans, høj koherens</div>
@@ -6888,18 +6426,11 @@ Ved at investere i selv-hostede (eller EU-hostede) åbne modeller sikrer kommune
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="3 sprogskift">⚡3</span></span>
   <span class="score-leg" title="Redundans 3.5/5 · Koherens 4/5">r:3.5 c:4</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 2122 tok</span>
-  · <span title="Reasoning tegn">8,830 chars</span>
-  · <span title="Output tokens">out: 1798 tok</span>
-  · <span title="Latens">65.1s</span>
-</div></div>
+<div class="cell-stats" title="reas:2122 tok (api) · out:1798 tok · 8,830 chars · 65.10s">r:2.1k o:1.8k 8.8kch · 65.1s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Udskydende trace</div>
@@ -7086,18 +6617,11 @@ Dette anbefales især, hvis kommunen har en levedygtig it-afdeling eller mulighe
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#94a3b8;color:#fff" title="Regime: count_only">cnt</span>
-  <span class="ts-badge ts-count_only" title="trace_status: count_only">count_only</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
-  
+  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 516 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 2028 tok</span>
-  · <span title="Latens">92.3s</span>
-</div></div>
+<div class="cell-stats" title="reas:516 tok (api) · out:2028 tok · 0 chars · 92.34s">r:516 o:2.0k 0ch · 92.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -7250,18 +6774,11 @@ Et amerikansk API kan være hurtigere og teknisk stærkere, men indebærer stør
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 80 tok</span>
-  · <span title="Reasoning tegn">312 chars</span>
-  · <span title="Output tokens">out: 1134 tok</span>
-  · <span title="Latens">28.4s</span>
-</div></div>
+<div class="cell-stats" title="reas:80 tok (api) · out:1134 tok · 312 chars · 28.39s">r:80 o:1.1k 312ch · 28.4s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -7370,18 +6887,11 @@ Den politiske og juridiske risiko ved at behandle borgernes data hos amerikanske
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#86efac;color:#fff" title="Regime: raw_anchor">raw-a</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="score-leg" title="Redundans 3/5 · Koherens 4.5/5">r:3 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 755 tok</span>
-  · <span title="Reasoning tegn">2,906 chars</span>
-  · <span title="Output tokens">out: 1651 tok</span>
-  · <span title="Latens">116.1s</span>
-</div></div>
+<div class="cell-stats" title="reas:755 tok (api) · out:1651 tok · 2,906 chars · 116.13s">r:755 o:1.7k 2.9kch · 116.1s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -7546,18 +7056,11 @@ Det mest fornuftige valg for en moderne kommune vil være en **trinvis strategi*
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-absent" title="trace_status: absent">absent</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
-  
+  <span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 0 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 1067 tok</span>
-  · <span title="Latens">24.3s</span>
-</div></div>
+<div class="cell-stats" title="reas:0 tok (api) · out:1067 tok · 0 chars · 24.27s">r:0 o:1.1k 0ch · 24.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   <div class="curated-note">★ Adaptive nul — 0 reasoning-tokens; model sprang tænkning over</div>
@@ -7639,18 +7142,11 @@ Vil du have, at jeg uddyber en af mellemvejene eller de juridiske aspekter?</pre
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
   <span class="score-leg" title="Redundans 2.5/5 · Koherens 4.5/5">r:2.5 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 2265 tok</span>
-  · <span title="Reasoning tegn">8,282 chars</span>
-  · <span title="Output tokens">out: 2343 tok</span>
-  · <span title="Latens">76.3s</span>
-</div></div>
+<div class="cell-stats" title="reas:2265 tok (api) · out:2343 tok · 8,282 chars · 76.33s">r:2.3k o:2.3k 8.3kch · 76.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -7917,18 +7413,11 @@ En dansk kommunes valg mellem at **selv-hoste en åben sproglig model** (f.eks. 
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
   <span class="score-leg" title="Redundans 1.5/5 · Koherens 4.5/5">r:1.5 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1090 tok</span>
-  · <span title="Reasoning tegn">3,361 chars</span>
-  · <span title="Output tokens">out: 741 tok</span>
-  · <span title="Latens">36.3s</span>
-</div></div>
+<div class="cell-stats" title="reas:1090 tok (api) · out:741 tok · 3,361 chars · 36.28s">r:1.1k o:741 3.4kch · 36.3s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -8018,18 +7507,11 @@ En velbygget intern vidensbase, der indekserer og strukturerer virksomhedens sam
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en<span class="sw-warn" title="2 sprogskift">⚡2</span></span>
   <span class="score-leg" title="Redundans 3.5/5 · Koherens 4.5/5">r:3.5 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1156 tok</span>
-  · <span title="Reasoning tegn">4,438 chars</span>
-  · <span title="Output tokens">out: 774 tok</span>
-  · <span title="Latens">59.7s</span>
-</div></div>
+<div class="cell-stats" title="reas:1156 tok (api) · out:774 tok · 4,438 chars · 59.73s">r:1.2k o:774 4.4kch · 59.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -8153,18 +7635,11 @@ Ved at vælge **(a)** etablerer virksomheden en fundament datastrategi og AI-kul
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="score-leg" title="Redundans 3/5 · Koherens 4.5/5">r:3 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 1078 tok</span>
-  · <span title="Reasoning tegn">4,313 chars</span>
-  · <span title="Output tokens">out: 983 tok</span>
-  · <span title="Latens">132.0s</span>
-</div></div>
+<div class="cell-stats" title="reas:1078 tok (api) · out:983 tok · 4,313 chars · 131.99s">r:1.1k o:983 4.3kch · 132.0s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -8364,18 +7839,11 @@ Selvom ideen er attraktiv, er en dansk stemmebaseret kundeserviceassistent:
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#94a3b8;color:#fff" title="Regime: count_only">cnt</span>
-  <span class="ts-badge ts-count_only" title="trace_status: count_only">count_only</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
-  
+  <span class="ts-badge ts-count_only" title="trace_status: count_only (api)">cnt</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 516 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 985 tok</span>
-  · <span title="Latens">48.7s</span>
-</div></div>
+<div class="cell-stats" title="reas:516 tok (api) · out:985 tok · 0 chars · 48.72s">r:516 o:985 0ch · 48.7s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -8460,18 +7928,11 @@ Virksomheden bør prioritere **automatiske udkast til kundesvar**, fordi det giv
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-summarized" title="trace_status: summarized">summarized</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  
+  <span class="ts-badge ts-summarized" title="trace_status: summarized (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 89 tok</span>
-  · <span title="Reasoning tegn">349 chars</span>
-  · <span title="Output tokens">out: 910 tok</span>
-  · <span title="Latens">23.1s</span>
-</div></div>
+<div class="cell-stats" title="reas:89 tok (api) · out:910 tok · 349 chars · 23.12s">r:89 o:910 349ch · 23.1s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -8565,18 +8026,11 @@ Nu:      (b) Kundesvarudkast    → bevis ROI, byg AI-kompetence internt
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#86efac;color:#fff" title="Regime: raw_anchor">raw-a</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">en</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw-a</span>
+  <span class="lang-flag" title="Primær sporsprog: en">en</span>
   <span class="score-leg" title="Redundans 4/5 · Koherens 4.5/5">r:4 c:4.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 953 tok</span>
-  · <span title="Reasoning tegn">3,658 chars</span>
-  · <span title="Output tokens">out: 943 tok</span>
-  · <span title="Latens">41.6s</span>
-</div></div>
+<div class="cell-stats" title="reas:953 tok (api) · out:943 tok · 3,658 chars · 41.63s">r:953 o:943 3.7kch · 41.6s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -8720,18 +8174,11 @@ Dette er den mest risikable og dyre løsning.
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#f59e0b;color:#fff" title="Regime: summarized">sum</span>
-  <span class="ts-badge ts-absent" title="trace_status: absent">absent</span>
-  <span class="lang-flag" title="Primær sporsprog">—</span>
-  
+  <span class="ts-badge ts-absent" title="trace_status: absent (api)">sum</span>
+  <span class="lang-flag" title="Primær sporsprog: —">—</span>
   
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 52 tok</span>
-  · <span title="Reasoning tegn">0 chars</span>
-  · <span title="Output tokens">out: 1152 tok</span>
-  · <span title="Latens">28.2s</span>
-</div></div>
+<div class="cell-stats" title="reas:52 tok (api) · out:1152 tok · 0 chars · 28.17s">r:52 o:1.2k 0ch · 28.2s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   
@@ -8810,18 +8257,11 @@ Hvis du fortæller mig mere om jeres største flaskehals og jeres datas tilstand
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
-  <span class="badge" style="background:#22c55e;color:#fff" title="Regime: raw">raw</span>
-  <span class="ts-badge ts-raw" title="trace_status: raw">raw</span>
-  <span class="lang-flag" title="Primær sporsprog">da</span>
-  
+  <span class="ts-badge ts-raw" title="trace_status: raw (api)">raw</span>
+  <span class="lang-flag" title="Primær sporsprog: da">da</span>
   <span class="score-leg" title="Redundans 4/5 · Koherens 3.5/5">r:4 c:3.5</span>
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens (api)">reas: 3584 tok</span>
-  · <span title="Reasoning tegn">12,986 chars</span>
-  · <span title="Output tokens">out: 1024 tok</span>
-  · <span title="Latens">71.8s</span>
-</div></div>
+<div class="cell-stats" title="reas:3584 tok (api) · out:1024 tok · 12,986 chars · 71.77s">r:3.6k o:1.0k 13.0kch · 71.8s</div></div>
     <div class="expanded" style="display:none">
 <div class="expanded-body">
   

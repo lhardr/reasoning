@@ -170,21 +170,20 @@ def render_cell(model: str, prompt: str) -> str:
     # Reasoning chars
     reas_chars = len(trace)
 
+    # Compact number formatting
+    def fmt(n: int) -> str:
+        return f"{n/1000:.1f}k" if n >= 1000 else str(n)
+
     # ── COLLAPSED (always visible) ──────────────────────────────────────────
+    # Single status badge (regime_b is redundant when ts matches regime label)
+    stats_tip = f"reas:{reas_tok} tok ({reas_src}) · out:{out_tok} tok · {reas_chars:,} chars · {lat:.2f}s"
     collapsed = f"""
 <div class="cell-header">
-  {regime_b}
-  <span class="ts-badge ts-{ts}" title="trace_status: {ts}">{ts}</span>
-  <span class="lang-flag" title="Primær sporsprog">{esc(lang)}{sw_flag}</span>
-  {corr_html}
-  {leg_html}
+  <span class="ts-badge ts-{ts}" title="trace_status: {ts} ({reas_src})">{esc(rb_text)}</span>
+  <span class="lang-flag" title="Primær sporsprog: {esc(lang)}">{esc(lang)}{sw_flag}</span>
+  {corr_html}{leg_html}
 </div>
-<div class="cell-stats">
-  <span title="Reasoning tokens ({reas_src})">reas: {reas_tok} tok</span>
-  · <span title="Reasoning tegn">{reas_chars:,} chars</span>
-  · <span title="Output tokens">out: {out_tok} tok</span>
-  · <span title="Latens">{lat:.1f}s</span>
-</div>"""
+<div class="cell-stats" title="{esc(stats_tip)}">r:{fmt(reas_tok)} o:{fmt(out_tok)} {fmt(reas_chars)}ch · {lat:.1f}s</div>"""
 
     # ── EXPANDED (hidden until click) ────────────────────────────────────────
     # Regime warning
@@ -551,7 +550,7 @@ a { color: #60a5fa; }
 .header-row th {
   position: sticky; top: 120px; z-index: 10;
   background: #161b27; padding: 6px 8px; text-align: center;
-  font-size: 12px; white-space: nowrap; min-width: 190px; max-width: 190px;
+  font-size: 12px; white-space: nowrap; min-width: 170px; max-width: 170px;
 }
 .header-row .corner-cell {
   position: sticky; left: 0; top: 120px; z-index: 20;
@@ -573,7 +572,7 @@ a { color: #60a5fa; }
 
 /* Cell */
 .cell {
-  min-width: 190px; max-width: 190px; width: 190px;
+  min-width: 160px; max-width: 160px; width: 160px;
   padding: 0; vertical-align: top;
 }
 .cell-inner {
@@ -618,8 +617,8 @@ a { color: #60a5fa; }
 .sw-warn   { color: #f59e0b; margin-left: 2px; font-size: 10px; }
 
 /* Cell stats */
-.cell-header { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin-bottom: 3px; }
-.cell-stats { color: #64748b; font-size: 10px; }
+.cell-header { display: flex; align-items: center; flex-wrap: nowrap; gap: 3px; margin-bottom: 3px; overflow: hidden; }
+.cell-stats { color: #64748b; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .corr   { font-weight: 700; font-size: 12px; margin-left: 2px; }
 .score-leg { font-size: 10px; color: #a78bfa; }
 
@@ -678,8 +677,8 @@ a { color: #60a5fa; }
 
 /* Responsive */
 @media (max-width: 900px) {
-  .header-row th { min-width: 160px; max-width: 160px; }
-  .cell { min-width: 160px; max-width: 160px; width: 160px; }
+  .header-row th { min-width: 140px; max-width: 140px; }
+  .cell { min-width: 140px; max-width: 140px; width: 140px; }
 }
 """
 
