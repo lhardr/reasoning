@@ -64,7 +64,10 @@ DOES NOT count as redundancy (the floor):
 
 DOES count as redundancy (waste, above the floor):
 - Re-deciding: the same conclusion stated 3+ times, or an already-decided question
-  re-opened (e.g. a "Correction" that revisits a recommendation already made)
+  re-opened (e.g. a "Correction" that revisits a recommendation already made).
+  Re-deciding includes stating the SAME recommendation across multiple sections (e.g. a
+  "Winner", then "Refined Choice", then "Recommendation", then "Reasoning" section that
+  each re-assert the same choice) — that is redundancy, not structure.
 - Circling: returning to the same point with no new information
 - Meta-padding: commentary about what a good answer SHOULD contain, that doesn't itself do
   the reasoning
@@ -92,6 +95,10 @@ Do the reasoning steps build logically on each other?
 Higher score = more coherent = better legibility on this dimension.
 
 ─── OUTPUT ─────────────────────────────────────────────────────────────────────
+REDUNDANCY is the PRIMARY legibility signal — score it carefully.
+COHERENCE is a SECONDARY axis — score it, but note it may not discriminate on
+highly structured traces.
+
 Respond ONLY with valid JSON in exactly this structure. No other text before or after.
 Both scores MUST appear before the justifications so a truncated response still yields scores.
 

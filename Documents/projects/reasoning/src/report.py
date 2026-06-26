@@ -204,8 +204,11 @@ def generate_validation_html(
             sd_v = _stddev(vals)
             mn, mx = min(vals), max(vals)
             n = len(vals)
+            secondary_note = ""
+            if dim == "coherence" and var_v < 0.1:
+                secondary_note = " <span style='color:#856404;font-size:.8rem'>SECONDARY — non-discriminating (var≈0)</span>"
             var_rows.append(
-                f"<tr><td>{html.escape(j_key)}</td><td>{dim}</td>"
+                f"<tr><td>{html.escape(j_key)}</td><td>{dim}{secondary_note}</td>"
                 f"<td class='num'>{n}</td>"
                 f"<td class='num'>{mean_v:.2f}</td>"
                 f"<td class='num'>{var_v:.2f}</td>"
@@ -215,6 +218,9 @@ def generate_validation_html(
 
     html_out += [
         "<h2>Score Variance per Judge per Dimension</h2>",
+        "<p><strong>PRIMARY signal: redundancy.</strong> "
+        "Coherence is <em>secondary — currently non-discriminating on the anchor set "
+        "(Gemini variance 0); do not read as a primary finding.</em></p>",
         "<table>",
         "<tr><th>Judge</th><th>Dimension</th><th>N</th>"
         "<th>Mean</th><th>Variance</th><th>SD</th><th>Range</th></tr>",
@@ -262,8 +268,14 @@ def print_variance_table(jsonl_path: pathlib.Path) -> None:
             mean_v = sum(vals) / n
             var_v = _variance(vals)
             sd_v = _stddev(vals)
+            flag = ""
+            if dim == "coherence" and var_v < 0.1:
+                flag = "  ← SECONDARY — non-discriminating (var≈0)"
             print(
                 f"  {j_key:<22}  {dim:<12}  {n:>3}  {mean_v:>5.2f}  "
                 f"{var_v:>5.2f}  {sd_v:>5.2f}  {int(min(vals)):>4}  {int(max(vals)):>4}"
+                f"{flag}"
             )
     print(f"{'═' * W}")
+    print("  PRIMARY signal: redundancy. Coherence is SECONDARY — currently non-discriminating")
+    print("  on the anchor set (Gemini variance 0); do not read as a primary finding.")
