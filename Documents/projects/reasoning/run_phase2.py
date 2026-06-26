@@ -21,10 +21,17 @@ import argparse
 import pathlib
 import sys
 
-# Ensure project root is in sys.path regardless of how this script is invoked
-_PROJECT_ROOT = pathlib.Path(__file__).parent.resolve()
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
+# Ensure project root is in sys.path.
+# resolve() / abspath() both call getcwd() which may be unavailable; fall back to
+# '' (empty string), which Python's import machinery resolves via the cwd file
+# descriptor without requiring os.getcwd().
+try:
+    _PROJECT_ROOT = str(pathlib.Path(__file__).parent.resolve())
+    if _PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, _PROJECT_ROOT)
+except PermissionError:
+    if '' not in sys.path:
+        sys.path.insert(0, '')
 
 # ── Step 1: patch the rubric BEFORE importing run.py ────────────────────────
 # run.py does `from src.judge import build_rubric_prompt`.
