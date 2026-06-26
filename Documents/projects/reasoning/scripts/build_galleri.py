@@ -334,8 +334,8 @@ def render_grid() -> str:
                       f'<span class="pid">{pid}</span>'
                       f'<br><span class="ptype" title="{esc(probe)}">{esc(ptype)}</span>'
                       f'<br><span class="pload">{esc(load)}</span>'
-                      f'<br><span class="ptext-prev" title="{esc(ptext_short)}">'
-                      f'{esc(ptext_short[:40])}…</span>'
+                      f'<span class="ptext-prev">{esc(ptext_short[:40])}…</span>'
+                      f'<span class="ptext-full">{esc(ptext)}</span>'
                       f'</th>')
 
         row_cells = row_header
@@ -428,13 +428,30 @@ function updateColWidth(model) {
   if (col) col.style.width = anyOpen ? COL_W_EXPANDED : COL_W_COLLAPSED;
 }
 
+function updatePromptCol() {
+  const anyOpen = !!document.querySelector('.prompt-header.row-open');
+  const col = document.getElementById('col-prompt');
+  if (col) col.style.width = anyOpen ? '220px' : '130px';
+}
+
 function toggleCell(inner) {
   const exp = inner.querySelector('.expanded');
   const isOpening = exp.style.display === 'none';
   exp.style.display = isOpening ? 'block' : 'none';
   inner.classList.toggle('open', isOpening);
+
+  // Expand data column
   const td = inner.closest('td.cell');
   if (td) updateColWidth(td.dataset.model);
+
+  // Reveal full prompt text in left column for this row
+  const row = inner.closest('tr.prompt-row');
+  if (row) {
+    const anyOpenInRow = !!row.querySelector('.cell-inner.open');
+    const ph = row.querySelector('.prompt-header');
+    if (ph) ph.classList.toggle('row-open', anyOpenInRow);
+    updatePromptCol();
+  }
 }
 
 function applyFilters() {
@@ -495,9 +512,10 @@ function collapseAll() {
     inner.querySelector('.expanded').style.display = 'none';
     inner.classList.remove('open');
   });
-  document.querySelectorAll('col[data-model]').forEach(col => {
-    col.style.width = COL_W_COLLAPSED;
-  });
+  document.querySelectorAll('.prompt-header').forEach(ph => ph.classList.remove('row-open'));
+  document.querySelectorAll('col[data-model]').forEach(col => col.style.width = COL_W_COLLAPSED);
+  const pc = document.getElementById('col-prompt');
+  if (pc) pc.style.width = '130px';
 }
 
 function expandAll() {
@@ -505,9 +523,10 @@ function expandAll() {
     inner.querySelector('.expanded').style.display = 'block';
     inner.classList.add('open');
   });
-  document.querySelectorAll('col[data-model]').forEach(col => {
-    col.style.width = COL_W_EXPANDED;
-  });
+  document.querySelectorAll('.prompt-header').forEach(ph => ph.classList.add('row-open'));
+  document.querySelectorAll('col[data-model]').forEach(col => col.style.width = COL_W_EXPANDED);
+  const pc = document.getElementById('col-prompt');
+  if (pc) pc.style.width = '220px';
 }
 
 // Wire up checkbox changes
@@ -598,6 +617,10 @@ a { color: #60a5fa; }
 .ptype { font-size: 10px; color: #60a5fa; font-weight: 600; }
 .pload { font-size: 10px; color: #94a3b8; }
 .ptext-prev { font-size: 10px; color: #475569; display: block; margin-top: 4px; }
+.ptext-full { display: none; font-size: 10px; color: #94a3b8; margin-top: 4px;
+  white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+.prompt-header.row-open .ptext-prev { display: none; }
+.prompt-header.row-open .ptext-full { display: block; }
 
 /* Cell — width controlled by <col>, no fixed constraints here */
 .cell {

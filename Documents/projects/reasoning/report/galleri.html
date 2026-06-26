@@ -82,6 +82,10 @@ a { color: #60a5fa; }
 .ptype { font-size: 10px; color: #60a5fa; font-weight: 600; }
 .pload { font-size: 10px; color: #94a3b8; }
 .ptext-prev { font-size: 10px; color: #475569; display: block; margin-top: 4px; }
+.ptext-full { display: none; font-size: 10px; color: #94a3b8; margin-top: 4px;
+  white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+.prompt-header.row-open .ptext-prev { display: none; }
+.prompt-header.row-open .ptext-full { display: block; }
 
 /* Cell — width controlled by <col>, no fixed constraints here */
 .cell {
@@ -238,7 +242,9 @@ a { color: #60a5fa; }
   <table class="gallery-grid" id="galleryGrid">
     <colgroup><col id="col-prompt" style="width:130px"><col id="col-deepseek_v4" data-model="deepseek_v4" style="width:160px"><col id="col-glm_5_2" data-model="glm_5_2" style="width:160px"><col id="col-kimi_k2_7" data-model="kimi_k2_7" style="width:160px"><col id="col-gpt_5_5" data-model="gpt_5_5" style="width:160px"><col id="col-claude_sonnet_4_6" data-model="claude_sonnet_4_6" style="width:160px"><col id="col-gemma_4" data-model="gemma_4" style="width:160px"><col id="col-opus_4_8" data-model="opus_4_8" style="width:160px"><col id="col-mistral_medium_3_5" data-model="mistral_medium_3_5" style="width:160px"></colgroup>
     <thead><tr class="header-row"><th class="corner-cell"></th><th class="model-header" data-model="deepseek_v4"><span title="deepseek_v4">deepseek</span><br><small>DeepSeek V4</small></th><th class="model-header" data-model="glm_5_2"><span title="glm_5_2">glm</span><br><small>GLM 5.2</small></th><th class="model-header" data-model="kimi_k2_7"><span title="kimi_k2_7">kimi</span><br><small>Kimi K2.7</small></th><th class="model-header" data-model="gpt_5_5"><span title="gpt_5_5">gpt-5.5</span><br><small>GPT-5.5</small></th><th class="model-header" data-model="claude_sonnet_4_6"><span title="claude_sonnet_4_6">sonnet</span><br><small>Claude Sonnet 4.6</small></th><th class="model-header" data-model="gemma_4"><span title="gemma_4">gemma</span><br><small>Gemma 4</small></th><th class="model-header" data-model="opus_4_8"><span title="opus_4_8">opus</span><br><small>Claude Opus 4.8</small></th><th class="model-header" data-model="mistral_medium_3_5"><span title="mistral_medium_3_5">mistral</span><br><small>Mistral Med 3.5</small></th></tr></thead>
-    <tbody><tr class="prompt-row" data-prompt="P1" data-type="da_natural_language"><th class="prompt-header" data-prompt="P1"><span class="pid">P1</span><br><span class="ptype" title="da_simple">da_natural_language</span><br><span class="pload">low</span><br><span class="ptext-prev" title="Forklar kort og i et venligt sprog, hvad en folkeregisteradresse er, og hvorfor ">Forklar kort og i et venligt sprog, hvad…</span></th><td class="cell curated" data-model="deepseek_v4" data-prompt="P1" data-type="da_natural_language" data-regime="raw" data-ts="raw">
+    <tbody><tr class="prompt-row" data-prompt="P1" data-type="da_natural_language"><th class="prompt-header" data-prompt="P1"><span class="pid">P1</span><br><span class="ptype" title="da_simple">da_natural_language</span><br><span class="pload">low</span><span class="ptext-prev">Forklar kort og i et venligt sprog, hvad…</span><span class="ptext-full">Forklar kort og i et venligt sprog, hvad en folkeregisteradresse er, og
+hvorfor man skal melde flytning til folkeregistret. Maksimalt 120 ord.
+</span></th><td class="cell curated" data-model="deepseek_v4" data-prompt="P1" data-type="da_natural_language" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
@@ -1335,7 +1341,11 @@ Lad os prøve dette:
 </div></div>
   </div>
 </td></tr>
-<tr class="prompt-row" data-prompt="P2" data-type="da_natural_language"><th class="prompt-header" data-prompt="P2"><span class="pid">P2</span><br><span class="ptype" title="da_simple">da_natural_language</span><br><span class="pload">low</span><br><span class="ptext-prev" title="Omskriv denne sætning til klart hverdagssprog, som en borger uden juridisk baggr">Omskriv denne sætning til klart hverdags…</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P2" data-type="da_natural_language" data-regime="raw" data-ts="raw">
+<tr class="prompt-row" data-prompt="P2" data-type="da_natural_language"><th class="prompt-header" data-prompt="P2"><span class="pid">P2</span><br><span class="ptype" title="da_simple">da_natural_language</span><br><span class="pload">low</span><span class="ptext-prev">Omskriv denne sætning til klart hverdags…</span><span class="ptext-full">Omskriv denne sætning til klart hverdagssprog, som en borger uden juridisk
+baggrund kan forstå: &quot;Ansøgeren skal senest fire uger efter afgørelsens
+meddelelse indgive eventuel klage til den myndighed, der har truffet
+afgørelsen, jf. forvaltningslovens regler herom.&quot;
+</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P2" data-type="da_natural_language" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
@@ -1955,7 +1965,11 @@ Jeg tror, det er den bedste version. Den er klar, enkel og forståelig for alle.
 </div></div>
   </div>
 </td></tr>
-<tr class="prompt-row" data-prompt="P3" data-type="da_legal"><th class="prompt-header" data-prompt="P3"><span class="pid">P3</span><br><span class="ptype" title="da_forcing">da_legal</span><br><span class="pload">high</span><br><span class="ptext-prev" title="En borger modtager en skriftlig afgørelse fra kommunen, meddelt fredag den 6. ma">En borger modtager en skriftlig afgørels…</span></th><td class="cell curated" data-model="deepseek_v4" data-prompt="P3" data-type="da_legal" data-regime="raw" data-ts="raw">
+<tr class="prompt-row" data-prompt="P3" data-type="da_legal"><th class="prompt-header" data-prompt="P3"><span class="pid">P3</span><br><span class="ptype" title="da_forcing">da_legal</span><br><span class="pload">high</span><span class="ptext-prev">En borger modtager en skriftlig afgørels…</span><span class="ptext-full">En borger modtager en skriftlig afgørelse fra kommunen, meddelt fredag den
+6. marts 2026. Klagefristen er fire uger fra meddelelsen. Borgerens klage er
+modtaget hos kommunen fredag den 3. april 2026. Er klagen rettidig?
+Begrund kort.
+</span></th><td class="cell curated" data-model="deepseek_v4" data-prompt="P3" data-type="da_legal" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
@@ -2645,7 +2659,12 @@ Klagefristen på fire uger udløber ved udgangen af **fredag den 3. april 2026**
 </div></div>
   </div>
 </td></tr>
-<tr class="prompt-row" data-prompt="P4" data-type="da_legal"><th class="prompt-header" data-prompt="P4"><span class="pid">P4</span><br><span class="ptype" title="da_forcing">da_legal</span><br><span class="pload">very_high</span><br><span class="ptext-prev" title="En kommune træffer afgørelse om at standse en borgers sygedagpenge. Borgeren ble">En kommune træffer afgørelse om at stand…</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P4" data-type="da_legal" data-regime="raw" data-ts="raw">
+<tr class="prompt-row" data-prompt="P4" data-type="da_legal"><th class="prompt-header" data-prompt="P4"><span class="pid">P4</span><br><span class="ptype" title="da_forcing">da_legal</span><br><span class="pload">very_high</span><span class="ptext-prev">En kommune træffer afgørelse om at stand…</span><span class="ptext-full">En kommune træffer afgørelse om at standse en borgers sygedagpenge.
+Borgeren blev ikke partshørt før afgørelsen, og afgørelsen indeholder ingen
+begrundelse. Borgeren havde oplysninger, der kunne have ændret udfaldet.
+Angiv hvilke to sagsbehandlingsregler kommunen har tilsidesat, og vurder
+kort, om afgørelsen som udgangspunkt er ugyldig.
+</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P4" data-type="da_legal" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
@@ -3347,7 +3366,9 @@ Afgørelsen er **som udgangspunkt ugyldig**, da overtrædelsen af begge regler (
 </div></div>
   </div>
 </td></tr>
-<tr class="prompt-row" data-prompt="P5" data-type="math"><th class="prompt-header" data-prompt="P5"><span class="pid">P5</span><br><span class="ptype" title="da_framed_neutral">math</span><br><span class="pload">high</span><br><span class="ptext-prev" title="Et tog kører de første 120 km med 150 km/t og derefter de sidste 180 km med 90 k">Et tog kører de første 120 km med 150 km…</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P5" data-type="math" data-regime="raw" data-ts="raw">
+<tr class="prompt-row" data-prompt="P5" data-type="math"><th class="prompt-header" data-prompt="P5"><span class="pid">P5</span><br><span class="ptype" title="da_framed_neutral">math</span><br><span class="pload">high</span><span class="ptext-prev">Et tog kører de første 120 km med 150 km…</span><span class="ptext-full">Et tog kører de første 120 km med 150 km/t og derefter de sidste 180 km med
+90 km/t. Hvor mange minutter tager hele turen? Svar med ét tal i minutter.
+</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P5" data-type="math" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
@@ -3914,7 +3935,10 @@ Tid = afstand / hastighed. Så første del tid: 120 / 150 = 0,8 timer. 0,8 timer
 </div></div>
   </div>
 </td></tr>
-<tr class="prompt-row" data-prompt="P6" data-type="logic"><th class="prompt-header" data-prompt="P6"><span class="pid">P6</span><br><span class="ptype" title="da_framed_neutral">logic</span><br><span class="pload">high</span><br><span class="ptext-prev" title="Fire personer — Anna, Bo, Clara og David — kom ind på pladserne nr. 1 til 4 i et">Fire personer — Anna, Bo, Clara og David…</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P6" data-type="logic" data-regime="raw" data-ts="raw">
+<tr class="prompt-row" data-prompt="P6" data-type="logic"><th class="prompt-header" data-prompt="P6"><span class="pid">P6</span><br><span class="ptype" title="da_framed_neutral">logic</span><br><span class="pload">high</span><span class="ptext-prev">Fire personer — Anna, Bo, Clara og David…</span><span class="ptext-full">Fire personer — Anna, Bo, Clara og David — kom ind på pladserne nr. 1 til 4
+i et løb. David kom nummer 1. Anna kom før Bo. Clara kom lige efter Bo.
+Angiv den fuldstændige rækkefølge fra nr. 1 til nr. 4.
+</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P6" data-type="logic" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
@@ -4605,7 +4629,11 @@ Alle fire er placeret. Der er ingen andre muligheder. Så dette skal være løsn
 </div></div>
   </div>
 </td></tr>
-<tr class="prompt-row" data-prompt="P7" data-type="code_structure"><th class="prompt-header" data-prompt="P7"><span class="pid">P7</span><br><span class="ptype" title="da_framed_neutral">code_structure</span><br><span class="pload">medium</span><br><span class="ptext-prev" title="Konvertér denne danske tekst til JSON efter skemaet {navn: string, alder: number">Konvertér denne danske tekst til JSON ef…</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P7" data-type="code_structure" data-regime="raw" data-ts="raw">
+<tr class="prompt-row" data-prompt="P7" data-type="code_structure"><th class="prompt-header" data-prompt="P7"><span class="pid">P7</span><br><span class="ptype" title="da_framed_neutral">code_structure</span><br><span class="pload">medium</span><span class="ptext-prev">Konvertér denne danske tekst til JSON ef…</span><span class="ptext-full">Konvertér denne danske tekst til JSON efter skemaet
+{navn: string, alder: number, by: string, abonnement: &quot;basis&quot; | &quot;premium&quot;}.
+Returnér kun JSON, intet andet.
+Tekst: &quot;Mette Sørensen er 34 år, bor i Odense og har et premium-abonnement.&quot;
+</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P7" data-type="code_structure" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
@@ -5223,7 +5251,17 @@ Jeg skal blot sikre mig, at der ikke er nogen ekstra karakterer eller forklaring
 </div></div>
   </div>
 </td></tr>
-<tr class="prompt-row" data-prompt="P8" data-type="code_bug"><th class="prompt-header" data-prompt="P8"><span class="pid">P8</span><br><span class="ptype" title="da_framed_neutral">code_bug</span><br><span class="pload">high</span><br><span class="ptext-prev" title="Denne Python-funktion skal returnere det største tal i en liste, men den indehol">Denne Python-funktion skal returnere det…</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P8" data-type="code_bug" data-regime="raw" data-ts="raw">
+<tr class="prompt-row" data-prompt="P8" data-type="code_bug"><th class="prompt-header" data-prompt="P8"><span class="pid">P8</span><br><span class="ptype" title="da_framed_neutral">code_bug</span><br><span class="pload">high</span><span class="ptext-prev">Denne Python-funktion skal returnere det…</span><span class="ptext-full">Denne Python-funktion skal returnere det største tal i en liste, men den
+indeholder en fejl. Find fejlen, forklar hvornår den slår fejl, og angiv den
+rettede linje.
+
+def find_største(tal):
+    største = 0
+    for t in tal:
+        if t &gt; største:
+            største = t
+    return største
+</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P8" data-type="code_bug" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
@@ -6107,7 +6145,10 @@ Denne ændring sikrer, at funktionen korrekt identificerer det største tal i li
 </div></div>
   </div>
 </td></tr>
-<tr class="prompt-row" data-prompt="P9" data-type="da_open_analysis"><th class="prompt-header" data-prompt="P9"><span class="pid">P9</span><br><span class="ptype" title="da_open">da_open_analysis</span><br><span class="pload">high</span><br><span class="ptext-prev" title="Vurdér fordele og ulemper ved, at en dansk kommune selv-hoster en åben sprogmode">Vurdér fordele og ulemper ved, at en dan…</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P9" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
+<tr class="prompt-row" data-prompt="P9" data-type="da_open_analysis"><th class="prompt-header" data-prompt="P9"><span class="pid">P9</span><br><span class="ptype" title="da_open">da_open_analysis</span><br><span class="pload">high</span><span class="ptext-prev">Vurdér fordele og ulemper ved, at en dan…</span><span class="ptext-full">Vurdér fordele og ulemper ved, at en dansk kommune selv-hoster en åben
+sprogmodel i stedet for at bruge et amerikansk API til at behandle
+borgerhenvendelser. Giv en afvejet anbefaling.
+</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P9" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
@@ -7412,7 +7453,11 @@ En dansk kommunes valg mellem at **selv-hoste en åben sproglig model** (f.eks. 
 </div></div>
   </div>
 </td></tr>
-<tr class="prompt-row" data-prompt="P10" data-type="da_open_analysis"><th class="prompt-header" data-prompt="P10"><span class="pid">P10</span><br><span class="ptype" title="da_open">da_open_analysis</span><br><span class="pload">high</span><br><span class="ptext-prev" title="En dansk mellemstor virksomhed har budget til ét af tre AI-initiativer: (a) inte">En dansk mellemstor virksomhed har budge…</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P10" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
+<tr class="prompt-row" data-prompt="P10" data-type="da_open_analysis"><th class="prompt-header" data-prompt="P10"><span class="pid">P10</span><br><span class="ptype" title="da_open">da_open_analysis</span><br><span class="pload">high</span><span class="ptext-prev">En dansk mellemstor virksomhed har budge…</span><span class="ptext-full">En dansk mellemstor virksomhed har budget til ét af tre AI-initiativer:
+(a) intern videnssøgning på tværs af dokumenter, (b) automatiske udkast til
+kundesvar, (c) en dansk taleassistent til kundeservice. Hvilket bør de
+prioritere, og hvorfor? Begrund din anbefaling.
+</span></th><td class="cell" data-model="deepseek_v4" data-prompt="P10" data-type="da_open_analysis" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
     <div class="collapsed">
 <div class="cell-header">
@@ -8555,13 +8600,30 @@ function updateColWidth(model) {
   if (col) col.style.width = anyOpen ? COL_W_EXPANDED : COL_W_COLLAPSED;
 }
 
+function updatePromptCol() {
+  const anyOpen = !!document.querySelector('.prompt-header.row-open');
+  const col = document.getElementById('col-prompt');
+  if (col) col.style.width = anyOpen ? '220px' : '130px';
+}
+
 function toggleCell(inner) {
   const exp = inner.querySelector('.expanded');
   const isOpening = exp.style.display === 'none';
   exp.style.display = isOpening ? 'block' : 'none';
   inner.classList.toggle('open', isOpening);
+
+  // Expand data column
   const td = inner.closest('td.cell');
   if (td) updateColWidth(td.dataset.model);
+
+  // Reveal full prompt text in left column for this row
+  const row = inner.closest('tr.prompt-row');
+  if (row) {
+    const anyOpenInRow = !!row.querySelector('.cell-inner.open');
+    const ph = row.querySelector('.prompt-header');
+    if (ph) ph.classList.toggle('row-open', anyOpenInRow);
+    updatePromptCol();
+  }
 }
 
 function applyFilters() {
@@ -8622,9 +8684,10 @@ function collapseAll() {
     inner.querySelector('.expanded').style.display = 'none';
     inner.classList.remove('open');
   });
-  document.querySelectorAll('col[data-model]').forEach(col => {
-    col.style.width = COL_W_COLLAPSED;
-  });
+  document.querySelectorAll('.prompt-header').forEach(ph => ph.classList.remove('row-open'));
+  document.querySelectorAll('col[data-model]').forEach(col => col.style.width = COL_W_COLLAPSED);
+  const pc = document.getElementById('col-prompt');
+  if (pc) pc.style.width = '130px';
 }
 
 function expandAll() {
@@ -8632,9 +8695,10 @@ function expandAll() {
     inner.querySelector('.expanded').style.display = 'block';
     inner.classList.add('open');
   });
-  document.querySelectorAll('col[data-model]').forEach(col => {
-    col.style.width = COL_W_EXPANDED;
-  });
+  document.querySelectorAll('.prompt-header').forEach(ph => ph.classList.add('row-open'));
+  document.querySelectorAll('col[data-model]').forEach(col => col.style.width = COL_W_EXPANDED);
+  const pc = document.getElementById('col-prompt');
+  if (pc) pc.style.width = '220px';
 }
 
 // Wire up checkbox changes
