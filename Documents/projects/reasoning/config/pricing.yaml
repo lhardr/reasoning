@@ -4,7 +4,7 @@
 #               + (reasoning + output)*p_out
 # All prices are USD per million tokens (MTok).
 
-snapshot_date: "2026-06-25"
+snapshot_date: "2026-06-26"
 
 models:
   deepseek_v4:
@@ -46,6 +46,20 @@ models:
     # google/gemma-4-31b-it via OpenRouter — confirmed 2026-06-25
     input_per_mtok: 0.12
     output_per_mtok: 0.35
+    cache_read_per_mtok: 0.00
+    cache_write_per_mtok: 0.00
+
+  opus_4_8:
+    # anthropic/claude-opus-4.8 — confirmed OpenRouter 2026-06-26
+    input_per_mtok: 5.00
+    output_per_mtok: 25.00
+    cache_read_per_mtok: 0.50
+    cache_write_per_mtok: 6.25
+
+  mistral_medium_3_5:
+    # mistralai/mistral-medium-3.5 — confirmed OpenRouter 2026-06-26
+    input_per_mtok: 1.50
+    output_per_mtok: 7.50
     cache_read_per_mtok: 0.00
     cache_write_per_mtok: 0.00
 

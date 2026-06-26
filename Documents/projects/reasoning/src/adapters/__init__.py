@@ -7,6 +7,7 @@ from .anthropic_adapter import AnthropicAdapter
 from .gemma import GemmaAdapter
 from .minimax import MinimaxAdapter
 from .google_adapter import GoogleAdapter
+from .mistral_adapter import MistralAdapter
 
 PROVIDER_MAP: dict[str, type[BaseAdapter]] = {
     "deepseek": DeepSeekAdapter,
@@ -17,6 +18,7 @@ PROVIDER_MAP: dict[str, type[BaseAdapter]] = {
     "gemma": GemmaAdapter,       # Gemma 4 via OpenRouter (was local/Ollama)
     "minimax": MinimaxAdapter,
     "google": GoogleAdapter,     # Gemini judge stub (Phase 2)
+    "mistral": MistralAdapter,   # Mistral via OpenRouter
 }
 
 __all__ = [

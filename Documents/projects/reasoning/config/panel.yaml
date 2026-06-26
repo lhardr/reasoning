@@ -66,6 +66,23 @@ models:
     openrouter_model_id: google/gemma-4-31b-it    # Confirmed 2026-06-25: Gemma 4 31B instruction-tuned
     thinking_budget: 4096
 
+  opus_4_8:
+    provider: anthropic
+    role: scored
+    trace_exposure: summarized          # Claude exposes summarized CoT. Same constraint as claude_sonnet_4_6.
+    model_id: claude-opus-4-8           # Confirmed OpenRouter 2026-06-26
+    openrouter_model_id: anthropic/claude-opus-4.8  # Confirmed OpenRouter 2026-06-26
+    thinking_budget: 4096
+
+  mistral_medium_3_5:
+    provider: mistral
+    role: scored
+    trace_exposure: raw                 # EXPECTED. Smoke test MUST confirm OpenRouter returns raw trace.
+                                        # If not: stop, correct trace_exposure, report before proceeding.
+    model_id: mistral-medium-3.5        # Confirmed OpenRouter 2026-06-26
+    openrouter_model_id: mistralai/mistral-medium-3.5  # Confirmed OpenRouter 2026-06-26
+    thinking_budget: 4096
+
   minimax:
     provider: minimax
     role: judge

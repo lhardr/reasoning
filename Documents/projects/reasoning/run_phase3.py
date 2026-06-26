@@ -54,9 +54,10 @@ PHASE3_DIR = RESULTS_DIR / "phase3"
 GRADER_PANEL_KEY = "gemini_3_1_pro"
 GRADER_PRICING_KEY = "gemini_3_1_pro"
 
-# Display order — all 6 models; Claude and GPT re-enter here (answer is public)
+# Display order — all 8 models; Claude, GPT, Opus re-enter here (answer is public)
 MODEL_ORDER: list[str] = [
-    "deepseek_v4", "glm_5_2", "kimi_k2_7", "gemma_4", "claude_sonnet_4_6", "gpt_5_5"
+    "deepseek_v4", "glm_5_2", "kimi_k2_7", "gemma_4",
+    "claude_sonnet_4_6", "gpt_5_5", "opus_4_8", "mistral_medium_3_5",
 ]
 
 VERDICT_WEIGHT: dict[str, float] = {"correct": 1.0, "partial": 0.5, "incorrect": 0.0}
@@ -157,8 +158,10 @@ def _generate_html(
     results: dict[tuple[str, str], GradeResult],
     facit_prompts: dict[str, dict],
     phase1_index: dict[tuple[str, str], dict],
+    model_order: list[str] | None = None,
 ) -> pathlib.Path:
     """Generate HTML review for P3 and P4 (legal prompts) for human confirmation."""
+    display_order = model_order if model_order is not None else MODEL_ORDER
     blocks: list[str] = []
     for pid in ["P3", "P4"]:
         fp = facit_prompts[pid]
@@ -168,7 +171,7 @@ def _generate_html(
         p_load = html_lib.escape(fp.get("reasoning_load", ""))
 
         cards: list[str] = []
-        for mk in MODEL_ORDER:
+        for mk in display_order:
             grade = results.get((pid, mk))
             p1_row = phase1_index.get((mk, pid))
             if grade is None or p1_row is None:
@@ -269,11 +272,13 @@ def main() -> None:
     print(f"  Source: {p1_run_id}")
     print(f"  Grader: {GRADER_PANEL_KEY} ({grader_or_id})")
     print(f"  Prompts: {', '.join(CORRECTNESS_PROMPTS)}  ({len(CORRECTNESS_PROMPTS)} facit prompts)")
-    print(f"  Models: {', '.join(MODEL_ORDER)}  (ALL SIX — correctness scores answers, not traces)")
+    models_in_source = {r["model_key"] for r in phase1_rows}
+    effective_order = [m for m in MODEL_ORDER if m in models_in_source]
+    print(f"  Models: {', '.join(effective_order)}  (correctness scores answers, not traces)")
     print(f"{'═'*100}")
     print(
-        f"\n  NOTE: Claude and GPT re-enter the scored set here. Correctness judges the ANSWER,"
-        f"\n  which every model exposes. Unlike legibility, closed/summarized traces are no barrier.\n"
+        f"\n  NOTE: Correctness judges the ANSWER, which every model exposes."
+        f"\n  Closed/summarized traces are no barrier — all models in the source JSONL are scored.\n"
     )
 
     # ── Grade ─────────────────────────────────────────────────────────────────
@@ -293,7 +298,7 @@ def main() -> None:
         print(f"  {'Model':<22}  {'Verdict':<12}  {'Cost':>9}  Extracted / Justification")
         print(f"  {'·'*90}")
 
-        for mk in MODEL_ORDER:
+        for mk in effective_order:
             p1_row = phase1_index.get((mk, pid))
             if p1_row is None:
                 print(f"  {mk:<22}  {'MISSING':<12}  {'—':>9}  no Phase 1 record")
@@ -330,7 +335,7 @@ def main() -> None:
           f"{'Score/6':>8}  {'Score%':>8}")
     print(f"  {'─'*75}")
 
-    for mk in MODEL_ORDER:
+    for mk in effective_order:
         counts = {"correct": 0, "partial": 0, "incorrect": 0}
         score = 0.0
         n = 0
@@ -367,9 +372,11 @@ def main() -> None:
         "gemma_4": "raw_anchor",
         "claude_sonnet_4_6": "summarized",
         "gpt_5_5": "count_only",
+        "opus_4_8": "summarized",
+        "mistral_medium_3_5": "raw",
     }
 
-    for mk in MODEL_ORDER:
+    for mk in effective_order:
         # Average reasoning tokens across all 10 prompts
         tok_rows = [r for r in phase1_rows if r["model_key"] == mk]
         avg_tok = (
@@ -409,7 +416,8 @@ def main() -> None:
     )
 
     # ── HTML for P3/P4 + STOP ─────────────────────────────────────────────────
-    html_path = _generate_html(run_id, p1_run_id, results, facit_prompts, phase1_index)
+    html_path = _generate_html(run_id, p1_run_id, results, facit_prompts, phase1_index,
+                                model_order=effective_order)
     print(f"\n{'═'*W}")
     print(f"  HTML review written → {html_path}")
     print()

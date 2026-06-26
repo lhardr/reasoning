@@ -49,9 +49,9 @@ SMOKE_ROLES = {"scored", "anchor"}
 
 # Models where reasoning_tokens MUST be > 0 — zero is a regression.
 # gpt_5_5: count_only (reasoning count reported, no text)
-# deepseek_v4 / glm_5_2 / kimi_k2_7: raw (text present, tokens estimated or direct)
-# claude_sonnet_4_6: summarized (thinking block present, tokens estimated or direct)
-# gemma_4: raw (local, tokens estimated from text)
+# deepseek_v4 / glm_5_2 / kimi_k2_7 / mistral_medium_3_5: raw (text present)
+# claude_sonnet_4_6 / opus_4_8: summarized (thinking block present)
+# gemma_4: raw (tokens estimated from text)
 MUST_HAVE_REASONING_TOKENS: set[str] = {
     "deepseek_v4",
     "glm_5_2",
@@ -59,6 +59,8 @@ MUST_HAVE_REASONING_TOKENS: set[str] = {
     "gpt_5_5",
     "claude_sonnet_4_6",
     "gemma_4",
+    "opus_4_8",
+    "mistral_medium_3_5",
 }
 
 # ---------------------------------------------------------------------------
@@ -280,6 +282,8 @@ REGIME_MAP: dict[str, str] = {
     "gemma_4": "raw_anchor",
     "claude_sonnet_4_6": "summarized",
     "gpt_5_5": "count_only",
+    "opus_4_8": "summarized",
+    "mistral_medium_3_5": "raw",
 }
 
 # Canonical display order — groups regimes together
@@ -290,15 +294,21 @@ FULL_MODEL_ORDER: list[str] = [
     "gemma_4",
     "claude_sonnet_4_6",
     "gpt_5_5",
+    "opus_4_8",
+    "mistral_medium_3_5",
 ]
 
 # Models that expose trace text — language metric is applicable to these
+# opus_4_8: summarized (measured on the summary, noted in output)
+# mistral_medium_3_5: raw
 TRACE_TEXT_MODELS: set[str] = {
     "deepseek_v4",
     "glm_5_2",
     "kimi_k2_7",
     "gemma_4",
     "claude_sonnet_4_6",
+    "opus_4_8",
+    "mistral_medium_3_5",
 }
 
 # ---------------------------------------------------------------------------
@@ -306,13 +316,19 @@ TRACE_TEXT_MODELS: set[str] = {
 # ---------------------------------------------------------------------------
 
 # Models scored for legibility (raw trace exists)
-LEGIBILITY_SCORED: list[str] = ["deepseek_v4", "glm_5_2", "kimi_k2_7", "gemma_4"]
+LEGIBILITY_SCORED: list[str] = [
+    "deepseek_v4", "glm_5_2", "kimi_k2_7", "gemma_4", "mistral_medium_3_5"
+]
 
 # Models explicitly excluded from Phase 2, with the reason
 LEGIBILITY_EXCLUDED: dict[str, str] = {
     "claude_sonnet_4_6": (
         "summarized — scoring would measure Anthropic's summarizer, "
         "not the model's raw reasoning process"
+    ),
+    "opus_4_8": (
+        "summarized — same constraint as claude_sonnet_4_6; "
+        "legibility scores would reflect Anthropic's summarizer, not Opus's raw CoT"
     ),
     "gpt_5_5": (
         "count_only — no trace text exists to score"
@@ -534,7 +550,7 @@ def run_pilot(prompt_ids: list[str]) -> int:
     total_projected = sum(avg_by_model[k] * full_prompts for k in model_keys)
 
     print(f"\n{'═'*70}")
-    print(f"  COST PROJECTION — Full run ({full_prompts} prompts × 6 models)")
+    print(f"  COST PROJECTION — Full run ({full_prompts} prompts × {full_models} models)")
     print(f"  Based on pilot averages ({n_prompts} prompt(s) per model)")
     print(f"{'═'*70}")
     print(f"  {'Model':<22}  {'Avg $/prompt':>14}  {f'{full_prompts}×6 projected':>16}")
@@ -573,11 +589,13 @@ _FULL_COL_HDR = (
 _FULL_COL_SEP = "  " + "─" * 132
 
 
-def run_full() -> int:
+def run_full(model_filter: Optional[list[str]] = None) -> int:
     """
     Phase 1 full economy run: all 10 prompts × all scored+anchor models.
     Adds segment-aware language metrics to every exposed trace.
     Regime-separates reasoning_share: raw cluster (deepseek/glm/kimi) only.
+
+    model_filter: if given, restrict to these model keys (e.g. ["opus_4_8", "mistral_medium_3_5"]).
     Returns exit code (0 = all assertions passed, 1 = any failure/error).
     """
     panel = load_panel()
@@ -594,6 +612,7 @@ def run_full() -> int:
     model_keys_ordered = [
         k for k in FULL_MODEL_ORDER
         if k in panel and panel[k].get("role") in SMOKE_ROLES
+        and (model_filter is None or k in model_filter)
     ]
 
     n_calls = len(all_prompt_ids) * len(model_keys_ordered)
@@ -805,6 +824,8 @@ def run_full() -> int:
         "gemma_4": "gemma",
         "claude_sonnet_4_6": "claude",
         "gpt_5_5": "gpt",
+        "opus_4_8": "opus",
+        "mistral_medium_3_5": "mistral",
     }
     hdr_cells = "  ".join(f"{abbrevs.get(k, k[:8]):<9}" for k in model_keys_ordered)
     print(f"  {'Prompt':<7}  {'Load':<10} {hdr_cells}  {'Total':>10}")
@@ -1101,11 +1122,17 @@ def run_judge(source_run_id: Optional[str] = None) -> int:
         print(f"\n  ERROR: {e}\n")
         return 1
 
+    # Compute which scored models actually appear in this source JSONL.
+    # This allows running --judge on a partial JSONL (e.g. two new models only)
+    # without noisy "MISSING" rows for the models that weren't in that run.
+    models_in_jsonl: set[str] = {r["model_key"] for r in phase1_rows}
+    effective_scored: list[str] = [k for k in LEGIBILITY_SCORED if k in models_in_jsonl]
+
     # Build index: (model_key, prompt_id) → row
     p1_index: dict[tuple[str, str], dict] = {
         (r["model_key"], r["prompt_id"]): r
         for r in phase1_rows
-        if r["model_key"] in LEGIBILITY_SCORED
+        if r["model_key"] in effective_scored
     }
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_phase2"
@@ -1114,14 +1141,14 @@ def run_judge(source_run_id: Optional[str] = None) -> int:
         key=lambda p: int(p[1:])
     )
 
-    n_total = len(LEGIBILITY_SCORED) * len(all_pids) * len(JUDGE_KEYS)
+    n_total = len(effective_scored) * len(all_pids) * len(JUDGE_KEYS)
 
     print(f"\n{'═'*110}")
     print(f"  PHASE 2 — Legibility Scoring   run_id={run_id}")
     print(f"  Source: {p1_run_id}")
-    print(f"  Models: {', '.join(LEGIBILITY_SCORED)}")
+    print(f"  Models: {', '.join(effective_scored)}")
     print(f"  Judges: {', '.join(JUDGE_KEYS)}")
-    print(f"  Calls: {len(LEGIBILITY_SCORED)} models × {len(all_pids)} prompts × {len(JUDGE_KEYS)} judges = {n_total}")
+    print(f"  Calls: {len(effective_scored)} models × {len(all_pids)} prompts × {len(JUDGE_KEYS)} judges = {n_total}")
     print(f"  LEGIBILITY ONLY — correctness, faithfulness, and economy are out of scope.")
     print(f"{'═'*110}")
 
@@ -1142,7 +1169,7 @@ def run_judge(source_run_id: Optional[str] = None) -> int:
 
     SEP = "─" * 110
 
-    for model_key in LEGIBILITY_SCORED:
+    for model_key in effective_scored:
         print(f"\n{'═'*110}")
         print(f"  Model: {model_key}")
         print(f"{'═'*110}")
@@ -1267,7 +1294,7 @@ def run_judge(source_run_id: Optional[str] = None) -> int:
     print(f"{'═'*90}")
     print(f"  {'Model':<22}  {'Judge':<18}  {'Avg Redund':>10}  {'Avg Coher':>10}  {'Calls':>6}")
     print(f"  {'─'*70}")
-    for model_key in LEGIBILITY_SCORED:
+    for model_key in effective_scored:
         for judge_key in JUDGE_KEYS:
             recs = [r for r in agg_records if r["model_key"] == model_key and r["judge_key"] == judge_key]
             r_vals = [r["redundancy"] for r in recs]
@@ -1315,7 +1342,7 @@ def run_judge(source_run_id: Optional[str] = None) -> int:
     print(f"  {'Model':<22}  {'Avg ΔRedund':>12}  {'Avg ΔCoher':>11}  {'Max Δ':>7}  {'Flagged':>8}")
     print(f"  {'─'*65}")
     flagged_traces: list[dict] = []
-    for model_key in LEGIBILITY_SCORED:
+    for model_key in effective_scored:
         mm_recs = {r["prompt_id"]: r for r in agg_records if r["model_key"] == model_key and r["judge_key"] == JUDGE_KEYS[0]}
         gm_recs = {r["prompt_id"]: r for r in agg_records if r["model_key"] == model_key and r["judge_key"] == JUDGE_KEYS[1]}
         shared_pids = set(mm_recs) & set(gm_recs)
@@ -1413,6 +1440,12 @@ def main() -> None:
         help="Run Phase 1 full economy run: all 10 prompts × all scored+anchor models",
     )
     parser.add_argument(
+        "--models",
+        metavar="MODEL1,MODEL2",
+        default=None,
+        help="Restrict --full to these model keys only (e.g. opus_4_8,mistral_medium_3_5)",
+    )
+    parser.add_argument(
         "--validate-judges",
         action="store_true",
         help=(
@@ -1444,7 +1477,8 @@ def main() -> None:
         code = run_pilot(prompt_ids=pid_list)
         sys.exit(code)
     elif args.full:
-        code = run_full()
+        mfilter = [m.strip() for m in args.models.split(",") if m.strip()] if args.models else None
+        code = run_full(model_filter=mfilter)
         sys.exit(code)
     elif args.validate_judges:
         code = run_validate_judges(source_run_id=args.source_run_id)
