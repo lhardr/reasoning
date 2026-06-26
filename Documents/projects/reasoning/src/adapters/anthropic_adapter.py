@@ -37,15 +37,29 @@ class AnthropicAdapter(BaseAdapter):
         import anthropic
 
         client = anthropic.Anthropic(api_key=__import__("os").environ["ANTHROPIC_API_KEY"])
+        model_id = self.config["model_id"]
+
+        # Claude 4.X models (opus-4, sonnet-4 ≥ 4.8) use the adaptive thinking API.
+        # Older models (3.7 Sonnet) use the legacy enabled+budget_tokens format.
+        use_adaptive = "opus-4" in model_id or "sonnet-4" in model_id
 
         try:
             t0 = time.perf_counter()
-            resp = client.messages.create(
-                model=self.config["model_id"],
-                max_tokens=thinking_budget + 512,
-                thinking={"type": "enabled", "budget_tokens": thinking_budget},
-                messages=[{"role": "user", "content": prompt}],
-            )
+            if use_adaptive:
+                resp = client.messages.create(
+                    model=model_id,
+                    max_tokens=thinking_budget + 4096,
+                    thinking={"type": "adaptive"},
+                    output_config={"effort": "high"},
+                    messages=[{"role": "user", "content": prompt}],
+                )
+            else:
+                resp = client.messages.create(
+                    model=model_id,
+                    max_tokens=thinking_budget + 512,
+                    thinking={"type": "enabled", "budget_tokens": thinking_budget},
+                    messages=[{"role": "user", "content": prompt}],
+                )
             latency = time.perf_counter() - t0
         except Exception as exc:
             raise AdapterError(f"claude_sonnet_4_6 API error: {exc}") from exc
