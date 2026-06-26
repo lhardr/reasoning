@@ -57,16 +57,17 @@ a { color: #60a5fa; }
   border: 1px solid #1e293b; vertical-align: top;
 }
 
-/* Sticky column headers — stick at top of grid-wrap's own scroll */
+/* Sticky column headers — stick at top of grid-wrap's own scroll.
+   Width is controlled by <col> elements, not set here. */
 .header-row th {
   position: sticky; top: 0; z-index: 10;
   background: #161b27; padding: 6px 8px; text-align: center;
-  font-size: 12px; white-space: nowrap; min-width: 160px; max-width: 160px;
+  font-size: 12px; white-space: nowrap;
   border-bottom: 2px solid #334155;
+  transition: width 0.15s ease;
 }
 .header-row .corner-cell {
   position: sticky; left: 0; top: 0; z-index: 20;
-  min-width: 130px; max-width: 130px;
   background: #0f1117;
 }
 .header-row th small { color: #64748b; font-weight: 400; font-size: 10px; }
@@ -82,10 +83,10 @@ a { color: #60a5fa; }
 .pload { font-size: 10px; color: #94a3b8; }
 .ptext-prev { font-size: 10px; color: #475569; display: block; margin-top: 4px; }
 
-/* Cell */
+/* Cell — width controlled by <col>, no fixed constraints here */
 .cell {
-  min-width: 160px; max-width: 160px; width: 160px;
   padding: 0; vertical-align: top;
+  transition: width 0.15s ease;
 }
 .cell-inner {
   cursor: pointer; padding: 6px;
@@ -187,11 +188,7 @@ a { color: #60a5fa; }
 .eco-table td:last-child  { font-weight: 600; }
 .no-data { color: #334155; font-style: italic; }
 
-/* Responsive */
-@media (max-width: 900px) {
-  .header-row th { min-width: 140px; max-width: 140px; }
-  .cell { min-width: 140px; max-width: 140px; width: 140px; }
-}
+/* Responsive — col widths handle sizing via JS; nothing to override here */
 </style>
 </head>
 <body>
@@ -239,6 +236,7 @@ a { color: #60a5fa; }
 
 <div class="grid-wrap">
   <table class="gallery-grid" id="galleryGrid">
+    <colgroup><col id="col-prompt" style="width:130px"><col id="col-deepseek_v4" data-model="deepseek_v4" style="width:160px"><col id="col-glm_5_2" data-model="glm_5_2" style="width:160px"><col id="col-kimi_k2_7" data-model="kimi_k2_7" style="width:160px"><col id="col-gpt_5_5" data-model="gpt_5_5" style="width:160px"><col id="col-claude_sonnet_4_6" data-model="claude_sonnet_4_6" style="width:160px"><col id="col-gemma_4" data-model="gemma_4" style="width:160px"><col id="col-opus_4_8" data-model="opus_4_8" style="width:160px"><col id="col-mistral_medium_3_5" data-model="mistral_medium_3_5" style="width:160px"></colgroup>
     <thead><tr class="header-row"><th class="corner-cell"></th><th class="model-header" data-model="deepseek_v4"><span title="deepseek_v4">deepseek</span><br><small>DeepSeek V4</small></th><th class="model-header" data-model="glm_5_2"><span title="glm_5_2">glm</span><br><small>GLM 5.2</small></th><th class="model-header" data-model="kimi_k2_7"><span title="kimi_k2_7">kimi</span><br><small>Kimi K2.7</small></th><th class="model-header" data-model="gpt_5_5"><span title="gpt_5_5">gpt-5.5</span><br><small>GPT-5.5</small></th><th class="model-header" data-model="claude_sonnet_4_6"><span title="claude_sonnet_4_6">sonnet</span><br><small>Claude Sonnet 4.6</small></th><th class="model-header" data-model="gemma_4"><span title="gemma_4">gemma</span><br><small>Gemma 4</small></th><th class="model-header" data-model="opus_4_8"><span title="opus_4_8">opus</span><br><small>Claude Opus 4.8</small></th><th class="model-header" data-model="mistral_medium_3_5"><span title="mistral_medium_3_5">mistral</span><br><small>Mistral Med 3.5</small></th></tr></thead>
     <tbody><tr class="prompt-row" data-prompt="P1" data-type="da_natural_language"><th class="prompt-header" data-prompt="P1"><span class="pid">P1</span><br><span class="ptype" title="da_simple">da_natural_language</span><br><span class="pload">low</span><br><span class="ptext-prev" title="Forklar kort og i et venligt sprog, hvad en folkeregisteradresse er, og hvorfor ">Forklar kort og i et venligt sprog, hvad…</span></th><td class="cell curated" data-model="deepseek_v4" data-prompt="P1" data-type="da_natural_language" data-regime="raw" data-ts="raw">
   <div class="cell-inner" onclick="toggleCell(this)">
@@ -8544,18 +8542,26 @@ En mellemstor virksomhed bør **prioritere automatiske udkast tilundesvar (b)**,
   </table>
 </div>
 <script>
+const COL_W_COLLAPSED = '160px';
+const COL_W_EXPANDED  = '480px';
 let curatedActive = false;
 
+function updateColWidth(model) {
+  if (!model) return;
+  const anyOpen = !!document.querySelector(
+    `.cell[data-model="${model}"] .cell-inner.open`
+  );
+  const col = document.getElementById('col-' + model);
+  if (col) col.style.width = anyOpen ? COL_W_EXPANDED : COL_W_COLLAPSED;
+}
+
 function toggleCell(inner) {
-  const col = inner.querySelector('.collapsed');
   const exp = inner.querySelector('.expanded');
-  if (exp.style.display === 'none') {
-    exp.style.display = 'block';
-    inner.classList.add('open');
-  } else {
-    exp.style.display = 'none';
-    inner.classList.remove('open');
-  }
+  const isOpening = exp.style.display === 'none';
+  exp.style.display = isOpening ? 'block' : 'none';
+  inner.classList.toggle('open', isOpening);
+  const td = inner.closest('td.cell');
+  if (td) updateColWidth(td.dataset.model);
 }
 
 function applyFilters() {
@@ -8616,12 +8622,18 @@ function collapseAll() {
     inner.querySelector('.expanded').style.display = 'none';
     inner.classList.remove('open');
   });
+  document.querySelectorAll('col[data-model]').forEach(col => {
+    col.style.width = COL_W_COLLAPSED;
+  });
 }
 
 function expandAll() {
   document.querySelectorAll('.cell-inner').forEach(inner => {
     inner.querySelector('.expanded').style.display = 'block';
     inner.classList.add('open');
+  });
+  document.querySelectorAll('col[data-model]').forEach(col => {
+    col.style.width = COL_W_EXPANDED;
   });
 }
 

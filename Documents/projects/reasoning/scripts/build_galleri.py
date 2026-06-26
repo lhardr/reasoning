@@ -301,6 +301,14 @@ def render_cell(model: str, prompt: str) -> str:
 # ── Build grid ────────────────────────────────────────────────────────────────
 
 def render_grid() -> str:
+    # <colgroup> — one <col> per column; JS changes width to expand/collapse
+    col_prompt = '<col id="col-prompt" style="width:130px">'
+    col_models = "".join(
+        f'<col id="col-{m}" data-model="{m}" style="width:160px">'
+        for m in MODEL_ORDER
+    )
+    colgroup = f'<colgroup>{col_prompt}{col_models}</colgroup>'
+
     # Model header row
     th_cells = '<th class="corner-cell"></th>'
     for m in MODEL_ORDER:
@@ -339,6 +347,7 @@ def render_grid() -> str:
     return f"""
 <div class="grid-wrap">
   <table class="gallery-grid" id="galleryGrid">
+    {colgroup}
     <thead>{header_row}</thead>
     <tbody>{body_rows}</tbody>
   </table>
@@ -406,18 +415,26 @@ def render_controls() -> str:
 # ── JavaScript ────────────────────────────────────────────────────────────────
 
 JS = r"""
+const COL_W_COLLAPSED = '160px';
+const COL_W_EXPANDED  = '480px';
 let curatedActive = false;
 
+function updateColWidth(model) {
+  if (!model) return;
+  const anyOpen = !!document.querySelector(
+    `.cell[data-model="${model}"] .cell-inner.open`
+  );
+  const col = document.getElementById('col-' + model);
+  if (col) col.style.width = anyOpen ? COL_W_EXPANDED : COL_W_COLLAPSED;
+}
+
 function toggleCell(inner) {
-  const col = inner.querySelector('.collapsed');
   const exp = inner.querySelector('.expanded');
-  if (exp.style.display === 'none') {
-    exp.style.display = 'block';
-    inner.classList.add('open');
-  } else {
-    exp.style.display = 'none';
-    inner.classList.remove('open');
-  }
+  const isOpening = exp.style.display === 'none';
+  exp.style.display = isOpening ? 'block' : 'none';
+  inner.classList.toggle('open', isOpening);
+  const td = inner.closest('td.cell');
+  if (td) updateColWidth(td.dataset.model);
 }
 
 function applyFilters() {
@@ -478,12 +495,18 @@ function collapseAll() {
     inner.querySelector('.expanded').style.display = 'none';
     inner.classList.remove('open');
   });
+  document.querySelectorAll('col[data-model]').forEach(col => {
+    col.style.width = COL_W_COLLAPSED;
+  });
 }
 
 function expandAll() {
   document.querySelectorAll('.cell-inner').forEach(inner => {
     inner.querySelector('.expanded').style.display = 'block';
     inner.classList.add('open');
+  });
+  document.querySelectorAll('col[data-model]').forEach(col => {
+    col.style.width = COL_W_EXPANDED;
   });
 }
 
@@ -550,16 +573,17 @@ a { color: #60a5fa; }
   border: 1px solid #1e293b; vertical-align: top;
 }
 
-/* Sticky column headers — stick at top of grid-wrap's own scroll */
+/* Sticky column headers — stick at top of grid-wrap's own scroll.
+   Width is controlled by <col> elements, not set here. */
 .header-row th {
   position: sticky; top: 0; z-index: 10;
   background: #161b27; padding: 6px 8px; text-align: center;
-  font-size: 12px; white-space: nowrap; min-width: 160px; max-width: 160px;
+  font-size: 12px; white-space: nowrap;
   border-bottom: 2px solid #334155;
+  transition: width 0.15s ease;
 }
 .header-row .corner-cell {
   position: sticky; left: 0; top: 0; z-index: 20;
-  min-width: 130px; max-width: 130px;
   background: #0f1117;
 }
 .header-row th small { color: #64748b; font-weight: 400; font-size: 10px; }
@@ -575,10 +599,10 @@ a { color: #60a5fa; }
 .pload { font-size: 10px; color: #94a3b8; }
 .ptext-prev { font-size: 10px; color: #475569; display: block; margin-top: 4px; }
 
-/* Cell */
+/* Cell — width controlled by <col>, no fixed constraints here */
 .cell {
-  min-width: 160px; max-width: 160px; width: 160px;
   padding: 0; vertical-align: top;
+  transition: width 0.15s ease;
 }
 .cell-inner {
   cursor: pointer; padding: 6px;
@@ -680,11 +704,7 @@ a { color: #60a5fa; }
 .eco-table td:last-child  { font-weight: 600; }
 .no-data { color: #334155; font-style: italic; }
 
-/* Responsive */
-@media (max-width: 900px) {
-  .header-row th { min-width: 140px; max-width: 140px; }
-  .cell { min-width: 140px; max-width: 140px; width: 140px; }
-}
+/* Responsive — col widths handle sizing via JS; nothing to override here */
 """
 
 # ── Final assembly ────────────────────────────────────────────────────────────
