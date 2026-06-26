@@ -22,10 +22,17 @@ h2 { color: #495057; font-size: 1rem; text-transform: uppercase; letter-spacing:
 .prompt-block h3 { margin: 0 0 12px; font-size: 1rem; }
 .pid { display: inline-block; background: #0d6efd; color: #fff; border-radius: 4px;
        padding: 2px 8px; font-size: .85rem; margin-right: 8px; }
-.meta { color: #6c757d; font-size: .85rem; margin-bottom: 12px; }
+.meta { color: #6c757d; font-size: .85rem; margin-bottom: 4px; }
 .excerpt { background: #f1f3f5; border-left: 3px solid #adb5bd; padding: 8px 12px;
            font-size: .82rem; font-family: monospace; white-space: pre-wrap;
            margin: 8px 0; border-radius: 0 4px 4px 0; max-height: 120px; overflow-y: auto; }
+details.trace-wrap { margin: 8px 0; }
+details.trace-wrap summary { cursor: pointer; color: #495057; font-size: .85rem;
+                              padding: 4px 0; user-select: none; }
+details.trace-wrap summary:hover { color: #0d6efd; }
+.trace-full { background: #f1f3f5; border-left: 3px solid #adb5bd; padding: 8px 12px;
+              font-size: .82rem; font-family: monospace; white-space: pre-wrap;
+              margin: 4px 0; border-radius: 0 4px 4px 0; max-height: 520px; overflow-y: auto; }
 .judges { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 .judge-card { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; }
 .judge-card h4 { margin: 0 0 8px; font-size: .9rem; color: #343a40; }
@@ -97,11 +104,11 @@ def generate_validation_html(
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     blocks = []
-    for pid in sorted(by_prompt.keys()):
+    for pid in sorted(by_prompt.keys(), key=lambda p: int(p[1:])):
         info = by_prompt[pid]
         judges_data = info["judges"]
         prompt_excerpt = html.escape((prompt_text_map.get(pid) or "")[:200])
-        trace_excerpt = html.escape((trace_map.get(pid) or "")[:500])
+        trace_full = html.escape(trace_map.get(pid) or "")
 
         judge_cards = []
         agr_record = None
@@ -150,6 +157,7 @@ def generate_validation_html(
             else:
                 agr_html = ""
 
+        trace_char_count = len(trace_map.get(pid) or "")
         blocks.append(
             f'<div class="prompt-block">'
             f'<h3><span class="pid">{html.escape(pid)}</span>'
@@ -157,8 +165,10 @@ def generate_validation_html(
             f' &nbsp; <span style="color:#6c757d">load: {html.escape(info["reasoning_load"])}</span></h3>'
             f'<div class="meta">Prompt:</div>'
             f'<div class="excerpt">{prompt_excerpt}</div>'
-            f'<div class="meta">Trace (first 500 chars):</div>'
-            f'<div class="excerpt">{trace_excerpt}</div>'
+            f'<details class="trace-wrap">'
+            f'<summary>Reasoning trace ({trace_char_count:,} chars) — click to expand</summary>'
+            f'<div class="trace-full">{trace_full}</div>'
+            f'</details>'
             f'<div class="judges">{"".join(judge_cards)}</div>'
             f'{agr_html}'
             f'</div>'
