@@ -231,6 +231,10 @@ def grade_llm(
     justification = ""
     parse_ok = False
     parse_error = "no attempt completed"
+    # Partial-parse fallback: if JSON is truncated but verdict is visible via regex,
+    # preserve the best partial result across all retries.
+    partial_verdict: str | None = None
+    partial_error: str = ""
 
     for attempt in range(_MAX_RETRIES):
         if attempt > 0:
@@ -238,7 +242,7 @@ def grade_llm(
         resp = client.chat.completions.create(
             model=grader_openrouter_id,
             messages=[{"role": "user", "content": grader_prompt}],
-            max_tokens=256,
+            max_tokens=512,
             temperature=0.0,
         )
         last_resp = resp
@@ -261,7 +265,22 @@ def grade_llm(
                     pass
 
         if parsed is None:
-            parse_error = f"JSON parse failed; raw: {raw_text[:200]!r}"
+            # Regex fallback: extract verdict from truncated JSON.
+            # Covers: {"verdict": "correct", "justification": "The stu... (cut off)
+            v_m = re.search(
+                r'"verdict"\s*:\s*"(correct|partial|incorrect)"', cleaned, re.IGNORECASE
+            )
+            if v_m and partial_verdict is None:
+                partial_verdict = v_m.group(1).lower()
+                # Try to grab any justification text that made it through
+                j_m = re.search(r'"justification"\s*:\s*"([^"]{10,})', cleaned)
+                partial_error = (
+                    f"partial parse: verdict='{partial_verdict}' extracted from "
+                    f"truncated JSON; raw: {raw_text[:200]!r}"
+                )
+                _ = j_m  # justification fragment unused — full text wasn't delivered
+            else:
+                parse_error = f"JSON parse failed; raw: {raw_text[:200]!r}"
             continue
 
         raw_verdict = str(parsed.get("verdict", "")).lower().strip()
@@ -273,6 +292,12 @@ def grade_llm(
         justification = str(parsed.get("justification", ""))
         parse_ok = True
         break
+
+    # After exhausting retries: if clean parse failed but we extracted a verdict via regex
+    if not parse_ok and partial_verdict is not None:
+        verdict = partial_verdict
+        justification = ""
+        parse_error = partial_error
 
     latency = time.perf_counter() - t0  # noqa: F841 — available for future logging
     usage = last_resp.usage if last_resp else None
