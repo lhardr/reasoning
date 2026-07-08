@@ -86,3 +86,27 @@ class OpenAIAdapter(BaseAdapter):
             model_version=resp.model,
             raw_usage=raw,
         )
+
+    def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:
+        from openai import OpenAI
+
+        from ..tool_loop import call_with_tools_openai_style
+
+        api_key, base_url, model_id, via_openrouter = self._resolve_openai_creds()
+        kwargs: dict = {"api_key": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        client = OpenAI(**kwargs)
+
+        extra: dict = {}
+        if via_openrouter:
+            extra["reasoning"] = {"effort": reasoning_effort}
+
+        return call_with_tools_openai_style(
+            model_key=self.model_key,
+            client=client,
+            model_id=model_id,
+            prompt=prompt,
+            max_tokens=thinking_budget + 512,
+            base_extra_body=extra,
+        )

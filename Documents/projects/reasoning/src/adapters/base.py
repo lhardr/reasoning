@@ -30,6 +30,10 @@ class ModelResponse:
     latency_s: float
     model_version: str           # pinned snapshot id reported by the provider
     raw_usage: dict = field(default_factory=dict)
+    # --- --tools phase only; empty/default for every other phase ---
+    tool_calls: list = field(default_factory=list)       # executed: {name, args, result_char_len, result_token_est}
+    raw_tool_events: list = field(default_factory=list)  # every tool_call block as emitted, incl. unknown/serverside
+    n_api_calls: int = 1                                 # 1 = model answered directly; 2 = one tool round + continuation
 
 
 class BaseAdapter:
@@ -88,6 +92,16 @@ class BaseAdapter:
         thinking_budget: int = 4096,
         reasoning_effort: str = "high",
     ) -> ModelResponse:
+        raise NotImplementedError
+
+    def call_with_tools(
+        self,
+        prompt: str,
+        thinking_budget: int = 4096,
+        reasoning_effort: str = "high",
+    ) -> ModelResponse:
+        """--tools phase, Arm B. Raise ToolsNotSupportedError (see tool_loop.py)
+        when the API itself confirms this model/endpoint cannot tool-call."""
         raise NotImplementedError
 
 

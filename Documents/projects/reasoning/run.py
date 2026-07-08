@@ -38,12 +38,17 @@ from src.model_resolver import print_resolution_table, resolve_models
 from src.storage import (
     PHASE2_DIR,
     RESULTS_DIR,
+    TOOLS_DIR,
     save_langcost_result,
     save_langcost_trace,
     save_phase2_result,
     save_result,
+    save_tools_result,
+    save_tools_trace,
     save_trace,
 )
+from src.tool_loop import ToolsNotSupportedError
+from src.tools import available_tool_defs, search_available
 
 # ---------------------------------------------------------------------------
 # Smoke test constants
@@ -2123,6 +2128,390 @@ def run_langcost_report(source_run_id: Optional[str] = None) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Tool-offload experiment (--tools)
+# ---------------------------------------------------------------------------
+
+# Same 8 models as the Phase 1 full run — provider tool-call support is
+# discovered empirically at run time (ToolsNotSupportedError -> n/a row),
+# not hand-curated here.
+TOOLS_MODELS: list[str] = FULL_MODEL_ORDER
+
+# P1, P2, P9, P10 are open/no-facit tasks — no tool call is expected. A tool
+# call here is flagged as mis-routing, not suppressed.
+TOOLS_CONTROL_GROUP: set[str] = {"P1", "P2", "P9", "P10"}
+
+KNOWN_TOOL_NAMES: set[str] = {"python_exec", "web_search"}
+
+
+def _tool_names_used(response) -> tuple[str, ...]:
+    return tuple(sorted({tc["name"] for tc in response.tool_calls}))
+
+
+def run_tools() -> int:
+    """
+    Tool-offload experiment: two arms (baseline, tools) per (model, prompt),
+    run fresh in the same invocation so there is no cross-run drift.
+
+    Arm A (baseline): identical to the existing --full call() path.
+    Arm B (tools): python_exec + web_search offered; harness executes every
+    tool call itself; a tools-omitted continuation call forces a final answer.
+
+    Closed-book rule is unchanged — only `prompt` is ever sent to the model.
+    """
+    panel = load_panel()
+    experiment = load_experiment()
+    reasoning_effort: str = experiment.get("reasoning_effort", "high")
+    prompts = load_prompts()
+
+    all_prompt_ids = sorted(prompts.keys(), key=lambda p: int(p[1:]))
+
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_tools"
+    traces_dir = TOOLS_DIR / f"{run_id}_traces"
+
+    model_keys = [
+        k for k in TOOLS_MODELS
+        if k in panel and panel[k].get("role") in SMOKE_ROLES
+    ]
+
+    tool_defs = available_tool_defs()
+    tools_available_names = [t["name"] for t in tool_defs]
+
+    n_calls = len(all_prompt_ids) * len(model_keys) * 2
+    print(f"\n{'═'*120}")
+    print(f"  Tool-Offload Experiment (--tools)   run_id={run_id}")
+    print(
+        f"  Prompts: {', '.join(all_prompt_ids)}  ({len(all_prompt_ids)} × {len(model_keys)} models × 2 arms"
+        f" = {n_calls} rows)"
+    )
+    print(f"  Tools offered to Arm B: {', '.join(tools_available_names)}")
+    if not search_available():
+        print(f"  !! web_search PENDING — SEARCH_API_KEY not set. repl-offload measurement proceeds unaffected.")
+    print(f"  reasoning_effort={reasoning_effort!r}  |  closed-book rule unchanged (facit never sent)")
+    print(f"{'═'*120}")
+
+    resolved = resolve_models(panel, model_keys)
+    hard_errors = print_resolution_table(resolved)
+    if hard_errors > 0:
+        print(f"\n  !! {hard_errors} model(s) not resolved. Fix panel.yaml.\n")
+        return 1
+
+    has_failure = False
+    agg: list[dict] = []              # one entry per (model, pid, arm) that produced a response
+    unexpected_serverside: list[dict] = []  # raw tool events whose name we never declared
+    control_group_hits: list[dict] = []     # tool calls on no-facit control prompts
+
+    col_hdr = (
+        f"  {'Model':<22} {'Arm':<9} {'Inp':>6} {'Reas':>7} {'Out':>6}  "
+        f"{'Cost($)':>10}  {'#API':>4}  {'Tools called':<28} {'Status'}"
+    )
+    col_sep = "  " + "─" * 116
+
+    for pid in all_prompt_ids:
+        p = prompts[pid]
+        assert "facit" not in p, (
+            f"CRITICAL SECURITY VIOLATION: facit in request-path object for {pid}"
+        )
+        prompt_text: str = p["prompt"]
+        p_type = p.get("type", "?")
+        p_load = p.get("reasoning_load", "?")
+        is_control = pid in TOOLS_CONTROL_GROUP
+
+        print(f"\n{'═'*120}")
+        print(f"  [{pid}]  {p_type}  (load: {p_load})" + ("  [control: no tool call expected]" if is_control else ""))
+        print(f"  {prompt_text[:110].strip()!r}")
+        print(f"{'═'*120}")
+        print(col_hdr)
+        print(col_sep)
+
+        for key in model_keys:
+            cfg = panel[key]
+            provider = cfg["provider"]
+            thinking_budget: int = cfg.get("thinking_budget", 4096)
+
+            cls = PROVIDER_MAP.get(provider)
+            if cls is None:
+                print(f"  {key:<22} SKIPPED (unknown provider: {provider})")
+                continue
+
+            try:
+                adapter = cls(key, cfg)
+            except CredentialMissingError as e:
+                print(f"  {key:<22} SKIPPED — {e}")
+                continue
+
+            # ---------------- Arm A: baseline ----------------
+            try:
+                resp_a = adapter.call(
+                    prompt_text,
+                    thinking_budget=thinking_budget,
+                    reasoning_effort=reasoning_effort,
+                )
+            except AdapterError as e:
+                print(f"  {key:<22} {'baseline':<9} ERROR — {e}")
+                has_failure = True
+                continue
+            except Exception as e:
+                print(f"  {key:<22} {'baseline':<9} ERROR — unexpected: {e}")
+                has_failure = True
+                continue
+
+            account_a = build_account(resp_a)
+            cost_a, snapshot_date = compute_cost(key, account_a)
+
+            save_tools_result(
+                run_id=run_id,
+                model_key=key,
+                prompt_id=pid,
+                arm="baseline",
+                status="ok",
+                response=resp_a,
+                account=account_a,
+                cost_usd=cost_a,
+                pricing_snapshot_date=snapshot_date,
+                thinking_budget=thinking_budget,
+                reasoning_effort=reasoning_effort,
+                tools_available=[],
+                extra={"prompt_type": p_type, "reasoning_load": p_load, "is_control": is_control},
+            )
+            save_tools_trace(
+                traces_dir=traces_dir, model_key=key, prompt_id=pid, arm="baseline",
+                prompt_text=prompt_text, response=resp_a, status="ok",
+            )
+            agg.append({
+                "pid": pid, "model_key": key, "arm": "baseline", "is_control": is_control,
+                "input": account_a.input_tokens, "reasoning": account_a.reasoning_tokens,
+                "output": account_a.output_tokens, "cost_usd": cost_a, "tools_used": (),
+            })
+            print(
+                f"  {key:<22} {'baseline':<9} {account_a.input_tokens:>6} {account_a.reasoning_tokens:>7}"
+                f" {account_a.output_tokens:>6}  ${cost_a:>9.5f}  {1:>4}  {'—':<28} ok"
+            )
+
+            # ---------------- Arm B: tools ----------------
+            try:
+                resp_b = adapter.call_with_tools(
+                    prompt_text,
+                    thinking_budget=thinking_budget,
+                    reasoning_effort=reasoning_effort,
+                )
+            except ToolsNotSupportedError as e:
+                save_tools_result(
+                    run_id=run_id, model_key=key, prompt_id=pid, arm="tools",
+                    status="n/a_no_tool_support", response=None, account=None, cost_usd=None,
+                    pricing_snapshot_date=snapshot_date, thinking_budget=thinking_budget,
+                    reasoning_effort=reasoning_effort, tools_available=tools_available_names,
+                    extra={"prompt_type": p_type, "reasoning_load": p_load, "is_control": is_control, "error": str(e)},
+                )
+                print(f"  {key:<22} {'tools':<9} {'n/a':>6} {'n/a':>7} {'n/a':>6}  {'—':>10}  {'—':>4}  {'—':<28} n/a (no tool support)")
+                continue
+            except NotImplementedError:
+                save_tools_result(
+                    run_id=run_id, model_key=key, prompt_id=pid, arm="tools",
+                    status="n/a_no_tool_support", response=None, account=None, cost_usd=None,
+                    pricing_snapshot_date=snapshot_date, thinking_budget=thinking_budget,
+                    reasoning_effort=reasoning_effort, tools_available=tools_available_names,
+                    extra={"prompt_type": p_type, "reasoning_load": p_load, "is_control": is_control,
+                           "error": "call_with_tools not implemented for this adapter"},
+                )
+                print(f"  {key:<22} {'tools':<9} SKIPPED — call_with_tools not implemented")
+                continue
+            except AdapterError as e:
+                save_tools_result(
+                    run_id=run_id, model_key=key, prompt_id=pid, arm="tools",
+                    status="error", response=None, account=None, cost_usd=None,
+                    pricing_snapshot_date=snapshot_date, thinking_budget=thinking_budget,
+                    reasoning_effort=reasoning_effort, tools_available=tools_available_names,
+                    extra={"prompt_type": p_type, "reasoning_load": p_load, "is_control": is_control, "error": str(e)},
+                )
+                print(f"  {key:<22} {'tools':<9} ERROR — {e}")
+                has_failure = True
+                continue
+            except Exception as e:
+                print(f"  {key:<22} {'tools':<9} ERROR — unexpected: {e}")
+                has_failure = True
+                continue
+
+            account_b = build_account(resp_b)
+            cost_b, snapshot_date_b = compute_cost(key, account_b)
+
+            save_tools_result(
+                run_id=run_id,
+                model_key=key,
+                prompt_id=pid,
+                arm="tools",
+                status="ok",
+                response=resp_b,
+                account=account_b,
+                cost_usd=cost_b,
+                pricing_snapshot_date=snapshot_date_b,
+                thinking_budget=thinking_budget,
+                reasoning_effort=reasoning_effort,
+                tools_available=tools_available_names,
+                extra={"prompt_type": p_type, "reasoning_load": p_load, "is_control": is_control},
+            )
+            save_tools_trace(
+                traces_dir=traces_dir, model_key=key, prompt_id=pid, arm="tools",
+                prompt_text=prompt_text, response=resp_b, status="ok",
+            )
+
+            tools_used = _tool_names_used(resp_b)
+            agg.append({
+                "pid": pid, "model_key": key, "arm": "tools", "is_control": is_control,
+                "input": account_b.input_tokens, "reasoning": account_b.reasoning_tokens,
+                "output": account_b.output_tokens, "cost_usd": cost_b, "tools_used": tools_used,
+            })
+
+            if is_control and tools_used:
+                control_group_hits.append({"pid": pid, "model_key": key, "tools_used": tools_used})
+
+            for ev in resp_b.raw_tool_events:
+                if ev.get("name") not in KNOWN_TOOL_NAMES:
+                    unexpected_serverside.append({"pid": pid, "model_key": key, "event": ev})
+
+            tools_str = ", ".join(tools_used) if tools_used else "—"
+            print(
+                f"  {key:<22} {'tools':<9} {account_b.input_tokens:>6} {account_b.reasoning_tokens:>7}"
+                f" {account_b.output_tokens:>6}  ${cost_b:>9.5f}  {resp_b.n_api_calls:>4}  {tools_str:<28} ok"
+            )
+
+        print(col_sep)
+
+    # ─────────────────────────────────────────────────────────────
+    # AGGREGATE 1 — Which model called which tool, per prompt
+    # ─────────────────────────────────────────────────────────────
+    print(f"\n{'═'*100}")
+    print(f"  AGGREGATE 1 — Tool usage matrix (Arm B), per prompt")
+    print(f"  (— = answered directly, n/a = tool-calling not supported by this model/endpoint)")
+    print(f"{'═'*100}")
+    tools_rows = {(r["pid"], r["model_key"]): r for r in agg if r["arm"] == "tools"}
+    abbrevs = {
+        "deepseek_v4": "deepseek", "glm_5_2": "glm", "kimi_k2_7": "kimi", "gemma_4": "gemma",
+        "claude_sonnet_4_6": "claude", "gpt_5_5": "gpt", "opus_4_8": "opus", "mistral_medium_3_5": "mistral",
+    }
+    hdr_cells = "  ".join(f"{abbrevs.get(k, k[:8]):<10}" for k in model_keys)
+    print(f"  {'Prompt':<8} {hdr_cells}")
+    print(f"  {'─'*(9 + 12*len(model_keys))}")
+    for pid in all_prompt_ids:
+        cells = []
+        for k in model_keys:
+            r = tools_rows.get((pid, k))
+            if r is None:
+                cells.append(f"{'n/a':<10}")
+            elif r["tools_used"]:
+                cells.append(f"{','.join(r['tools_used'])[:10]:<10}")
+            else:
+                cells.append(f"{'—':<10}")
+        marker = "  ← control" if pid in TOOLS_CONTROL_GROUP else ""
+        print(f"  {pid:<8} {'  '.join(cells)}{marker}")
+
+    # ─────────────────────────────────────────────────────────────
+    # AGGREGATE 2 — Arm A vs Arm B, per model (avg delta over shared prompts)
+    # ─────────────────────────────────────────────────────────────
+    print(f"\n{'═'*110}")
+    print(f"  AGGREGATE 2 — Arm A (baseline) → Arm B (tools), per model")
+    print(f"  Δ = tools − baseline, avg over prompts where BOTH arms produced a response (n/a excluded)")
+    print(f"{'═'*110}")
+    print(f"  {'Model':<22} {'n':>3}  {'ΔInput':>9}  {'ΔReasoning':>11}  {'ΔOutput':>9}  {'ΔCost($)':>10}")
+    print(f"  {'─'*80}")
+    for key in model_keys:
+        base_by_pid = {r["pid"]: r for r in agg if r["arm"] == "baseline" and r["model_key"] == key}
+        tool_by_pid = {r["pid"]: r for r in agg if r["arm"] == "tools" and r["model_key"] == key}
+        shared = sorted(set(base_by_pid) & set(tool_by_pid), key=lambda p: int(p[1:]))
+        if not shared:
+            print(f"  {key:<22} {'—':>3}  {'—':>9}  {'—':>11}  {'—':>9}  {'—':>10}")
+            continue
+        d_in = [tool_by_pid[p]["input"] - base_by_pid[p]["input"] for p in shared]
+        d_reas = [tool_by_pid[p]["reasoning"] - base_by_pid[p]["reasoning"] for p in shared]
+        d_out = [tool_by_pid[p]["output"] - base_by_pid[p]["output"] for p in shared]
+        d_cost = [tool_by_pid[p]["cost_usd"] - base_by_pid[p]["cost_usd"] for p in shared]
+        n = len(shared)
+        print(
+            f"  {key:<22} {n:>3}  {sum(d_in)/n:>+9.1f}  {sum(d_reas)/n:>+11.1f}  "
+            f"{sum(d_out)/n:>+9.1f}  {sum(d_cost)/n:>+10.5f}"
+        )
+    print(f"  {'─'*80}")
+
+    # ─────────────────────────────────────────────────────────────
+    # AGGREGATE 3 — Same delta, pooled and split by which tool was actually called
+    # ─────────────────────────────────────────────────────────────
+    print(f"\n{'═'*110}")
+    print(f"  AGGREGATE 3 — Δ (tools − baseline), pooled across models, split by tool actually called")
+    print(f"{'═'*110}")
+    print(f"  {'Group':<26} {'n':>4}  {'ΔInput':>9}  {'ΔReasoning':>11}  {'ΔOutput':>9}  {'ΔCost($)':>10}")
+    print(f"  {'─'*76}")
+
+    def _group_label(tools_used: tuple) -> str:
+        if not tools_used:
+            return "no tool called"
+        if set(tools_used) == {"python_exec"}:
+            return "repl only"
+        if set(tools_used) == {"web_search"}:
+            return "search only"
+        return "repl + search"
+
+    pooled_pairs: dict[str, list[dict]] = {}
+    for key in model_keys:
+        base_by_pid = {r["pid"]: r for r in agg if r["arm"] == "baseline" and r["model_key"] == key}
+        tool_by_pid = {r["pid"]: r for r in agg if r["arm"] == "tools" and r["model_key"] == key}
+        for pid in set(base_by_pid) & set(tool_by_pid):
+            group = _group_label(tool_by_pid[pid]["tools_used"])
+            pooled_pairs.setdefault(group, []).append({
+                "d_in": tool_by_pid[pid]["input"] - base_by_pid[pid]["input"],
+                "d_reas": tool_by_pid[pid]["reasoning"] - base_by_pid[pid]["reasoning"],
+                "d_out": tool_by_pid[pid]["output"] - base_by_pid[pid]["output"],
+                "d_cost": tool_by_pid[pid]["cost_usd"] - base_by_pid[pid]["cost_usd"],
+            })
+
+    for group in ("repl only", "search only", "repl + search", "no tool called"):
+        rows = pooled_pairs.get(group, [])
+        if not rows:
+            print(f"  {group:<26} {0:>4}  {'—':>9}  {'—':>11}  {'—':>9}  {'—':>10}")
+            continue
+        n = len(rows)
+        print(
+            f"  {group:<26} {n:>4}  "
+            f"{sum(r['d_in'] for r in rows)/n:>+9.1f}  "
+            f"{sum(r['d_reas'] for r in rows)/n:>+11.1f}  "
+            f"{sum(r['d_out'] for r in rows)/n:>+9.1f}  "
+            f"{sum(r['d_cost'] for r in rows)/n:>+10.5f}"
+        )
+    print(f"  {'─'*76}")
+
+    # ─────────────────────────────────────────────────────────────
+    # Control-group + unexpected server-side tool findings
+    # ─────────────────────────────────────────────────────────────
+    print(f"\n{'═'*100}")
+    print(f"  CONTROL GROUP (P1/P2/P9/P10 — no tool call expected)")
+    print(f"{'═'*100}")
+    if control_group_hits:
+        print(f"  MIS-ROUTING DETECTED — a model called a tool on an open/no-facit prompt:")
+        for h in control_group_hits:
+            print(f"    {h['model_key']:<22} {h['pid']:<6} tools_used={h['tools_used']}")
+    else:
+        print(f"  No tool calls on the control prompts — as expected.")
+
+    print(f"\n{'═'*100}")
+    print(f"  UNEXPECTED TOOL EVENTS (name not in {sorted(KNOWN_TOOL_NAMES)} — e.g. provider server-side tools)")
+    print(f"{'═'*100}")
+    if unexpected_serverside:
+        for u in unexpected_serverside:
+            print(f"    {u['model_key']:<22} {u['pid']:<6} {u['event']}")
+    else:
+        print(f"  None observed.")
+
+    # ─────────────────────────────────────────────────────────────
+    # Footer
+    # ─────────────────────────────────────────────────────────────
+    status_line = "ALL CALLS COMPLETED" if not has_failure else "ERRORS DETECTED — see rows above"
+    print(f"\n{'═'*100}")
+    print(f"  {status_line}")
+    print(f"  Structured records  → results/tools/{run_id}.jsonl")
+    print(f"  Raw traces          → results/tools/{run_id}_traces/<model>_<prompt>_<arm>.txt")
+    print()
+    return 1 if has_failure else 0
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -2214,6 +2603,15 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--tools",
+        action="store_true",
+        help=(
+            "Tool-offload experiment: two arms (baseline, tools) per (model, prompt) "
+            "across all 10 prompts and the 8 scored+anchor models. Requires no extra "
+            "flags — python_exec always runs; web_search needs SEARCH_API_KEY in .env."
+        ),
+    )
+    parser.add_argument(
         "--steer",
         action="store_true",
         help=(
@@ -2246,6 +2644,9 @@ def main() -> None:
         sys.exit(code)
     elif args.langcost_report:
         code = run_langcost_report(source_run_id=args.source_run_id)
+        sys.exit(code)
+    elif args.tools:
+        code = run_tools()
         sys.exit(code)
     else:
         parser.print_help()

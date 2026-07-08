@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
 PHASE2_DIR = RESULTS_DIR / "phase2"
+TOOLS_DIR = RESULTS_DIR / "tools"
 
 
 def save_result(
@@ -278,3 +279,148 @@ def save_phase2_result(
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     return record
+
+
+# ---------------------------------------------------------------------------
+# --tools phase (tool-offload experiment: arm=baseline | arm=tools)
+# ---------------------------------------------------------------------------
+
+def save_tools_result(
+    *,
+    run_id: str,
+    model_key: str,
+    prompt_id: str,
+    arm: str,
+    status: str,
+    response: Optional["ModelResponse"],
+    account: Optional["TokenAccount"],
+    cost_usd: Optional[float],
+    pricing_snapshot_date: Optional[str],
+    thinking_budget: int,
+    reasoning_effort: str,
+    tools_available: list[str],
+    extra: Optional[dict] = None,
+    results_dir: Optional[Path] = None,
+) -> dict:
+    """
+    Persist one (model, prompt, arm) row to results/tools/<run_id>_tools.jsonl.
+
+    status: "ok" | "n/a_no_tool_support" | "error". When status != "ok" the
+    response/account/cost fields may be None — the row still gets written so
+    the n/a is visible as data, not silently dropped.
+    """
+    record: dict = {
+        "run_id": run_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "model_key": model_key,
+        "prompt_id": prompt_id,
+        "arm": arm,
+        "status": status,
+        "thinking_budget": thinking_budget,
+        "reasoning_effort": reasoning_effort,
+        "tools_available": tools_available,
+    }
+
+    if response is not None and account is not None:
+        record.update({
+            "model_version": response.model_version,
+            "answer_text": response.answer_text,
+            "raw_reasoning_trace": response.raw_reasoning_trace,
+            "trace_status": response.trace_status,
+            "n_api_calls": response.n_api_calls,
+            "tokens": {
+                "input": account.input_tokens,
+                "reasoning": account.reasoning_tokens,
+                "reasoning_source": response.reasoning_source,
+                "output": account.output_tokens,
+                "cache_read": account.cache_read_tokens,
+                "cache_write": account.cache_write_tokens,
+                "reasoning_share": round(account.reasoning_share, 4),
+            },
+            "cost_usd": cost_usd,
+            "pricing_snapshot_date": pricing_snapshot_date,
+            "latency_s": round(response.latency_s, 3),
+            "raw_usage": response.raw_usage,
+            "tool_calls": response.tool_calls,
+            "raw_tool_events": response.raw_tool_events,
+        })
+    else:
+        record.update({
+            "model_version": None,
+            "answer_text": None,
+            "raw_reasoning_trace": None,
+            "trace_status": None,
+            "n_api_calls": 0,
+            "tokens": None,
+            "cost_usd": None,
+            "pricing_snapshot_date": pricing_snapshot_date,
+            "latency_s": None,
+            "raw_usage": None,
+            "tool_calls": [],
+            "raw_tool_events": [],
+        })
+
+    if extra:
+        record.update(extra)
+
+    out_dir = results_dir if results_dir is not None else TOOLS_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{run_id}.jsonl"
+    with open(out_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    return record
+
+
+def save_tools_trace(
+    *,
+    traces_dir: Path,
+    model_key: str,
+    prompt_id: str,
+    arm: str,
+    prompt_text: str,
+    response: Optional["ModelResponse"],
+    status: str,
+) -> Path:
+    """Write a human-readable trace to traces_dir/<model>_<prompt>_<arm>.txt."""
+    traces_dir.mkdir(parents=True, exist_ok=True)
+    path = traces_dir / f"{model_key}_{prompt_id}_{arm}.txt"
+    sep = "=" * 72
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"model:      {model_key}\n")
+        f.write(f"prompt_id:  {prompt_id}\n")
+        f.write(f"arm:        {arm}\n")
+        f.write(f"status:     {status}\n")
+        f.write(f"\n{sep}\nPROMPT\n{sep}\n")
+        f.write(prompt_text.strip() + "\n")
+
+        if response is None:
+            f.write(f"\n{sep}\n[{status} — no response]\n{sep}\n")
+            return path
+
+        f.write(f"\n{sep}\nREASONING TRACE\n{sep}\n")
+        if response.raw_reasoning_trace:
+            f.write(response.raw_reasoning_trace.strip() + "\n")
+        else:
+            f.write(f"[{response.trace_status} — reasoning text not exposed]\n")
+
+        f.write(f"\n{sep}\nTOOL CALLS (executed)\n{sep}\n")
+        if response.tool_calls:
+            for tc in response.tool_calls:
+                f.write(f"- {tc['name']}({tc['args']!r})\n")
+                f.write(f"  result_char_len={tc['result_char_len']}  result_token_est={tc['result_token_est']}\n")
+        else:
+            f.write("(none)\n")
+
+        f.write(f"\n{sep}\nRAW TOOL EVENTS (as emitted, incl. unknown/serverside)\n{sep}\n")
+        if response.raw_tool_events:
+            for ev in response.raw_tool_events:
+                f.write(f"- {ev}\n")
+        else:
+            f.write("(none)\n")
+
+        f.write(f"\n{sep}\nANSWER\n{sep}\n")
+        f.write(response.answer_text.strip() + "\n")
+
+    return path

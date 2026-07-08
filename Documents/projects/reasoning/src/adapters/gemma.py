@@ -110,3 +110,24 @@ class GemmaAdapter(BaseAdapter):
             model_version=resp.model,
             raw_usage=raw,
         )
+
+    def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:
+        from openai import OpenAI
+
+        from ..tool_loop import call_with_tools_openai_style
+
+        or_key = os.environ["OPENROUTER_API_KEY"]
+        model_id = self.config.get("openrouter_model_id", self.config["model_id"])
+        client = OpenAI(api_key=or_key, base_url=OPENROUTER_BASE_URL)
+
+        return call_with_tools_openai_style(
+            model_key=self.model_key,
+            client=client,
+            model_id=model_id,
+            prompt=prompt,
+            max_tokens=thinking_budget + 512,
+            base_extra_body={
+                "include_reasoning": True,
+                "reasoning": {"effort": reasoning_effort},
+            },
+        )
