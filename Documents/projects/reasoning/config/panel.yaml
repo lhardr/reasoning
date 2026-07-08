@@ -18,7 +18,7 @@ models:
     role: scored
     trace_exposure: raw
     model_id: deepseek-reasoner                   # Direct DeepSeek API model ID (verify before run)
-    openrouter_model_id: deepseek/deepseek-v4-pro # Confirmed 2026-06-25: DeepSeek V4 Pro reasoning
+    openrouter_model_id: deepseek/deepseek-v4-pro-20260423  # PINNED 2026-07-08 (variance repro) — matches June exactly
     thinking_budget: 4096
     base_url: https://api.deepseek.com
 
@@ -27,7 +27,7 @@ models:
     role: scored
     trace_exposure: raw
     model_id: glm-z1-air                          # Direct Z.ai API model ID (verify before run)
-    openrouter_model_id: z-ai/glm-5.2             # Confirmed 2026-06-25: GLM 5.2 reasoning model
+    openrouter_model_id: z-ai/glm-5.2-20260616    # PINNED 2026-07-08 (variance repro) — matches June exactly
     thinking_budget: 4096
     base_url: https://open.bigmodel.cn/api/paas/v4/
 
@@ -38,7 +38,7 @@ models:
     model_id: moonshot-v1-thinking                # Direct Moonshot API model ID (verify before run)
     # kimi-k2.7-code is the K2.7 build available on OpenRouter (coding-focused).
     # For general K2.7 reasoning, use the direct Moonshot API with MOONSHOT_API_KEY.
-    openrouter_model_id: moonshotai/kimi-k2.7-code  # Confirmed 2026-06-25: K2.7 code variant
+    openrouter_model_id: moonshotai/kimi-k2.7-code-20260612  # PINNED 2026-07-08 (variance repro) — matches June exactly
     thinking_budget: 4096
     base_url: https://api.moonshot.cn/v1
 
@@ -47,15 +47,15 @@ models:
     role: scored
     trace_exposure: count_only
     model_id: gpt-5.5                             # Direct OpenAI API model ID
-    openrouter_model_id: openai/gpt-5.5           # Confirmed 2026-06-25: exact GPT-5.5 match
+    openrouter_model_id: openai/gpt-5.5-20260423  # PINNED 2026-07-08 (variance repro) — matches June exactly
     thinking_budget: 4096
 
   claude_sonnet_4_6:
     provider: anthropic
     role: scored
     trace_exposure: summarized
-    model_id: claude-sonnet-4-6                   # Direct Anthropic API model ID
-    openrouter_model_id: anthropic/claude-sonnet-4.6  # Confirmed 2026-06-25: exact Sonnet 4.6 match
+    model_id: claude-sonnet-4-6                   # Direct Anthropic API model ID — undated alias, NOT used by --variance
+    openrouter_model_id: anthropic/claude-4.6-sonnet-20260217  # PINNED 2026-07-08 (variance repro) — matches June exactly
     thinking_budget: 4096
 
   gemma_4:
@@ -63,15 +63,15 @@ models:
     role: anchor
     trace_exposure: raw
     model_id: google/gemma-4-31b-it               # OpenRouter model ID (Gemma 4 runs via OpenRouter)
-    openrouter_model_id: google/gemma-4-31b-it    # Confirmed 2026-06-25: Gemma 4 31B instruction-tuned
+    openrouter_model_id: google/gemma-4-31b-it-20260402  # PINNED 2026-07-08 (variance repro) — matches June exactly
     thinking_budget: 4096
 
   opus_4_8:
     provider: anthropic
     role: scored
     trace_exposure: summarized          # Claude exposes summarized CoT. Same constraint as claude_sonnet_4_6.
-    model_id: claude-opus-4-8           # Confirmed OpenRouter 2026-06-26
-    openrouter_model_id: anthropic/claude-opus-4.8  # Confirmed OpenRouter 2026-06-26
+    model_id: claude-opus-4-8            # Direct Anthropic API model ID — undated alias, NOT used by --variance
+    openrouter_model_id: anthropic/claude-4.8-opus-20260528  # PINNED 2026-07-08 (variance repro) — matches June exactly
     thinking_budget: 4096
 
   mistral_medium_3_5:
@@ -80,7 +80,7 @@ models:
     trace_exposure: raw                 # EXPECTED. Smoke test MUST confirm OpenRouter returns raw trace.
                                         # If not: stop, correct trace_exposure, report before proceeding.
     model_id: mistral-medium-3.5        # Confirmed OpenRouter 2026-06-26
-    openrouter_model_id: mistralai/mistral-medium-3-5  # Confirmed OpenRouter 2026-06-26 (hyphens, not dots)
+    openrouter_model_id: mistralai/mistral-medium-3.5-20260430  # PINNED 2026-07-08 (variance repro) — matches June exactly (dot, not hyphen — verified against June's recorded model_version)
     thinking_budget: 4096
 
   minimax:

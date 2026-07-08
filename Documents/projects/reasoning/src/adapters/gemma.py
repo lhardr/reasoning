@@ -18,6 +18,7 @@ from .base import (
     BaseAdapter,
     CredentialMissingError,
     ModelResponse,
+    extract_served_by,
     extract_think_tags,
     split_token_estimate,
 )
@@ -109,6 +110,7 @@ class GemmaAdapter(BaseAdapter):
             latency_s=latency,
             model_version=resp.model,
             raw_usage=raw,
+            served_by=extract_served_by(resp),
         )
 
     def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:

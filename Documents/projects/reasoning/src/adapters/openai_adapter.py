@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from .base import AdapterError, BaseAdapter, ModelResponse
+from .base import AdapterError, BaseAdapter, ModelResponse, extract_served_by
 
 
 class OpenAIAdapter(BaseAdapter):
@@ -85,6 +85,7 @@ class OpenAIAdapter(BaseAdapter):
             latency_s=latency,
             model_version=resp.model,
             raw_usage=raw,
+            served_by=extract_served_by(resp),
         )
 
     def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:

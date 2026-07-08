@@ -39,6 +39,7 @@ from src.storage import (
     PHASE2_DIR,
     RESULTS_DIR,
     TOOLS_DIR,
+    VARIANCE_DIR,
     save_langcost_result,
     save_langcost_trace,
     save_phase2_result,
@@ -46,6 +47,7 @@ from src.storage import (
     save_tools_result,
     save_tools_trace,
     save_trace,
+    save_variance_result,
 )
 from src.tool_loop import ToolsNotSupportedError
 from src.tools import available_tool_defs, search_available
@@ -2512,6 +2514,239 @@ def run_tools() -> int:
 
 
 # ---------------------------------------------------------------------------
+# Variance repro run (--variance)
+# ---------------------------------------------------------------------------
+
+# Same 8 models, pinned to fully-dated openrouter_model_id strings in panel.yaml
+# (set 2026-07-08 to reproduce June exactly after the tools-run alias contamination).
+VARIANCE_MODELS: list[str] = FULL_MODEL_ORDER
+
+# Substrings that mark an API error as "this exact pinned string is dead", not a
+# transient failure. Matched case-insensitively against the raised error text.
+DEAD_PIN_MARKERS: tuple[str, ...] = (
+    "not found",
+    "not a valid model",
+    "does not exist",
+    "no endpoints found",
+    "invalid model",
+    "no allowed providers",
+    "model_not_found",
+)
+
+
+def _classify_pin_error(exc: Exception) -> str:
+    msg = str(exc).lower()
+    if any(marker in msg for marker in DEAD_PIN_MARKERS):
+        return "dead_pin"
+    return "error"
+
+
+def run_variance(passes: int = 2) -> int:
+    """
+    Pure variance repro: baseline only (no tools), all 8 models pinned to fully
+    dated openrouter_model_id strings (identical to June), run PASSES times.
+
+    Forces the OpenRouter route for Anthropic models by temporarily removing
+    ANTHROPIC_API_KEY from the environment for the duration of this run — the
+    same routing June used for Sonnet, and the routing the tools-run silently
+    dropped (which is exactly the contamination this run exists to undo).
+
+    No pre-flight catalog check gates this run — dated snapshot slugs may not
+    appear in OpenRouter's general /models listing even when callable. Instead:
+    a pinned string that errors with a "model not found"-shaped message is
+    reported loudly as dead and skipped for the rest of the run; anything else
+    is a transient error and does not disable the model.
+    """
+    panel = load_panel()
+    experiment = load_experiment()
+    reasoning_effort: str = experiment.get("reasoning_effort", "high")
+    prompts = load_prompts()
+
+    all_prompt_ids = sorted(prompts.keys(), key=lambda p: int(p[1:]))
+
+    model_keys = [
+        k for k in VARIANCE_MODELS
+        if k in panel and panel[k].get("role") in SMOKE_ROLES
+    ]
+
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_variance"
+
+    n_calls = len(all_prompt_ids) * len(model_keys) * passes
+    print(f"\n{'═'*120}")
+    print(f"  Variance Repro Run (--variance)   run_id={run_id}")
+    print(
+        f"  Prompts: {len(all_prompt_ids)} × models: {len(model_keys)} × passes: {passes}"
+        f" = {n_calls} calls  |  baseline only, closed-book, no tools"
+    )
+    print(f"  reasoning_effort={reasoning_effort!r}")
+    print(f"  Pinned versions (panel.yaml openrouter_model_id):")
+    for key in model_keys:
+        print(f"    {key:<22} {panel[key].get('openrouter_model_id')}")
+    print(f"{'═'*120}")
+
+    # Force the OpenRouter route for Anthropic models (claude_sonnet_4_6, opus_4_8) —
+    # same route June used. Direct ANTHROPIC_API_KEY would silently reintroduce the
+    # undated-alias contamination this run exists to eliminate.
+    saved_anthropic_key = os.environ.pop("ANTHROPIC_API_KEY", None)
+    if saved_anthropic_key:
+        print(f"  !! ANTHROPIC_API_KEY temporarily removed from env — forcing OpenRouter route for this run.")
+
+    try:
+        resolved = resolve_models(panel, model_keys)
+        print_resolution_table(resolved)
+        print(
+            f"\n  NOTE: catalog mismatches above are NOT a gate for this run — dated"
+            f" snapshot slugs may be absent from OpenRouter's /models listing even"
+            f" when callable. Only an actual call failure marks a pin dead."
+        )
+
+        has_failure = False
+        dead_pins: dict[str, str] = {}   # model_key -> error text
+        rows: list[dict] = []            # for the closing summary table
+
+        col_hdr = (
+            f"  {'Model':<22} {'Pass':>4} {'Inp':>6} {'Reas':>7} {'Out':>6}  "
+            f"{'Cost($)':>10}  {'ServedBy':<14} {'ModelVersion':<42} Status"
+        )
+        col_sep = "  " + "─" * 118
+
+        for pass_index in range(1, passes + 1):
+            for pid in all_prompt_ids:
+                p = prompts[pid]
+                assert "facit" not in p, (
+                    f"CRITICAL SECURITY VIOLATION: facit in request-path object for {pid}"
+                )
+                prompt_text: str = p["prompt"]
+
+                print(f"\n{'═'*120}")
+                print(f"  Pass {pass_index}/{passes}  [{pid}]  {prompt_text[:90].strip()!r}")
+                print(f"{'═'*120}")
+                print(col_hdr)
+                print(col_sep)
+
+                for key in model_keys:
+                    if key in dead_pins:
+                        print(f"  {key:<22} {pass_index:>4}  SKIPPED — dead pin ({dead_pins[key][:60]})")
+                        continue
+
+                    cfg = panel[key]
+                    provider = cfg["provider"]
+                    thinking_budget: int = cfg.get("thinking_budget", 4096)
+                    pinned_id = cfg.get("openrouter_model_id", cfg.get("model_id"))
+
+                    cls = PROVIDER_MAP.get(provider)
+                    if cls is None:
+                        print(f"  {key:<22} SKIPPED (unknown provider: {provider})")
+                        continue
+
+                    try:
+                        adapter = cls(key, cfg)
+                    except CredentialMissingError as e:
+                        print(f"  {key:<22} SKIPPED — {e}")
+                        continue
+
+                    try:
+                        response = adapter.call(
+                            prompt_text,
+                            thinking_budget=thinking_budget,
+                            reasoning_effort=reasoning_effort,
+                        )
+                    except AdapterError as e:
+                        classification = _classify_pin_error(e)
+                        if classification == "dead_pin":
+                            dead_pins[key] = str(e)
+                            print(f"\n  !!!!!! DEAD PIN !!!!!!  {key} — {pinned_id!r} is not callable:")
+                            print(f"  !!!!!!                  {e}")
+                            print(f"  !!!!!!                  No fallback to alias. Skipping {key} for the rest of this run.\n")
+                        else:
+                            print(f"  {key:<22} {pass_index:>4}  ERROR — {e}")
+                        save_variance_result(
+                            run_id=run_id, model_key=key, prompt_id=pid, pass_index=pass_index,
+                            pinned_model_id=pinned_id, status=classification, response=None, account=None,
+                            cost_usd=None, pricing_snapshot_date=None, thinking_budget=thinking_budget,
+                            reasoning_effort=reasoning_effort, extra={"error": str(e)},
+                        )
+                        has_failure = True
+                        continue
+                    except Exception as e:
+                        print(f"  {key:<22} {pass_index:>4}  ERROR — unexpected: {e}")
+                        save_variance_result(
+                            run_id=run_id, model_key=key, prompt_id=pid, pass_index=pass_index,
+                            pinned_model_id=pinned_id, status="error", response=None, account=None,
+                            cost_usd=None, pricing_snapshot_date=None, thinking_budget=thinking_budget,
+                            reasoning_effort=reasoning_effort, extra={"error": str(e)},
+                        )
+                        has_failure = True
+                        continue
+
+                    account = build_account(response)
+                    cost_usd, snapshot_date = compute_cost(key, account)
+
+                    version_flag = "" if response.model_version == pinned_id else "  ← DRIFT vs pin"
+                    if version_flag:
+                        has_failure = True
+
+                    save_variance_result(
+                        run_id=run_id, model_key=key, prompt_id=pid, pass_index=pass_index,
+                        pinned_model_id=pinned_id, status="ok", response=response, account=account,
+                        cost_usd=cost_usd, pricing_snapshot_date=snapshot_date,
+                        thinking_budget=thinking_budget, reasoning_effort=reasoning_effort,
+                    )
+                    rows.append({
+                        "model_key": key, "pass_index": pass_index, "pid": pid,
+                        "reasoning": account.reasoning_tokens, "reasoning_source": response.reasoning_source,
+                        "served_by": response.served_by, "model_version": response.model_version,
+                        "cost_usd": cost_usd,
+                    })
+
+                    print(
+                        f"  {key:<22} {pass_index:>4} {account.input_tokens:>6} {account.reasoning_tokens:>7}"
+                        f" {account.output_tokens:>6}  ${cost_usd:>9.5f}  {str(response.served_by):<14} "
+                        f"{response.model_version:<42} ok{version_flag}"
+                    )
+
+                print(col_sep)
+
+        # ─────────────────────────────────────────────────────────
+        # Summary
+        # ─────────────────────────────────────────────────────────
+        print(f"\n{'═'*100}")
+        print(f"  SUMMARY")
+        print(f"{'═'*100}")
+        if dead_pins:
+            print(f"  DEAD PINS (never resolved, no fallback used):")
+            for k, err in dead_pins.items():
+                print(f"    {k:<22} {panel[k].get('openrouter_model_id')}")
+                print(f"      {err}")
+        else:
+            print(f"  All {len(model_keys)} pinned strings resolved and were callable.")
+
+        served_by_seen: dict[str, set] = {}
+        for r in rows:
+            served_by_seen.setdefault(r["model_key"], set()).add(r["served_by"])
+        print(f"\n  Underlying backend(s) reported by OpenRouter per model (fingerprint, not a version guarantee):")
+        for key in model_keys:
+            backends = served_by_seen.get(key)
+            print(f"    {key:<22} {sorted(b for b in backends if b) if backends else '—'}")
+
+        text_estimate_cells = [r for r in rows if r["reasoning_source"] != "api"]
+        if text_estimate_cells:
+            print(f"\n  {len(text_estimate_cells)} row(s) used reasoning_source=text_estimate (not comparable to API-reported counts):")
+            for r in text_estimate_cells:
+                print(f"    {r['model_key']:<22} pass={r['pass_index']} {r['pid']}")
+
+        status_line = "ALL CALLS COMPLETED" if not has_failure else "ISSUES DETECTED — see DEAD PINS / DRIFT / ERROR rows above"
+        print(f"\n  {status_line}")
+        print(f"  Structured records → results/variance/{run_id}.jsonl")
+        print()
+        return 1 if has_failure else 0
+
+    finally:
+        if saved_anthropic_key:
+            os.environ["ANTHROPIC_API_KEY"] = saved_anthropic_key
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -2612,6 +2847,22 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--variance",
+        action="store_true",
+        help=(
+            "Variance repro run: baseline only, no tools, all 8 models pinned to "
+            "fully dated openrouter_model_id strings (identical to June). Repeats "
+            "the full 10-prompt set --passes times to measure run-to-run variance."
+        ),
+    )
+    parser.add_argument(
+        "--passes",
+        type=int,
+        default=2,
+        metavar="N",
+        help="Number of full passes for --variance (default: 2).",
+    )
+    parser.add_argument(
         "--steer",
         action="store_true",
         help=(
@@ -2647,6 +2898,9 @@ def main() -> None:
         sys.exit(code)
     elif args.tools:
         code = run_tools()
+        sys.exit(code)
+    elif args.variance:
+        code = run_variance(passes=args.passes)
         sys.exit(code)
     else:
         parser.print_help()

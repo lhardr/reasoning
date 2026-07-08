@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 RESULTS_DIR = Path(__file__).parent.parent / "results"
 PHASE2_DIR = RESULTS_DIR / "phase2"
 TOOLS_DIR = RESULTS_DIR / "tools"
+VARIANCE_DIR = RESULTS_DIR / "variance"
 
 
 def save_result(
@@ -424,3 +425,91 @@ def save_tools_trace(
         f.write(response.answer_text.strip() + "\n")
 
     return path
+
+
+# ---------------------------------------------------------------------------
+# --variance phase (pinned-version repro run for cross-run variance analysis)
+# ---------------------------------------------------------------------------
+
+def save_variance_result(
+    *,
+    run_id: str,
+    model_key: str,
+    prompt_id: str,
+    pass_index: int,
+    pinned_model_id: str,
+    status: str,
+    response: Optional["ModelResponse"],
+    account: Optional["TokenAccount"],
+    cost_usd: Optional[float],
+    pricing_snapshot_date: Optional[str],
+    thinking_budget: int,
+    reasoning_effort: str,
+    extra: Optional[dict] = None,
+    results_dir: Optional[Path] = None,
+) -> dict:
+    """
+    Persist one (model, prompt, pass) row to results/variance/<run_id>.jsonl.
+
+    status: "ok" | "dead_pin" | "error". pinned_model_id is the exact string we
+    requested; response.model_version is what the provider echoed back — for a
+    healthy pin these must match (a divergence is the silent-drift signal this
+    run exists to catch). served_by is OpenRouter's raw backend fingerprint.
+    """
+    record: dict = {
+        "run_id": run_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "model_key": model_key,
+        "prompt_id": prompt_id,
+        "pass_index": pass_index,
+        "pinned_model_id": pinned_model_id,
+        "status": status,
+        "thinking_budget": thinking_budget,
+        "reasoning_effort": reasoning_effort,
+    }
+
+    if response is not None and account is not None:
+        record.update({
+            "model_version": response.model_version,
+            "served_by": response.served_by,
+            "answer_text": response.answer_text,
+            "raw_reasoning_trace": response.raw_reasoning_trace,
+            "trace_status": response.trace_status,
+            "tokens": {
+                "input": account.input_tokens,
+                "reasoning": account.reasoning_tokens,
+                "reasoning_source": response.reasoning_source,
+                "output": account.output_tokens,
+                "cache_read": account.cache_read_tokens,
+                "cache_write": account.cache_write_tokens,
+                "reasoning_share": round(account.reasoning_share, 4),
+            },
+            "cost_usd": cost_usd,
+            "pricing_snapshot_date": pricing_snapshot_date,
+            "latency_s": round(response.latency_s, 3),
+            "raw_usage": response.raw_usage,
+        })
+    else:
+        record.update({
+            "model_version": None,
+            "served_by": None,
+            "answer_text": None,
+            "raw_reasoning_trace": None,
+            "trace_status": None,
+            "tokens": None,
+            "cost_usd": None,
+            "pricing_snapshot_date": pricing_snapshot_date,
+            "latency_s": None,
+            "raw_usage": None,
+        })
+
+    if extra:
+        record.update(extra)
+
+    out_dir = results_dir if results_dir is not None else VARIANCE_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{run_id}.jsonl"
+    with open(out_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    return record

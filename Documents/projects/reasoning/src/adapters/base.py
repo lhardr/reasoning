@@ -34,6 +34,7 @@ class ModelResponse:
     tool_calls: list = field(default_factory=list)       # executed: {name, args, result_char_len, result_token_est}
     raw_tool_events: list = field(default_factory=list)  # every tool_call block as emitted, incl. unknown/serverside
     n_api_calls: int = 1                                 # 1 = model answered directly; 2 = one tool round + continuation
+    served_by: Optional[str] = None                      # OpenRouter's raw "provider" field — which backend served the call
 
 
 class BaseAdapter:
@@ -118,6 +119,19 @@ def extract_think_tags(text: str) -> tuple[Optional[str], str]:
     if m:
         return m.group(1).strip(), text[m.end():].strip()
     return None, text
+
+
+def extract_served_by(resp) -> Optional[str]:
+    """
+    OpenRouter attaches a top-level "provider" field to chat-completion responses
+    naming the backend that actually served the call (e.g. "DeepInfra", "Together").
+    The openai SDK keeps unknown top-level fields on `.model_extra`. Direct
+    provider APIs (no OpenRouter hop) have no such field — returns None there.
+    """
+    extra = getattr(resp, "model_extra", None)
+    if extra:
+        return extra.get("provider")
+    return None
 
 
 def estimate_tokens(text: str) -> int:
