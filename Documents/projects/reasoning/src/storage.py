@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 RESULTS_DIR = Path(__file__).parent.parent / "results"
 PHASE2_DIR = RESULTS_DIR / "phase2"
 TOOLS_DIR = RESULTS_DIR / "tools"
+TOOLS3_DIR = RESULTS_DIR / "tools3"
 VARIANCE_DIR = RESULTS_DIR / "variance"
 
 
@@ -382,10 +383,12 @@ def save_tools_trace(
     prompt_text: str,
     response: Optional["ModelResponse"],
     status: str,
+    pass_index: Optional[int] = None,
 ) -> Path:
-    """Write a human-readable trace to traces_dir/<model>_<prompt>_<arm>.txt."""
+    """Write a human-readable trace to traces_dir/<model>_<prompt>_<arm>[_pass<N>].txt."""
     traces_dir.mkdir(parents=True, exist_ok=True)
-    path = traces_dir / f"{model_key}_{prompt_id}_{arm}.txt"
+    suffix = f"_pass{pass_index}" if pass_index is not None else ""
+    path = traces_dir / f"{model_key}_{prompt_id}_{arm}{suffix}.txt"
     sep = "=" * 72
 
     with open(path, "w", encoding="utf-8") as f:

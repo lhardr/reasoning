@@ -100,9 +100,12 @@ class BaseAdapter:
         prompt: str,
         thinking_budget: int = 4096,
         reasoning_effort: str = "high",
+        tool_choice: Optional[str] = None,
     ) -> ModelResponse:
-        """--tools phase, Arm B. Raise ToolsNotSupportedError (see tool_loop.py)
-        when the API itself confirms this model/endpoint cannot tool-call."""
+        """--tools/--tools3 phase. tool_choice: None/"auto" (model routes itself)
+        or "required" (model MUST call >=1 tool). Raise ToolsNotSupportedError
+        (see tool_loop.py) when the API itself confirms this model/endpoint
+        cannot tool-call."""
         raise NotImplementedError
 
 

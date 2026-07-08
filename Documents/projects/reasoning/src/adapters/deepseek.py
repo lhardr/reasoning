@@ -105,7 +105,7 @@ class DeepSeekAdapter(BaseAdapter):
             served_by=extract_served_by(resp),
         )
 
-    def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:
+    def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high", tool_choice: str | None = None) -> ModelResponse:
         from openai import OpenAI
 
         from ..tool_loop import call_with_tools_openai_style
@@ -126,4 +126,5 @@ class DeepSeekAdapter(BaseAdapter):
                 "include_reasoning": True,
                 "reasoning": {"effort": reasoning_effort},
             },
+            tool_choice=tool_choice,
         )

@@ -37,11 +37,11 @@ class AnthropicAdapter(BaseAdapter):
             return self._call_direct(prompt, thinking_budget)
         return self._call_via_openrouter(prompt, thinking_budget)
 
-    def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:
+    def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high", tool_choice: str | None = None) -> ModelResponse:
         import os
         if os.environ.get("ANTHROPIC_API_KEY"):
-            return self._call_with_tools_direct(prompt, thinking_budget)
-        return self._call_with_tools_via_openrouter(prompt, thinking_budget)
+            return self._call_with_tools_direct(prompt, thinking_budget, tool_choice)
+        return self._call_with_tools_via_openrouter(prompt, thinking_budget, tool_choice)
 
     # ------------------------------------------------------------------
     # Direct Anthropic SDK path
@@ -210,7 +210,7 @@ class AnthropicAdapter(BaseAdapter):
     # Tools phase — direct Anthropic SDK (native tool_use/tool_result blocks)
     # ------------------------------------------------------------------
 
-    def _call_with_tools_direct(self, prompt: str, thinking_budget: int) -> ModelResponse:
+    def _call_with_tools_direct(self, prompt: str, thinking_budget: int, tool_choice: str | None = None) -> ModelResponse:
         import anthropic
         import os
 
@@ -221,6 +221,8 @@ class AnthropicAdapter(BaseAdapter):
         model_id = self.config["model_id"]
         use_adaptive = "opus-4" in model_id or "sonnet-4" in model_id
         anthropic_tools = to_anthropic_tools(available_tool_defs())
+        # Anthropic's native tool_choice format differs from the OpenAI string enum.
+        anthropic_tool_choice = {"required": {"type": "any"}, "auto": {"type": "auto"}}.get(tool_choice)
 
         def _make_call(messages: list, with_tools: bool):
             kwargs: dict = {"model": model_id, "messages": messages}
@@ -237,6 +239,8 @@ class AnthropicAdapter(BaseAdapter):
                 )
             if with_tools:
                 kwargs["tools"] = anthropic_tools
+                if anthropic_tool_choice is not None:
+                    kwargs["tool_choice"] = anthropic_tool_choice
             return client.messages.create(**kwargs)
 
         def _tokens_for(usage, thinking_text, answer_text):
@@ -378,7 +382,7 @@ class AnthropicAdapter(BaseAdapter):
     # Tools phase — OpenRouter fallback (OpenAI-compatible dialect)
     # ------------------------------------------------------------------
 
-    def _call_with_tools_via_openrouter(self, prompt: str, thinking_budget: int) -> ModelResponse:
+    def _call_with_tools_via_openrouter(self, prompt: str, thinking_budget: int, tool_choice: str | None = None) -> ModelResponse:
         import os
         from openai import OpenAI
         from .base import OPENROUTER_BASE_URL
@@ -397,6 +401,7 @@ class AnthropicAdapter(BaseAdapter):
             model_id=model_id,
             prompt=prompt,
             max_tokens=thinking_budget + 512,
+            tool_choice=tool_choice,
             base_extra_body={
                 "thinking": {"type": "enabled", "budget_tokens": thinking_budget},
             },

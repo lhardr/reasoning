@@ -39,6 +39,7 @@ from src.storage import (
     PHASE2_DIR,
     RESULTS_DIR,
     TOOLS_DIR,
+    TOOLS3_DIR,
     VARIANCE_DIR,
     save_langcost_result,
     save_langcost_trace,
@@ -2747,6 +2748,423 @@ def run_variance(passes: int = 2) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Invited/forced tool-offload re-run (--tools3)
+# ---------------------------------------------------------------------------
+#
+# Replaces the first --tools measurement (20260708T112015): that run only
+# observed SPONTANEOUS tool use (schema declared, tool_choice left on "auto",
+# no textual invitation). Gemma and Mistral never called anything there, but
+# both are documented to support function calling — silence is not evidence
+# of incapacity when the setup itself may be weak. This run separates three
+# questions: CAN the model tool-call at all (forced), WILL it when invited
+# realistically (invited_auto), and is any of it just our own routing bug.
+
+TOOLS3_TOOL_RELEVANT_PROMPTS: dict[str, str] = {
+    # prompt_id -> which tool it plausibly calls for. Confirmed against
+    # data/prompts.yaml types: P3/P5/P6/P7/P8 are computation/code/structure
+    # (repl-shaped); P4 is da_legal/very_high citing specific §-rules a model
+    # may want to verify (search-shaped) — also the prompt Kimi searched on
+    # in the first --tools run.
+    "P3": "repl", "P5": "repl", "P6": "repl", "P7": "repl", "P8": "repl",
+    "P4": "search",
+}
+TOOLS3_CONTROL_GROUP: set[str] = {"P1", "P2", "P9", "P10"}
+
+TOOLS3_INVITATION = (
+    "\n\nDu har adgang til to værktøjer: python_exec (kør Python for eksakt "
+    "beregning) og web_search (slå fakta op). Brug dem hvis de hjælper med at "
+    "svare korrekt."
+)
+
+# Baseline is REUSED, not re-run — same pinned-version pooling rule as --variance:
+# exact model_version match to panel.yaml's openrouter_model_id, reasoning_source=="api".
+TOOLS3_BASELINE_SOURCES: tuple[tuple[Path, Optional[str]], ...] = (
+    (RESULTS_DIR / "full" / "combined_8models_full.jsonl", None),
+    (TOOLS_DIR / "20260708T112015_tools.jsonl", "baseline"),
+    (VARIANCE_DIR / "20260708T143500_variance.jsonl", None),
+)
+
+
+def _load_pooled_baseline() -> dict[tuple[str, str], list[dict]]:
+    """
+    (model_key, prompt_id) -> list of {input, reasoning, output, cost_usd},
+    pooled across June + the first --tools run's baseline arm + both
+    --variance passes — the exact same multi-source pooling the --variance
+    report used. This IS the baseline for --tools3; it is not re-run.
+    """
+    import json
+    from collections import defaultdict
+
+    panel = load_panel()
+    pins = {k: panel[k].get("openrouter_model_id") for k in FULL_MODEL_ORDER if k in panel}
+    pooled: dict[tuple[str, str], list[dict]] = defaultdict(list)
+
+    for path, arm_filter in TOOLS3_BASELINE_SOURCES:
+        if not path.exists():
+            continue
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                r = json.loads(line)
+                mk = r.get("model_key")
+                if mk not in pins or r.get("model_version") != pins.get(mk):
+                    continue
+                if arm_filter is not None and r.get("arm") != arm_filter:
+                    continue
+                tok = r.get("tokens")
+                if not tok or tok.get("reasoning_source") != "api":
+                    continue
+                pooled[(mk, r["prompt_id"])].append({
+                    "input": tok["input"], "reasoning": tok["reasoning"],
+                    "output": tok["output"], "cost_usd": r.get("cost_usd") or 0.0,
+                })
+    return pooled
+
+
+def _relative_noise_floor(pooled: dict[tuple[str, str], list[dict]]) -> dict[str, float]:
+    """Per-model median per-cell coefficient of variation ((max-min)/median) in
+    reasoning tokens, from the pooled baseline — the threshold --tools3 tests against."""
+    import statistics
+    from collections import defaultdict
+
+    by_model: dict[str, list[float]] = defaultdict(list)
+    for (mk, _pid), rows in pooled.items():
+        vals = [r["reasoning"] for r in rows]
+        if len(vals) < 2:
+            continue
+        med = statistics.median(vals)
+        if med > 0:
+            by_model[mk].append((max(vals) - min(vals)) / med)
+    return {mk: statistics.median(cvs) for mk, cvs in by_model.items() if cvs}
+
+
+def _tools3_smoke_test(panel: dict, prompts: dict, reasoning_effort: str) -> bool:
+    """
+    Mandatory gate: does tool_choice="required" actually get enforced for
+    Gemma and Mistral through our OpenRouter route? If a forced call comes
+    back with zero tool_calls, that is our translation/routing failing, not
+    the model declining — the caller must stop the whole run on failure.
+    """
+    print(f"\n{'═'*100}")
+    print(f"  SMOKE TEST — tool_choice=required on Gemma + Mistral (gate before the full run)")
+    print(f"{'═'*100}")
+    ok = True
+    for key in ("gemma_4", "mistral_medium_3_5"):
+        cfg = panel[key]
+        cls = PROVIDER_MAP[cfg["provider"]]
+        thinking_budget = cfg.get("thinking_budget", 4096)
+        prompt_text = prompts["P5"]["prompt"] + TOOLS3_INVITATION
+        try:
+            adapter = cls(key, cfg)
+            resp = adapter.call_with_tools(
+                prompt_text, thinking_budget=thinking_budget,
+                reasoning_effort=reasoning_effort, tool_choice="required",
+            )
+        except Exception as e:
+            print(f"  {key:<22} ERROR — {e}")
+            ok = False
+            continue
+        called = bool(resp.tool_calls)
+        status = "OK — required respected" if called else "FAIL — required NOT respected (adapter/routing defect)"
+        print(f"  {key:<22} tool_calls={resp.tool_calls}  served_by={resp.served_by}  {status}")
+        if not called:
+            ok = False
+    print(f"{'═'*100}")
+    return ok
+
+
+def run_tools3(repeats: int = 5) -> int:
+    """
+    Three-condition tool-offload re-run on pinned dated versions:
+      - baseline: REUSED from --variance + June + first-run (not re-run here).
+      - invited_auto: prompt explicitly invites both tools, tool_choice="auto".
+      - forced: tool_choice="required" on the 6 tool-relevant prompts only.
+
+    Gate: a mandatory smoke test on Gemma/Mistral (forced) must pass before
+    anything else runs — if required isn't enforced there, it's our adapter
+    translation, not model capability, and the run stops.
+    """
+    panel = load_panel()
+    experiment = load_experiment()
+    reasoning_effort: str = experiment.get("reasoning_effort", "high")
+    prompts = load_prompts()
+
+    model_keys = [
+        k for k in FULL_MODEL_ORDER
+        if k in panel and panel[k].get("role") in SMOKE_ROLES
+    ]
+
+    # Force OpenRouter route for Anthropic models — same mechanism as --variance.
+    saved_anthropic_key = os.environ.pop("ANTHROPIC_API_KEY", None)
+    if saved_anthropic_key:
+        print(f"\n  !! ANTHROPIC_API_KEY temporarily removed from env — forcing OpenRouter route for this run.")
+
+    try:
+        if not _tools3_smoke_test(panel, prompts, reasoning_effort):
+            print(
+                "\n  STOP — tool_choice=required was not respected by Gemma and/or Mistral "
+                "through the current route/adapter. This is being treated as OUR translation "
+                "failing, not a model capability finding. Fix the adapter/schema before running "
+                "the rest of --tools3.\n"
+            )
+            return 1
+
+        pooled_baseline = _load_pooled_baseline()
+        noise_floor = _relative_noise_floor(pooled_baseline)
+
+        tool_defs = available_tool_defs()
+        tools_available_names = [t["name"] for t in tool_defs]
+
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_tools3"
+        traces_dir = TOOLS3_DIR / f"{run_id}_traces"
+
+        # Cell list: (model, prompt, condition)
+        cells: list[tuple[str, str, str]] = []
+        for mk in model_keys:
+            for pid in TOOLS3_TOOL_RELEVANT_PROMPTS:
+                cells.append((mk, pid, "invited_auto"))
+                cells.append((mk, pid, "forced"))
+            for pid in TOOLS3_CONTROL_GROUP:
+                cells.append((mk, pid, "invited_auto"))
+        cells.sort(key=lambda c: (int(c[1][1:]), c[2], c[0]))
+
+        n_calls = len(cells) * repeats
+        print(f"\n{'═'*120}")
+        print(f"  Invited/Forced Tool-Offload Re-run (--tools3)   run_id={run_id}")
+        print(f"  Tool-relevant prompts: {TOOLS3_TOOL_RELEVANT_PROMPTS}")
+        print(f"  Control prompts (invited_auto only): {sorted(TOOLS3_CONTROL_GROUP)}")
+        print(f"  Cells: {len(cells)}  ×  repeats: {repeats} = {n_calls} rows  |  baseline REUSED, not re-run")
+        print(f"  Tools offered: {', '.join(tools_available_names)}")
+        if not search_available():
+            print(f"  !! web_search PENDING — SEARCH_API_KEY not set.")
+        print(f"  Noise floor (relative, from pooled baseline): {{{', '.join(f'{k}: {v:.0%}' for k, v in sorted(noise_floor.items(), key=lambda x: x[1]))}}}")
+        print(f"  Versions: panel.yaml pinned dated strings (identical to --variance). No alias.")
+        print(f"{'═'*120}")
+
+        resolved = resolve_models(panel, model_keys)
+        print_resolution_table(resolved)
+        print(f"\n  NOTE: catalog mismatches are informational only for pinned dated snapshots — not a gate here.\n")
+
+        has_failure = False
+        agg: list[dict] = []
+        required_violations: list[dict] = []
+
+        col_hdr = (
+            f"  {'Pass':>4} {'Inp':>6} {'Reas':>7} {'Out':>6}  {'Cost($)':>10}  "
+            f"{'ServedBy':<14} {'Tools called':<20} Status"
+        )
+
+        for (model_key, pid, condition) in cells:
+            cfg = panel[model_key]
+            provider = cfg["provider"]
+            thinking_budget: int = cfg.get("thinking_budget", 4096)
+            p = prompts[pid]
+            assert "facit" not in p, (
+                f"CRITICAL SECURITY VIOLATION: facit in request-path object for {pid}"
+            )
+            prompt_text: str = p["prompt"] + TOOLS3_INVITATION
+            tool_choice = "auto" if condition == "invited_auto" else "required"
+
+            cls = PROVIDER_MAP.get(provider)
+            if cls is None:
+                print(f"\n  {model_key} / {pid} / {condition}  SKIPPED (unknown provider: {provider})")
+                continue
+
+            print(f"\n{'═'*120}")
+            print(f"  {model_key} / {pid} / {condition}  (tool_choice={tool_choice!r})")
+            print(f"  {prompt_text[:100].strip()!r}")
+            print(f"{'═'*120}")
+            print(col_hdr)
+            print("  " + "─" * 100)
+
+            for pass_index in range(1, repeats + 1):
+                try:
+                    adapter = cls(model_key, cfg)
+                except CredentialMissingError as e:
+                    print(f"  {pass_index:>4}  SKIPPED — {e}")
+                    continue
+
+                try:
+                    resp = adapter.call_with_tools(
+                        prompt_text, thinking_budget=thinking_budget,
+                        reasoning_effort=reasoning_effort, tool_choice=tool_choice,
+                    )
+                except ToolsNotSupportedError as e:
+                    save_tools_result(
+                        run_id=run_id, model_key=model_key, prompt_id=pid, arm=condition,
+                        status="n/a_no_tool_support", response=None, account=None, cost_usd=None,
+                        pricing_snapshot_date=None, thinking_budget=thinking_budget,
+                        reasoning_effort=reasoning_effort, tools_available=tools_available_names,
+                        extra={"pass_index": pass_index, "tool_choice_sent": tool_choice, "error": str(e)},
+                        results_dir=TOOLS3_DIR,
+                    )
+                    print(f"  {pass_index:>4}  n/a — no tool support")
+                    continue
+                except AdapterError as e:
+                    save_tools_result(
+                        run_id=run_id, model_key=model_key, prompt_id=pid, arm=condition,
+                        status="error", response=None, account=None, cost_usd=None,
+                        pricing_snapshot_date=None, thinking_budget=thinking_budget,
+                        reasoning_effort=reasoning_effort, tools_available=tools_available_names,
+                        extra={"pass_index": pass_index, "tool_choice_sent": tool_choice, "error": str(e)},
+                        results_dir=TOOLS3_DIR,
+                    )
+                    print(f"  {pass_index:>4}  ERROR — {e}")
+                    has_failure = True
+                    continue
+                except Exception as e:
+                    print(f"  {pass_index:>4}  ERROR — unexpected: {e}")
+                    has_failure = True
+                    continue
+
+                account = build_account(resp)
+                cost_usd, snapshot_date = compute_cost(model_key, account)
+                tools_used = _tool_names_used(resp)
+
+                save_tools_result(
+                    run_id=run_id, model_key=model_key, prompt_id=pid, arm=condition, status="ok",
+                    response=resp, account=account, cost_usd=cost_usd, pricing_snapshot_date=snapshot_date,
+                    thinking_budget=thinking_budget, reasoning_effort=reasoning_effort,
+                    tools_available=tools_available_names,
+                    extra={"pass_index": pass_index, "served_by": resp.served_by, "tool_choice_sent": tool_choice},
+                    results_dir=TOOLS3_DIR,
+                )
+                save_tools_trace(
+                    traces_dir=traces_dir, model_key=model_key, prompt_id=pid, arm=condition,
+                    prompt_text=prompt_text, response=resp, status="ok", pass_index=pass_index,
+                )
+
+                if condition == "forced" and not tools_used:
+                    required_violations.append({"model_key": model_key, "pid": pid, "pass": pass_index})
+                    print(f"  {pass_index:>4}  !!!! REQUIRED NOT RESPECTED — no tool called despite tool_choice=required !!!!")
+
+                agg.append({
+                    "model_key": model_key, "pid": pid, "condition": condition, "pass": pass_index,
+                    "input": account.input_tokens, "reasoning": account.reasoning_tokens,
+                    "output": account.output_tokens, "cost_usd": cost_usd, "tools_used": tools_used,
+                })
+                tools_str = ", ".join(tools_used) if tools_used else "—"
+                print(
+                    f"  {pass_index:>4} {account.input_tokens:>6} {account.reasoning_tokens:>7}"
+                    f" {account.output_tokens:>6}  ${cost_usd:>9.5f}  {str(resp.served_by):<14} {tools_str:<20} ok"
+                )
+
+        # ═════════════════════════════════════════════════════════
+        # REPORT
+        # ═════════════════════════════════════════════════════════
+        import statistics as _stats
+
+        def _median(vals):
+            return _stats.median(vals) if vals else None
+
+        def _rows(mk, pid, condition):
+            return [r for r in agg if r["model_key"] == mk and r["pid"] == pid and r["condition"] == condition]
+
+        # --- 1. CAN vs WILL ---
+        print(f"\n{'═'*100}")
+        print(f"  1. KAN vs VIL — call rate per model, tool-relevant prompts only")
+        print(f"{'═'*100}")
+        print(f"  {'Model':<22} {'invited_auto (VIL)':>20}  {'forced (KAN)':>14}")
+        for mk in model_keys:
+            inv_rows = [r for r in agg if r["model_key"] == mk and r["condition"] == "invited_auto" and r["pid"] in TOOLS3_TOOL_RELEVANT_PROMPTS]
+            forced_rows = [r for r in agg if r["model_key"] == mk and r["condition"] == "forced"]
+            inv_rate = f"{sum(1 for r in inv_rows if r['tools_used'])}/{len(inv_rows)}" if inv_rows else "—"
+            forced_rate = f"{sum(1 for r in forced_rows if r['tools_used'])}/{len(forced_rows)}" if forced_rows else "—"
+            flag = "  <<<< check" if mk in ("gemma_4", "mistral_medium_3_5") else ""
+            print(f"  {mk:<22} {inv_rate:>20}  {forced_rate:>14}{flag}")
+
+        # --- 2. Offload economy (forced vs reused baseline), per tool-relevant cell ---
+        print(f"\n{'═'*130}")
+        print(f"  2. OFFLOAD ECONOMY — forced vs reused baseline, per (model, prompt)")
+        print(f"{'═'*130}")
+        print(
+            f"  {'Model':<20} {'Pid':<4} {'BaseReas':>9} {'ForcedReas':>10} {'ΔReas':>8} {'ΔReas%':>8}  "
+            f"{'ΔInput':>8} {'ΔOutput':>8} {'ΔCost':>9}  {'Decision':<28}"
+        )
+        print("  " + "─" * 126)
+        cell_deltas: list[dict] = []
+        for mk in model_keys:
+            for pid in TOOLS3_TOOL_RELEVANT_PROMPTS:
+                base_rows = pooled_baseline.get((mk, pid), [])
+                forced_rows = _rows(mk, pid, "forced")
+                if not base_rows or not forced_rows:
+                    continue
+                base_reas = _median([r["reasoning"] for r in base_rows])
+                forced_reas = _median([r["reasoning"] for r in forced_rows])
+                d_reas = forced_reas - base_reas
+                d_reas_pct = (d_reas / base_reas) if base_reas > 0 else None
+                d_in = _median([r["input"] for r in forced_rows]) - _median([r["input"] for r in base_rows])
+                d_out = _median([r["output"] for r in forced_rows]) - _median([r["output"] for r in base_rows])
+                d_cost = _median([r["cost_usd"] for r in forced_rows]) - _median([r["cost_usd"] for r in base_rows])
+                nf = noise_floor.get(mk)
+                if nf is not None and d_reas_pct is not None:
+                    decision = f"EXCEEDS ({abs(d_reas_pct):.0%} > {nf:.0%})" if abs(d_reas_pct) > nf else f"within noise (<= {nf:.0%})"
+                else:
+                    decision = "no noise floor data"
+                cell_deltas.append({
+                    "model_key": mk, "pid": pid, "kind": TOOLS3_TOOL_RELEVANT_PROMPTS[pid],
+                    "d_reas": d_reas, "d_reas_pct": d_reas_pct, "d_in": d_in, "d_out": d_out, "d_cost": d_cost,
+                    "exceeds_noise": nf is not None and d_reas_pct is not None and abs(d_reas_pct) > nf,
+                })
+                pct_str = f"{d_reas_pct:+.0%}" if d_reas_pct is not None else "—"
+                print(
+                    f"  {mk:<20} {pid:<4} {base_reas:>9.1f} {forced_reas:>10.1f} {d_reas:>+8.1f} {pct_str:>8}  "
+                    f"{d_in:>+8.1f} {d_out:>+8.1f} {d_cost:>+9.5f}  {decision:<28}"
+                )
+
+        # --- 3. Invitation's own effect on the control group ---
+        print(f"\n{'═'*100}")
+        print(f"  3. INVITATION'S OWN EFFECT — invited_auto vs baseline on control cells where NO tool was called")
+        print(f"{'═'*100}")
+        print(f"  {'Model':<22} {'n cells':>8}  {'Median ΔReas':>13}")
+        for mk in model_keys:
+            deltas = []
+            for pid in TOOLS3_CONTROL_GROUP:
+                base_rows = pooled_baseline.get((mk, pid), [])
+                inv_rows = [r for r in _rows(mk, pid, "invited_auto") if not r["tools_used"]]
+                if base_rows and inv_rows:
+                    deltas.append(_median([r["reasoning"] for r in inv_rows]) - _median([r["reasoning"] for r in base_rows]))
+            if deltas:
+                print(f"  {mk:<22} {len(deltas):>8}  {_median(deltas):>+13.1f}")
+            else:
+                print(f"  {mk:<22} {'0':>8}  {'—':>13}")
+
+        # --- 4. Split repl vs search ---
+        print(f"\n{'═'*100}")
+        print(f"  4. SPLIT — repl-offload vs search-offload (forced condition, median ΔReas)")
+        print(f"{'═'*100}")
+        for kind in ("repl", "search"):
+            rows = [c for c in cell_deltas if c["kind"] == kind]
+            if not rows:
+                print(f"  {kind:<10} n=0")
+                continue
+            n_exceed = sum(1 for r in rows if r["exceeds_noise"])
+            print(f"  {kind:<10} n={len(rows):<3} median ΔReas={_median([r['d_reas'] for r in rows]):+.1f}  "
+                  f"exceeding noise floor: {n_exceed}/{len(rows)}")
+
+        # --- 5. Required violations ---
+        print(f"\n{'═'*100}")
+        print(f"  5. REQUIRED NOT RESPECTED (possible adapter/routing defect)")
+        print(f"{'═'*100}")
+        if required_violations:
+            for v in required_violations:
+                print(f"    {v['model_key']:<22} {v['pid']:<6} pass={v['pass']}")
+        else:
+            print(f"  None — every forced call produced >=1 tool call.")
+
+        status_line = "ALL CALLS COMPLETED" if not has_failure else "ERRORS DETECTED — see rows above"
+        print(f"\n{'═'*100}")
+        print(f"  {status_line}")
+        print(f"  Structured records → results/tools3/{run_id}.jsonl")
+        print(f"  Raw traces         → results/tools3/{run_id}_traces/<model>_<prompt>_<condition>_pass<N>.txt")
+        print()
+        return 1 if has_failure else 0
+
+    finally:
+        if saved_anthropic_key:
+            os.environ["ANTHROPIC_API_KEY"] = saved_anthropic_key
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -2863,6 +3281,23 @@ def main() -> None:
         help="Number of full passes for --variance (default: 2).",
     )
     parser.add_argument(
+        "--tools3",
+        action="store_true",
+        help=(
+            "Replaces --tools: invited_auto (tool_choice=auto, explicit invitation) "
+            "and forced (tool_choice=required) conditions on pinned versions, "
+            "--repeats times per cell. Baseline is REUSED from --variance/June, not "
+            "re-run. Gated by a mandatory Gemma/Mistral required-compliance smoke test."
+        ),
+    )
+    parser.add_argument(
+        "--repeats",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Number of repeats per cell for --tools3 (default: 5).",
+    )
+    parser.add_argument(
         "--steer",
         action="store_true",
         help=(
@@ -2901,6 +3336,9 @@ def main() -> None:
         sys.exit(code)
     elif args.variance:
         code = run_variance(passes=args.passes)
+        sys.exit(code)
+    elif args.tools3:
+        code = run_tools3(repeats=args.repeats)
         sys.exit(code)
     else:
         parser.print_help()

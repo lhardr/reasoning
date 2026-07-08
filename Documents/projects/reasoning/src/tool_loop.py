@@ -18,6 +18,7 @@ from .adapters.base import (
     AdapterError,
     ModelResponse,
     estimate_tokens,
+    extract_served_by,
     extract_think_tags,
     split_token_estimate,
 )
@@ -57,6 +58,7 @@ class ToolLoopResult:
     latency_s: float = 0.0
     model_version: str = ""
     raw_usage: dict = field(default_factory=dict)
+    served_by: Optional[str] = None
 
 
 def _extract_reasoning(msg, raw_content: str) -> tuple[Optional[str], str]:
@@ -103,19 +105,32 @@ def run_openai_tool_loop(
     openai_tools: list[dict],
     max_tokens: int,
     base_extra_body: Optional[dict] = None,
+    tool_choice: Optional[str] = None,
 ) -> ToolLoopResult:
+    """
+    tool_choice: None (provider default, effectively "auto"), "auto", or
+    "required" (model MUST call >=1 tool). Applies to the first call only —
+    the continuation call never receives `tools`, so tool_choice is moot there.
+    A "required" call that comes back with no tool_calls means the route did
+    NOT enforce it — the caller (run_tools3) treats that as a possible
+    adapter/routing defect, not a valid "chose not to call".
+    """
     base_extra_body = dict(base_extra_body or {})
     messages: list[dict] = [{"role": "user", "content": prompt}]
 
+    first_call_kwargs: dict = dict(
+        model=model_id,
+        messages=messages,
+        max_tokens=max_tokens,
+        tools=openai_tools,
+        extra_body=base_extra_body or None,
+    )
+    if tool_choice is not None:
+        first_call_kwargs["tool_choice"] = tool_choice
+
     t0 = time.perf_counter()
     try:
-        resp1 = client.chat.completions.create(
-            model=model_id,
-            messages=messages,
-            max_tokens=max_tokens,
-            tools=openai_tools,
-            extra_body=base_extra_body or None,
-        )
+        resp1 = client.chat.completions.create(**first_call_kwargs)
     except Exception as exc:
         _raise_if_tool_unsupported(exc, model_key)
         raise
@@ -156,6 +171,7 @@ def run_openai_tool_loop(
             latency_s=latency,
             model_version=resp1.model,
             raw_usage={"call_1": rawusage1},
+            served_by=extract_served_by(resp1),
         )
 
     # --- Execute every tool call the model emitted, then force a final answer ---
@@ -244,6 +260,7 @@ def run_openai_tool_loop(
         latency_s=latency,
         model_version=resp2.model,
         raw_usage={"call_1": rawusage1, "call_2": rawusage2},
+        served_by=extract_served_by(resp2),
     )
 
 
@@ -264,6 +281,7 @@ def _to_model_response(result: ToolLoopResult) -> ModelResponse:
         tool_calls=result.tool_calls,
         raw_tool_events=result.raw_tool_events,
         n_api_calls=result.n_api_calls,
+        served_by=result.served_by,
     )
 
 
@@ -275,6 +293,7 @@ def call_with_tools_openai_style(
     prompt: str,
     max_tokens: int,
     base_extra_body: Optional[dict] = None,
+    tool_choice: Optional[str] = None,
 ) -> ModelResponse:
     """
     One-call convenience wrapper for the (many) adapters that speak the
@@ -292,6 +311,7 @@ def call_with_tools_openai_style(
             openai_tools=openai_tools,
             max_tokens=max_tokens,
             base_extra_body=base_extra_body,
+            tool_choice=tool_choice,
         )
     except ToolsNotSupportedError:
         raise

@@ -117,7 +117,7 @@ class MistralAdapter(BaseAdapter):
             served_by=extract_served_by(resp),
         )
 
-    def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:
+    def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high", tool_choice: str | None = None) -> ModelResponse:
         from openai import OpenAI
 
         from ..tool_loop import call_with_tools_openai_style
@@ -132,6 +132,7 @@ class MistralAdapter(BaseAdapter):
             model_id=model_id,
             prompt=prompt,
             max_tokens=thinking_budget + 512,
+            tool_choice=tool_choice,
             base_extra_body={
                 "include_reasoning": True,
                 "reasoning": {"effort": reasoning_effort},
