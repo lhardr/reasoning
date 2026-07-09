@@ -97,29 +97,44 @@ def _relative_close(a: float, b: float, tol: float = RELATIVE_TOLERANCE) -> bool
     return abs(a - b) / abs(b) <= tol
 
 
-def grade_finance(answer_text: str, facit_answer: str) -> GradeResult:
+def grade_finance(answer_text: str, facit_answers) -> GradeResult:
     """
+    facit_answers: a single facit string, or a list of acceptable facit
+    strings when the question itself is ambiguous (finance_interp accepts
+    two readings — see heavy_tasks.py). A single string is treated as a
+    one-element list; behavior for single-facit tasks (finance_calc) is
+    unchanged.
+
     Primary heuristic: the LAST number in the answer is the model's final
     answer (matches "Final answer: X" instruction). Also checks whether ANY
-    number in the text matches, for data-quality review when the primary
-    heuristic and the tolerance check disagree.
+    number in the text matches ANY accepted facit, for data-quality review
+    when the primary heuristic and the tolerance check disagree.
     """
-    facit_numeric = _parse_number(facit_answer)
+    if isinstance(facit_answers, str):
+        facit_answers = [facit_answers]
+    facit_numerics = [n for n in (_parse_number(f) for f in facit_answers) if n is not None]
+
     numbers = _extract_numbers(answer_text)
     primary = numbers[-1] if numbers else None
-    correct = (
-        primary is not None
-        and facit_numeric is not None
-        and _relative_close(primary, facit_numeric)
-    )
-    any_match = facit_numeric is not None and any(
-        _relative_close(n, facit_numeric) for n in numbers
+
+    matched_facit = None
+    if primary is not None:
+        for fn in facit_numerics:
+            if _relative_close(primary, fn):
+                matched_facit = fn
+                break
+    correct = matched_facit is not None
+
+    any_match = any(
+        _relative_close(n, fn) for n in numbers for fn in facit_numerics
     )
     return GradeResult(
         correct=correct,
         extracted_answer=str(primary) if primary is not None else "",
         detail={
-            "facit_numeric": facit_numeric,
+            "facit_numeric": facit_numerics[0] if len(facit_numerics) == 1 else facit_numerics,
+            "accepted_facit_numerics": facit_numerics,
+            "matched_facit": matched_facit,
             "raw_extracted_numbers": numbers[:20],
             "any_number_in_text_matches": any_match,
             "primary_matched": correct,
@@ -131,4 +146,5 @@ def grade(domain: str, answer_text: str, facit_grading: dict) -> GradeResult:
     """Dispatch by domain — code vs the two finance domains."""
     if domain == "code":
         return grade_code(answer_text, facit_grading["entry_point"], facit_grading["test"])
-    return grade_finance(answer_text, facit_grading["answer"])
+    facit = facit_grading.get("accepted_answers") or facit_grading["answer"]
+    return grade_finance(answer_text, facit)

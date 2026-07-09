@@ -129,5 +129,21 @@ def load_heavy_tasks(with_facit: bool = False) -> dict[str, dict]:
         "test": he["test"],
     }
     tasks["finance_calc"]["facit_grading"] = {"answer": fq_calc["qa"]["answer"]}
-    tasks["finance_interp"]["facit_grading"] = {"answer": fq_interp["qa"]["answer"]}
+    # finance_interp: FinQA's qa.answer string ("3829") is a dataset annotation
+    # bug — it's missing a trailing zero. qa.exe_ans is 38290.0, and the FinQA
+    # program (subtract(138.29, const_100), divide(100000, const_100),
+    # multiply) computes 38290 directly. Separately, the question itself
+    # ("what is the total return if 100000 are invested...") is genuinely
+    # ambiguous between the profit (38290) and the ending portfolio value
+    # (138290 = 100000 + 38290) — both are defensible readings of "total
+    # return", so both are accepted, each with the usual 1% relative
+    # tolerance (see grade_finance in heavy_grader.py).
+    assert fq_interp["qa"]["answer"] == "3829", (
+        "finance_interp source facit changed upstream — re-verify the "
+        "38290/138290 correction still applies before trusting it silently."
+    )
+    tasks["finance_interp"]["facit_grading"] = {
+        "answer": "38290",
+        "accepted_answers": ["38290", "138290"],
+    }
     return tasks
