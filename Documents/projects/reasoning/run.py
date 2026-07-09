@@ -33,14 +33,20 @@ from src.judge import (
     call_judge_openrouter,
     compute_agreement,
 )
+from src.heavy_grader import grade as grade_heavy
+from src.heavy_tasks import TASK_KEYS as HEAVY_TASK_KEYS
+from src.heavy_tasks import load_heavy_tasks
 from src.language_metric import measure_trace_language
 from src.model_resolver import print_resolution_table, resolve_models
 from src.storage import (
+    HEAVY_DIR,
     PHASE2_DIR,
     RESULTS_DIR,
     TOOLS_DIR,
     TOOLS3_DIR,
     VARIANCE_DIR,
+    save_heavy_result,
+    save_heavy_trace,
     save_langcost_result,
     save_langcost_trace,
     save_phase2_result,
@@ -3165,6 +3171,361 @@ def run_tools3(repeats: int = 5) -> int:
 
 
 # ---------------------------------------------------------------------------
+# --heavy phase (heavy tasks: code + finance_calc + finance_interp)
+# ---------------------------------------------------------------------------
+#
+# Three locked tasks from established, external datasets (HumanEval, FinQA —
+# see src/heavy_tasks.py). Goal: HOW models solve heavy tasks — tokens, cost,
+# tool behavior, reasoning — not primarily whether they can. Correctness is
+# graded as quality control (src/heavy_grader.py), not the headline metric.
+#
+# Two conditions only — baseline (closed-book) and invited_auto (both tools
+# offered, tool_choice=auto). No forced condition: --tools3 already showed
+# forcing tool use kills Claude's reasoning trace and gets ignored by two
+# other models, so it would not measure genuine tool-adoption behavior here.
+
+HEAVY_MODELS: list[str] = FULL_MODEL_ORDER
+HEAVY_CONDITIONS: tuple[str, ...] = ("baseline", "invited_auto")
+
+# Reuse the --tools3 invitation verbatim — "fælles invitationslinje identisk
+# for alle" was already satisfied by that constant; no reason to re-derive it.
+HEAVY_INVITATION = TOOLS3_INVITATION
+
+
+def run_heavy(repeats: int = 5) -> int:
+    """
+    3 locked tasks (HumanEval/94, FinQA CDNS calc, FinQA AMAT interp) x
+    2 conditions (baseline, invited_auto) x 8 scored+anchor models x
+    `repeats` passes. Every row is graded for correctness as quality control.
+
+    Forces the OpenRouter route for Anthropic models (pops ANTHROPIC_API_KEY
+    for the run) — same reasoning as --variance/--tools3: panel.yaml's pinned
+    dated openrouter_model_id must be used, never the undated direct alias.
+    """
+    panel = load_panel()
+    experiment = load_experiment()
+    reasoning_effort: str = experiment.get("reasoning_effort", "high")
+
+    tasks_safe = load_heavy_tasks(with_facit=False)
+    tasks_facit = load_heavy_tasks(with_facit=True)
+
+    model_keys = [
+        k for k in HEAVY_MODELS
+        if k in panel and panel[k].get("role") in SMOKE_ROLES
+    ]
+
+    tool_defs = available_tool_defs()
+    tools_available_names = [t["name"] for t in tool_defs]
+
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_heavy"
+    traces_dir = HEAVY_DIR / f"{run_id}_traces"
+
+    n_calls = len(HEAVY_TASK_KEYS) * len(HEAVY_CONDITIONS) * len(model_keys) * repeats
+    print(f"\n{'═'*120}")
+    print(f"  Heavy Tasks (--heavy)   run_id={run_id}")
+    print(f"  Tasks: {', '.join(HEAVY_TASK_KEYS)}  (locked, established datasets — see src/heavy_tasks.py)")
+    print(f"  Conditions: {', '.join(HEAVY_CONDITIONS)}  (never forced)")
+    print(
+        f"  {len(HEAVY_TASK_KEYS)} tasks × {len(HEAVY_CONDITIONS)} conditions × "
+        f"{len(model_keys)} models × {repeats} repeats = {n_calls} rows"
+    )
+    print(f"  Tools offered (invited_auto only): {', '.join(tools_available_names)}")
+    if not search_available():
+        print(f"  !! web_search PENDING — SEARCH_API_KEY not set.")
+    print(f"  reasoning_effort={reasoning_effort!r}  |  correctness is quality control, not the headline metric")
+    print(f"  Versions: panel.yaml pinned dated strings (identical to --variance/--tools3). No alias.")
+    print(f"{'═'*120}")
+
+    # Force the OpenRouter route for Anthropic models — same reasoning as --variance/--tools3.
+    saved_anthropic_key = os.environ.pop("ANTHROPIC_API_KEY", None)
+    if saved_anthropic_key:
+        print(f"  !! ANTHROPIC_API_KEY temporarily removed from env — forcing OpenRouter route for this run.")
+
+    try:
+        resolved = resolve_models(panel, model_keys)
+        print_resolution_table(resolved)
+        print(
+            f"\n  NOTE: catalog mismatches above are NOT a gate — dated snapshot slugs may be"
+            f" absent from OpenRouter's /models listing even when callable.\n"
+        )
+
+        has_failure = False
+        agg: list[dict] = []
+
+        col_hdr = (
+            f"  {'Model':<22} {'Cond':<13} {'Pass':>4} {'Inp':>6} {'Reas':>7} {'Out':>6}  "
+            f"{'Cost($)':>10}  {'Tools called':<20} {'Correct':<8} Status"
+        )
+
+        for task_key in HEAVY_TASK_KEYS:
+            task = tasks_safe[task_key]
+            assert "facit_grading" not in task, (
+                f"CRITICAL SECURITY VIOLATION: facit_grading in request-path object for {task_key}"
+            )
+            base_prompt: str = task["prompt"]
+            domain = task["domain"]
+            task_id = task["task_id"]
+            facit_grading = tasks_facit[task_key]["facit_grading"]
+
+            for condition in HEAVY_CONDITIONS:
+                prompt_text = base_prompt + (HEAVY_INVITATION if condition == "invited_auto" else "")
+
+                print(f"\n{'═'*120}")
+                print(f"  [{task_key}]  {domain}  ({task_id})  condition={condition}")
+                print(f"  {prompt_text[:110].strip()!r}")
+                print(f"{'═'*120}")
+                print(col_hdr)
+                print("  " + "─" * 100)
+
+                for model_key in model_keys:
+                    cfg = panel[model_key]
+                    provider = cfg["provider"]
+                    thinking_budget: int = cfg.get("thinking_budget", 4096)
+
+                    cls = PROVIDER_MAP.get(provider)
+                    if cls is None:
+                        print(f"  {model_key:<22} SKIPPED (unknown provider: {provider})")
+                        continue
+
+                    for pass_index in range(1, repeats + 1):
+                        try:
+                            adapter = cls(model_key, cfg)
+                        except CredentialMissingError as e:
+                            print(f"  {model_key:<22} {condition:<13} {pass_index:>4}  SKIPPED — {e}")
+                            continue
+
+                        try:
+                            if condition == "baseline":
+                                resp = adapter.call(
+                                    prompt_text, thinking_budget=thinking_budget,
+                                    reasoning_effort=reasoning_effort,
+                                )
+                            else:
+                                resp = adapter.call_with_tools(
+                                    prompt_text, thinking_budget=thinking_budget,
+                                    reasoning_effort=reasoning_effort, tool_choice="auto",
+                                )
+                        except ToolsNotSupportedError as e:
+                            save_heavy_result(
+                                run_id=run_id, task_id=task_id, domain=domain, model_key=model_key,
+                                condition=condition, pass_index=pass_index, status="n/a_no_tool_support",
+                                response=None, account=None, cost_usd=None, pricing_snapshot_date=None,
+                                thinking_budget=thinking_budget, reasoning_effort=reasoning_effort,
+                                tools_available=tools_available_names if condition == "invited_auto" else [],
+                                correct=None, extracted_answer=None, grading_detail=None,
+                                extra={"error": str(e)}, results_dir=HEAVY_DIR,
+                            )
+                            print(f"  {model_key:<22} {condition:<13} {pass_index:>4}  n/a — no tool support")
+                            continue
+                        except AdapterError as e:
+                            save_heavy_result(
+                                run_id=run_id, task_id=task_id, domain=domain, model_key=model_key,
+                                condition=condition, pass_index=pass_index, status="error",
+                                response=None, account=None, cost_usd=None, pricing_snapshot_date=None,
+                                thinking_budget=thinking_budget, reasoning_effort=reasoning_effort,
+                                tools_available=tools_available_names if condition == "invited_auto" else [],
+                                correct=None, extracted_answer=None, grading_detail=None,
+                                extra={"error": str(e)}, results_dir=HEAVY_DIR,
+                            )
+                            print(f"  {model_key:<22} {condition:<13} {pass_index:>4}  ERROR — {e}")
+                            has_failure = True
+                            continue
+                        except Exception as e:
+                            print(f"  {model_key:<22} {condition:<13} {pass_index:>4}  ERROR — unexpected: {e}")
+                            has_failure = True
+                            continue
+
+                        account = build_account(resp)
+                        cost_usd, snapshot_date = compute_cost(model_key, account)
+                        gr = grade_heavy(domain, resp.answer_text, facit_grading)
+                        tools_used = _tool_names_used(resp)
+
+                        save_heavy_result(
+                            run_id=run_id, task_id=task_id, domain=domain, model_key=model_key,
+                            condition=condition, pass_index=pass_index, status="ok",
+                            response=resp, account=account, cost_usd=cost_usd,
+                            pricing_snapshot_date=snapshot_date, thinking_budget=thinking_budget,
+                            reasoning_effort=reasoning_effort,
+                            tools_available=tools_available_names if condition == "invited_auto" else [],
+                            correct=gr.correct, extracted_answer=gr.extracted_answer,
+                            grading_detail=gr.detail, results_dir=HEAVY_DIR,
+                        )
+                        save_heavy_trace(
+                            traces_dir=traces_dir, model_key=model_key, domain=domain,
+                            condition=condition, pass_index=pass_index, prompt_text=prompt_text,
+                            response=resp, status="ok", correct=gr.correct,
+                            extracted_answer=gr.extracted_answer, grading_detail=gr.detail,
+                        )
+
+                        agg.append({
+                            "task_key": task_key, "domain": domain, "model_key": model_key,
+                            "condition": condition, "pass_index": pass_index,
+                            "input": account.input_tokens, "reasoning": account.reasoning_tokens,
+                            "output": account.output_tokens, "cost_usd": cost_usd,
+                            "tools_used": tools_used, "correct": gr.correct,
+                            "grading_detail": gr.detail,
+                        })
+
+                        tools_str = ", ".join(tools_used) if tools_used else "—"
+                        correct_str = "OK" if gr.correct else "FAIL"
+                        print(
+                            f"  {model_key:<22} {condition:<13} {pass_index:>4} {account.input_tokens:>6}"
+                            f" {account.reasoning_tokens:>7} {account.output_tokens:>6}  ${cost_usd:>9.5f}  "
+                            f"{tools_str:<20} {correct_str:<8} ok"
+                        )
+
+        # ═════════════════════════════════════════════════════════
+        # REPORT
+        # ═════════════════════════════════════════════════════════
+        import statistics as _stats
+
+        def _median(vals):
+            return _stats.median(vals) if vals else None
+
+        ok_rows = [r for r in agg if r.get("cost_usd") is not None]
+
+        # --- 1. HOW — median tokens/cost/reasoning + tool grab rate + correctness-per-krone ---
+        print(f"\n{'═'*130}")
+        print(f"  1. HOW — median tokens/cost/reasoning, tool-grab rate, correctness-per-krone")
+        print(f"  Per (task, condition, model)")
+        print(f"{'═'*130}")
+        print(
+            f"  {'Task':<15} {'Cond':<13} {'Model':<20} {'n':>3}  {'MedInp':>7}  {'MedReas':>8}  "
+            f"{'MedOut':>7}  {'MedCost($)':>11}  {'ToolRate':>9}  {'Correct%':>9}  {'Corr/$':>9}"
+        )
+        print("  " + "─" * 122)
+        for task_key in HEAVY_TASK_KEYS:
+            for condition in HEAVY_CONDITIONS:
+                for model_key in model_keys:
+                    rows = [
+                        r for r in ok_rows
+                        if r["task_key"] == task_key and r["condition"] == condition and r["model_key"] == model_key
+                    ]
+                    if not rows:
+                        continue
+                    med_cost = _median([r["cost_usd"] for r in rows])
+                    n_correct = sum(1 for r in rows if r["correct"])
+                    correct_pct = 100 * n_correct / len(rows)
+                    corr_per_dollar = (n_correct / len(rows)) / med_cost if med_cost else None
+                    tool_rate = (
+                        sum(1 for r in rows if r["tools_used"]) / len(rows)
+                        if condition == "invited_auto" else None
+                    )
+                    tool_rate_str = f"{tool_rate:.0%}" if tool_rate is not None else "—"
+                    corr_per_dollar_str = f"{corr_per_dollar:.1f}" if corr_per_dollar is not None else "—"
+                    print(
+                        f"  {task_key:<15} {condition:<13} {model_key:<20} {len(rows):>3}  "
+                        f"{_median([r['input'] for r in rows]):>7.0f}  {_median([r['reasoning'] for r in rows]):>8.0f}  "
+                        f"{_median([r['output'] for r in rows]):>7.0f}  {med_cost:>11.5f}  {tool_rate_str:>9}  "
+                        f"{correct_pct:>8.0f}%  {corr_per_dollar_str:>9}"
+                    )
+
+        # --- 2. TOOL EFFECT — baseline vs invited_auto per (model, task) ---
+        print(f"\n{'═'*130}")
+        print(f"  2. TOOL EFFECT — baseline vs invited_auto, per (model, task)")
+        print(f"  Δ = invited_auto − baseline (median). Tested against the --variance noise floor.")
+        print(f"{'═'*130}")
+        try:
+            noise_floor = _relative_noise_floor(_load_pooled_baseline())
+        except Exception:
+            noise_floor = {}
+        print(
+            f"  {'Model':<20} {'Task':<15} {'ΔCost($)':>10}  {'ΔReas':>8}  {'ΔReas%':>8}  "
+            f"{'ΔCorrect%':>10}  {'ToolUse%':>9}  {'Decision':<28}"
+        )
+        print("  " + "─" * 116)
+        for model_key in model_keys:
+            for task_key in HEAVY_TASK_KEYS:
+                base_rows = [
+                    r for r in ok_rows
+                    if r["model_key"] == model_key and r["task_key"] == task_key and r["condition"] == "baseline"
+                ]
+                inv_rows = [
+                    r for r in ok_rows
+                    if r["model_key"] == model_key and r["task_key"] == task_key and r["condition"] == "invited_auto"
+                ]
+                if not base_rows or not inv_rows:
+                    continue
+                base_reas = _median([r["reasoning"] for r in base_rows])
+                inv_reas = _median([r["reasoning"] for r in inv_rows])
+                d_reas = inv_reas - base_reas
+                d_reas_pct = (d_reas / base_reas) if base_reas > 0 else None
+                d_cost = _median([r["cost_usd"] for r in inv_rows]) - _median([r["cost_usd"] for r in base_rows])
+                base_corr_pct = 100 * sum(1 for r in base_rows if r["correct"]) / len(base_rows)
+                inv_corr_pct = 100 * sum(1 for r in inv_rows if r["correct"]) / len(inv_rows)
+                tool_use_pct = 100 * sum(1 for r in inv_rows if r["tools_used"]) / len(inv_rows)
+                nf = noise_floor.get(model_key)
+                if nf is not None and d_reas_pct is not None:
+                    decision = (
+                        f"EXCEEDS ({abs(d_reas_pct):.0%} > {nf:.0%})" if abs(d_reas_pct) > nf
+                        else f"within noise (<= {nf:.0%})"
+                    )
+                else:
+                    decision = "no noise floor data"
+                pct_str = f"{d_reas_pct:+.0%}" if d_reas_pct is not None else "—"
+                print(
+                    f"  {model_key:<20} {task_key:<15} {d_cost:>+10.5f}  {d_reas:>+8.1f}  {pct_str:>8}  "
+                    f"{(inv_corr_pct - base_corr_pct):>+9.0f}%  {tool_use_pct:>8.0f}%  {decision:<28}"
+                )
+
+        # --- 3. Domain contrast ---
+        print(f"\n{'═'*100}")
+        print(f"  3. DOMAIN CONTRAST — tool-grab rate & correctness by domain (invited_auto, all models pooled)")
+        print(f"{'═'*100}")
+        print(f"  {'Domain':<16} {'n':>4}  {'ToolRate':>9}  {'Correct%':>9}")
+        for task_key in HEAVY_TASK_KEYS:
+            rows = [r for r in ok_rows if r["task_key"] == task_key and r["condition"] == "invited_auto"]
+            if not rows:
+                continue
+            tool_rate = sum(1 for r in rows if r["tools_used"]) / len(rows)
+            correct_pct = 100 * sum(1 for r in rows if r["correct"]) / len(rows)
+            print(f"  {task_key:<16} {len(rows):>4}  {tool_rate:>8.0%}  {correct_pct:>8.0f}%")
+
+        # --- 4. OVER-REACH — web_search on self-contained tasks ---
+        print(f"\n{'═'*100}")
+        print(f"  4. OVER-REACH — web_search calls on tasks that are self-contained (no lookup needed)")
+        print(f"  All 3 locked tasks carry every fact needed in the prompt — any web_search here is over-reach.")
+        print(f"{'═'*100}")
+        overreach = [r for r in ok_rows if r["condition"] == "invited_auto" and "web_search" in r["tools_used"]]
+        if overreach:
+            for r in overreach:
+                print(f"    {r['model_key']:<22} {r['task_key']:<15} pass={r['pass_index']}  tools={r['tools_used']}")
+        else:
+            print(f"  None — no model called web_search on any of the 3 tasks.")
+
+        # --- 5. DATA QUALITY — uncertain extraction ---
+        print(f"\n{'═'*100}")
+        print(f"  5. DATA QUALITY — uncertain extracted_answer parsing")
+        print(f"{'═'*100}")
+        uncertain = []
+        for r in ok_rows:
+            gd = r.get("grading_detail") or {}
+            if r["domain"] == "code":
+                if gd.get("extraction_method") != "fenced_with_entry_point":
+                    uncertain.append((r, gd.get("extraction_method")))
+            else:
+                if gd.get("any_number_in_text_matches") != gd.get("primary_matched"):
+                    uncertain.append((r, "primary_vs_any_match_disagree"))
+        if uncertain:
+            for r, reason in uncertain:
+                print(f"    {r['model_key']:<22} {r['task_key']:<15} {r['condition']:<13} pass={r['pass_index']}  {reason}")
+        else:
+            print(f"  None — extraction was unambiguous on every row.")
+
+        status_line = "ALL CALLS COMPLETED" if not has_failure else "ERRORS DETECTED — see rows above"
+        print(f"\n{'═'*100}")
+        print(f"  {status_line}")
+        print(f"  Structured records → results/heavy/{run_id}.jsonl")
+        print(f"  Raw traces         → results/heavy/{run_id}_traces/<model>_<domain>_<condition>_pass<N>.txt")
+        print()
+        return 1 if has_failure else 0
+
+    finally:
+        if saved_anthropic_key:
+            os.environ["ANTHROPIC_API_KEY"] = saved_anthropic_key
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -3298,6 +3659,15 @@ def main() -> None:
         help="Number of repeats per cell for --tools3 (default: 5).",
     )
     parser.add_argument(
+        "--heavy",
+        action="store_true",
+        help=(
+            "Heavy-task correctness+economy run: 3 locked tasks (HumanEval/94, "
+            "FinQA CDNS calc, FinQA AMAT interp) x baseline/invited_auto x 8 "
+            "models x --repeats passes. Correctness graded as quality control."
+        ),
+    )
+    parser.add_argument(
         "--steer",
         action="store_true",
         help=(
@@ -3339,6 +3709,9 @@ def main() -> None:
         sys.exit(code)
     elif args.tools3:
         code = run_tools3(repeats=args.repeats)
+        sys.exit(code)
+    elif args.heavy:
+        code = run_heavy(repeats=args.repeats)
         sys.exit(code)
     else:
         parser.print_help()
