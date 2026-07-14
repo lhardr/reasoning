@@ -18,6 +18,7 @@ from .base import (
     BaseAdapter,
     CredentialMissingError,
     ModelResponse,
+    extract_finish_reasons,
     extract_served_by,
     extract_think_tags,
     split_token_estimate,
@@ -61,6 +62,7 @@ class GemmaAdapter(BaseAdapter):
 
         msg = resp.choices[0].message
         raw_content = msg.content or ""
+        finish_reason, native_finish_reason = extract_finish_reasons(resp)
 
         # OpenRouter may surface thinking in a separate field after include_reasoning
         reasoning = getattr(msg, "reasoning", None) or getattr(msg, "reasoning_content", None)
@@ -111,6 +113,8 @@ class GemmaAdapter(BaseAdapter):
             model_version=resp.model,
             raw_usage=raw,
             served_by=extract_served_by(resp),
+            finish_reason=finish_reason,
+            native_finish_reason=native_finish_reason,
         )
 
     def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high", tool_choice: str | None = None) -> ModelResponse:

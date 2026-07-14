@@ -22,6 +22,7 @@ from .base import (
     BaseAdapter,
     ModelResponse,
     estimate_tokens,
+    extract_finish_reasons,
     extract_served_by,
     extract_think_tags,
     split_token_estimate,
@@ -120,6 +121,7 @@ class AnthropicAdapter(BaseAdapter):
             latency_s=latency,
             model_version=resp.model,
             raw_usage=raw,
+            finish_reason=resp.stop_reason,
         )
 
     # ------------------------------------------------------------------
@@ -156,6 +158,7 @@ class AnthropicAdapter(BaseAdapter):
 
         msg = resp.choices[0].message
         raw_content = msg.content or ""
+        finish_reason, native_finish_reason = extract_finish_reasons(resp)
 
         # OpenRouter may pass thinking as <thinking> tags, a separate field, or strip it.
         reasoning = getattr(msg, "reasoning", None) or getattr(msg, "thinking", None)
@@ -204,6 +207,8 @@ class AnthropicAdapter(BaseAdapter):
             model_version=resp.model,
             raw_usage=raw,
             served_by=extract_served_by(resp),
+            finish_reason=finish_reason,
+            native_finish_reason=native_finish_reason,
         )
 
     # ------------------------------------------------------------------
@@ -304,6 +309,7 @@ class AnthropicAdapter(BaseAdapter):
                 tool_calls=[],
                 raw_tool_events=[],
                 n_api_calls=1,
+                finish_reason=resp1.stop_reason,
             )
 
         assistant_content = [
@@ -376,6 +382,7 @@ class AnthropicAdapter(BaseAdapter):
             tool_calls=tool_calls_log,
             raw_tool_events=raw_tool_events,
             n_api_calls=2,
+            finish_reason=resp2.stop_reason,
         )
 
     # ------------------------------------------------------------------

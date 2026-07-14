@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from .base import AdapterError, BaseAdapter, ModelResponse, extract_served_by
+from .base import AdapterError, BaseAdapter, ModelResponse, extract_finish_reasons, extract_served_by
 
 
 class OpenAIAdapter(BaseAdapter):
@@ -44,6 +44,7 @@ class OpenAIAdapter(BaseAdapter):
             raise AdapterError(f"gpt_5_5 API error: {exc}") from exc
 
         answer = resp.choices[0].message.content or ""
+        finish_reason, native_finish_reason = extract_finish_reasons(resp)
         usage = resp.usage
         raw = usage.model_dump() if hasattr(usage, "model_dump") else {}
 
@@ -86,6 +87,8 @@ class OpenAIAdapter(BaseAdapter):
             model_version=resp.model,
             raw_usage=raw,
             served_by=extract_served_by(resp),
+            finish_reason=finish_reason,
+            native_finish_reason=native_finish_reason,
         )
 
     def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high", tool_choice: str | None = None) -> ModelResponse:

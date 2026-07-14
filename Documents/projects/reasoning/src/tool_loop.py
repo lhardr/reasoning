@@ -18,6 +18,7 @@ from .adapters.base import (
     AdapterError,
     ModelResponse,
     estimate_tokens,
+    extract_finish_reasons,
     extract_served_by,
     extract_think_tags,
     split_token_estimate,
@@ -59,6 +60,8 @@ class ToolLoopResult:
     model_version: str = ""
     raw_usage: dict = field(default_factory=dict)
     served_by: Optional[str] = None
+    finish_reason: Optional[str] = None
+    native_finish_reason: Optional[str] = None
 
 
 def _extract_reasoning(msg, raw_content: str) -> tuple[Optional[str], str]:
@@ -138,6 +141,7 @@ def run_openai_tool_loop(
     msg1 = resp1.choices[0].message
     raw_content1 = msg1.content or ""
     reasoning1, answer1 = _extract_reasoning(msg1, raw_content1)
+    finish_reason1, native_finish_reason1 = extract_finish_reasons(resp1)
 
     in1, api_r1, comp1, cread1, cwrite1, rawusage1 = _call_tokens(resp1.usage)
     if api_r1 is not None:
@@ -172,6 +176,8 @@ def run_openai_tool_loop(
             model_version=resp1.model,
             raw_usage={"call_1": rawusage1},
             served_by=extract_served_by(resp1),
+            finish_reason=finish_reason1,
+            native_finish_reason=native_finish_reason1,
         )
 
     # --- Execute every tool call the model emitted, then force a final answer ---
@@ -229,6 +235,7 @@ def run_openai_tool_loop(
     msg2 = resp2.choices[0].message
     raw_content2 = msg2.content or ""
     reasoning2, answer2 = _extract_reasoning(msg2, raw_content2)
+    finish_reason2, native_finish_reason2 = extract_finish_reasons(resp2)
 
     in2, api_r2, comp2, cread2, cwrite2, rawusage2 = _call_tokens(resp2.usage)
     if api_r2 is not None:
@@ -261,6 +268,8 @@ def run_openai_tool_loop(
         model_version=resp2.model,
         raw_usage={"call_1": rawusage1, "call_2": rawusage2},
         served_by=extract_served_by(resp2),
+        finish_reason=finish_reason2,
+        native_finish_reason=native_finish_reason2,
     )
 
 
@@ -282,6 +291,8 @@ def _to_model_response(result: ToolLoopResult) -> ModelResponse:
         raw_tool_events=result.raw_tool_events,
         n_api_calls=result.n_api_calls,
         served_by=result.served_by,
+        finish_reason=result.finish_reason,
+        native_finish_reason=result.native_finish_reason,
     )
 
 

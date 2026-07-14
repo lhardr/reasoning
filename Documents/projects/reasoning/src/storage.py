@@ -552,6 +552,15 @@ def save_heavy_result(
     status: "ok" | "n/a_no_tool_support" | "error". When status != "ok",
     response/account/cost/correct fields are None — the row is still written
     so the failure is visible as data, not silently dropped.
+
+    finish_reason / native_finish_reason: raw stop signal from the provider for
+    the final call in the chain (see adapters/base.py:extract_finish_reasons).
+    truncated: computed, not provider-asserted — True when the completion hit
+    the request's max_tokens cap. Every adapter exercised by --heavy/--heavy-recap
+    routes through OpenRouter with max_tokens=thinking_budget+512 (the direct
+    Anthropic adaptive-thinking budget is never used here, since ANTHROPIC_API_KEY
+    is popped for this phase — see run_heavy()), so that offset is fixed here
+    rather than threaded through as a parameter.
     """
     record: dict = {
         "run_id": run_id,
@@ -571,6 +580,8 @@ def save_heavy_result(
     }
 
     if response is not None and account is not None:
+        completion_tokens = account.output_tokens + account.reasoning_tokens
+        request_max_tokens = thinking_budget + 512
         record.update({
             "model_version": response.model_version,
             "served_by": response.served_by,
@@ -593,6 +604,10 @@ def save_heavy_result(
             "raw_usage": response.raw_usage,
             "tool_calls": response.tool_calls,
             "raw_tool_events": response.raw_tool_events,
+            "finish_reason": response.finish_reason,
+            "native_finish_reason": response.native_finish_reason,
+            "request_max_tokens": request_max_tokens,
+            "truncated": completion_tokens >= request_max_tokens,
         })
     else:
         record.update({
@@ -609,6 +624,10 @@ def save_heavy_result(
             "raw_usage": None,
             "tool_calls": [],
             "raw_tool_events": [],
+            "finish_reason": None,
+            "native_finish_reason": None,
+            "request_max_tokens": None,
+            "truncated": None,
         })
 
     if extra:

@@ -30,6 +30,13 @@ class ModelResponse:
     latency_s: float
     model_version: str           # pinned snapshot id reported by the provider
     raw_usage: dict = field(default_factory=dict)
+    # Raw stop signal from the provider for the FINAL call in the chain (the one
+    # whose answer_text is reported). finish_reason is the OpenAI-compatible
+    # normalized value (e.g. "length", "stop", "tool_calls"); native_finish_reason
+    # is OpenRouter's passthrough of the upstream provider's own value. Both None
+    # on the direct Anthropic SDK path (finish_reason there is set from stop_reason).
+    finish_reason: Optional[str] = None
+    native_finish_reason: Optional[str] = None
     # --- --tools phase only; empty/default for every other phase ---
     tool_calls: list = field(default_factory=list)       # executed: {name, args, result_char_len, result_token_est}
     raw_tool_events: list = field(default_factory=list)  # every tool_call block as emitted, incl. unknown/serverside
@@ -135,6 +142,20 @@ def extract_served_by(resp) -> Optional[str]:
     if extra:
         return extra.get("provider")
     return None
+
+
+def extract_finish_reasons(resp) -> tuple[Optional[str], Optional[str]]:
+    """
+    Returns (finish_reason, native_finish_reason) from an OpenAI-compatible
+    chat-completion response's first choice. finish_reason is the normalized
+    value; native_finish_reason is OpenRouter's raw passthrough of whatever the
+    upstream provider actually returned (absent for direct, non-OpenRouter
+    endpoints — returns None there, not a bug).
+    """
+    choice = resp.choices[0]
+    finish_reason = getattr(choice, "finish_reason", None)
+    native_finish_reason = getattr(choice, "native_finish_reason", None)
+    return finish_reason, native_finish_reason
 
 
 def estimate_tokens(text: str) -> int:

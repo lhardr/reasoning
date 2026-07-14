@@ -16,6 +16,7 @@ from .base import (
     AdapterError,
     BaseAdapter,
     ModelResponse,
+    extract_finish_reasons,
     extract_served_by,
     extract_think_tags,
     split_token_estimate,
@@ -53,6 +54,7 @@ class DeepSeekAdapter(BaseAdapter):
 
         msg = resp.choices[0].message
         answer = msg.content or ""
+        finish_reason, native_finish_reason = extract_finish_reasons(resp)
 
         # Check both field names: native API uses reasoning_content; some gateways use reasoning
         reasoning = getattr(msg, "reasoning_content", None)
@@ -103,6 +105,8 @@ class DeepSeekAdapter(BaseAdapter):
             model_version=resp.model,
             raw_usage=raw,
             served_by=extract_served_by(resp),
+            finish_reason=finish_reason,
+            native_finish_reason=native_finish_reason,
         )
 
     def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high", tool_choice: str | None = None) -> ModelResponse:
