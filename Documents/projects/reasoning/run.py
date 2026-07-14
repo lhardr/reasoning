@@ -971,6 +971,234 @@ def run_full(model_filter: Optional[list[str]] = None) -> int:
 
 
 # ---------------------------------------------------------------------------
+# --juni-recap-mistral — cap-artifact check for Mistral's June Phase 1 numbers.
+# June (20260626T130846_full) hit the completion cap (thinking_budget 4096 +
+# 512 = 4608) on 3/10 rows (P1, P9, P10). P1 is reasoning_load="low" — one of
+# only two "light task" data points — so Mistral's light-task reasoning median
+# is an undercount. Re-runs all 10 prompts, 1 pass each (as in June), at
+# thinking_budget=16384, to de-censor it. Everything else (pinned dated model
+# string, reasoning_effort, prompts) is identical to June.
+# ---------------------------------------------------------------------------
+
+JUNI_RECAP_MISTRAL_THINKING_BUDGET = 16384
+JUNI_RECAP_MISTRAL_BASELINE_RUN_ID = "20260626T130846_full"
+
+
+def run_juni_recap_mistral() -> int:
+    """
+    Re-run mistral_medium_3_5 on P1-P10 (1 pass each) at thinking_budget=16384.
+    10 calls. Reuses save_result()'s "extra" dict to log finish_reason,
+    native_finish_reason, and a computed truncated flag without changing
+    save_result's schema for every other caller (--smoke/--pilot/--full) —
+    those phases can run non-Mistral models via the direct Anthropic SDK
+    path, whose max_tokens offset (thinking_budget+4096, adaptive) differs
+    from the OpenRouter convention (thinking_budget+512) this run relies on.
+    Mistral has no direct-provider path — it is always OpenRouter, always
+    +512 — so that offset is exact here, not assumed.
+    """
+    panel = load_panel()
+    experiment = load_experiment()
+    reasoning_effort: str = experiment.get("reasoning_effort", "high")
+    prompts = load_prompts()
+    all_prompt_ids = sorted(prompts.keys(), key=lambda p: int(p[1:]))
+
+    model_key = "mistral_medium_3_5"
+    cfg = panel[model_key]
+    provider = cfg["provider"]
+    cls = PROVIDER_MAP.get(provider)
+    thinking_budget = JUNI_RECAP_MISTRAL_THINKING_BUDGET
+    request_max_tokens = thinking_budget + 512
+
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_juni_recap_mistral"
+    full_dir = RESULTS_DIR / "full"
+    traces_dir = full_dir / f"{run_id}_traces"
+
+    print(f"\n{'═'*110}")
+    print(f"  Juni Recap — Mistral (--juni-recap-mistral)   run_id={run_id}")
+    print(f"  Cap-artifact check: thinking_budget={thinking_budget} (panel.yaml's 4096 untouched)")
+    print(f"  Baseline: results/full/{JUNI_RECAP_MISTRAL_BASELINE_RUN_ID}.jsonl")
+    print(f"  {len(all_prompt_ids)} prompts × 1 pass = {len(all_prompt_ids)} calls, mistral_medium_3_5 only")
+    print(f"  reasoning_effort={reasoning_effort!r}")
+    print(f"{'═'*110}")
+
+    try:
+        old_rows, _ = _load_phase1_jsonl(JUNI_RECAP_MISTRAL_BASELINE_RUN_ID)
+    except FileNotFoundError as e:
+        print(f"  !! Cannot load baseline for comparison: {e}")
+        return 1
+    old_by_pid = {r["prompt_id"]: r for r in old_rows if r.get("model_key") == model_key}
+
+    noise_floor = _relative_noise_floor(_load_pooled_baseline()).get(model_key)
+
+    resolved = resolve_models(panel, [model_key])
+    print_resolution_table(resolved)
+
+    has_failure = False
+    drift_failed = False
+    agg: list[dict] = []
+
+    col_hdr = (
+        f"  {'Prompt':<7} {'Load':<10} {'Inp':>6} {'OldReas':>8} {'NewReas':>8} {'Out':>6}  "
+        f"{'Cost($)':>10}  {'Trunc':<6} {'FinishReason':<14}"
+    )
+    print(col_hdr)
+    print("  " + "─" * 100)
+
+    for pid in all_prompt_ids:
+        p = prompts[pid]
+        assert "facit" not in p, (
+            f"CRITICAL SECURITY VIOLATION: facit in request-path object for {pid}"
+        )
+        prompt_text: str = p["prompt"]
+        p_load = p.get("reasoning_load", "?")
+
+        try:
+            adapter = cls(model_key, cfg)
+        except CredentialMissingError as e:
+            print(f"  {pid:<7} SKIPPED — {e}")
+            has_failure = True
+            continue
+
+        try:
+            response = adapter.call(
+                prompt_text, thinking_budget=thinking_budget, reasoning_effort=reasoning_effort,
+            )
+        except AdapterError as e:
+            print(f"  {pid:<7} ERROR — {e}")
+            has_failure = True
+            continue
+
+        account = build_account(response)
+        cost_usd, snapshot_date = compute_cost(model_key, account)
+        completion_tokens = account.reasoning_tokens + account.output_tokens
+        truncated = completion_tokens >= request_max_tokens
+
+        lm = (
+            measure_trace_language(response.raw_reasoning_trace)
+            if model_key in TRACE_TEXT_MODELS and response.raw_reasoning_trace
+            else measure_trace_language(None)
+        )
+
+        save_result(
+            run_id=run_id, model_key=model_key, prompt=prompt_text, response=response,
+            account=account, cost_usd=cost_usd, pricing_snapshot_date=snapshot_date,
+            thinking_budget=thinking_budget, reasoning_effort=reasoning_effort,
+            results_dir=full_dir,
+            extra={
+                "prompt_id": pid,
+                "prompt_type": p.get("type", "?"),
+                "language_probe": p.get("language_probe", "?"),
+                "reasoning_load": p_load,
+                "regime": REGIME_MAP.get(model_key, "unknown"),
+                "language_metric": lm,
+                "finish_reason": response.finish_reason,
+                "native_finish_reason": response.native_finish_reason,
+                "request_max_tokens": request_max_tokens,
+                "truncated": truncated,
+            },
+        )
+        save_trace(
+            traces_dir=traces_dir, run_id=run_id, model_key=model_key, prompt_id=pid,
+            prompt_meta=p, prompt_text=prompt_text, answer_text=response.answer_text,
+            reasoning_trace=response.raw_reasoning_trace, trace_status=response.trace_status,
+            reasoning_tokens=account.reasoning_tokens, reasoning_source=response.reasoning_source,
+        )
+
+        old_row = old_by_pid.get(pid)
+        old_reas = (old_row.get("tokens") or {}).get("reasoning") if old_row else None
+        old_total = (
+            (old_row.get("tokens") or {}).get("reasoning", 0) + (old_row.get("tokens") or {}).get("output", 0)
+            if old_row else None
+        )
+        old_truncated = old_total is not None and old_total >= 4608  # June's cap: 4096+512
+
+        agg.append({
+            "pid": pid, "reasoning_load": p_load, "reasoning": account.reasoning_tokens,
+            "output": account.output_tokens, "cost_usd": cost_usd, "truncated": truncated,
+            "old_reasoning": old_reas, "old_truncated": old_truncated,
+            "finish_reason": response.finish_reason,
+        })
+
+        print(
+            f"  {pid:<7} {p_load:<10} {account.input_tokens:>6} {(old_reas if old_reas is not None else '—'):>8}"
+            f" {account.reasoning_tokens:>8} {account.output_tokens:>6}  ${cost_usd:>9.5f}  "
+            f"{'YES' if truncated else 'no':<6} {response.finish_reason!r:<14}"
+        )
+
+    # ═════════════════════════════════════════════════════════
+    # REPORT
+    # ═════════════════════════════════════════════════════════
+    import statistics as _stats
+
+    print(f"\n{'═'*100}")
+    print(f"  1. TRUNCATED — computed (completion_tokens >= {request_max_tokens}), not inferred")
+    print(f"{'═'*100}")
+    truncated_rows = [r for r in agg if r["truncated"]]
+    if truncated_rows:
+        for r in truncated_rows:
+            print(f"    !! {r['pid']}  reas+out={r['reasoning']+r['output']}  finish_reason={r['finish_reason']!r}")
+    else:
+        print(f"  None — no row hit {request_max_tokens} at thinking_budget={thinking_budget}.")
+
+    print(f"\n{'═'*100}")
+    print(f"  2. REASONING TOKENS — June (thinking_budget=4096) vs recap (thinking_budget=16384)")
+    print(f"{'═'*100}")
+    print(f"  {'Prompt':<7} {'Load':<10} {'OldReas':>8} {'OldTrunc':>9}  {'NewReas':>8} {'NewTrunc':>9}  {'Δ':>7}")
+    for r in agg:
+        old_r = r["old_reasoning"]
+        delta = (r["reasoning"] - old_r) if old_r is not None else None
+        print(
+            f"  {r['pid']:<7} {r['reasoning_load']:<10} "
+            f"{(old_r if old_r is not None else '—'):>8} {('YES' if r['old_truncated'] else 'no'):>9}  "
+            f"{r['reasoning']:>8} {('YES' if r['truncated'] else 'no'):>9}  "
+            f"{(f'{delta:+d}' if delta is not None else '—'):>7}"
+        )
+
+    print(f"\n{'═'*100}")
+    print(f"  3. LIGHT-TASK REASONING MEDIAN (reasoning_load == 'low': P1, P2)")
+    print(f"{'═'*100}")
+    light_new = [r["reasoning"] for r in agg if r["reasoning_load"] == "low"]
+    light_old = [r["old_reasoning"] for r in agg if r["reasoning_load"] == "low" and r["old_reasoning"] is not None]
+    if light_new:
+        print(f"  Old median: {_stats.median(light_old):.0f}  (n={len(light_old)})")
+        print(f"  New median: {_stats.median(light_new):.0f}  (n={len(light_new)})")
+    else:
+        print("  No reasoning_load=='low' rows found.")
+
+    print(f"\n{'═'*100}")
+    print(f"  4. DRIFT CONTROL — the 7 rows NOT capped in June must reproduce within variance")
+    print(f"  Tolerance: mistral_medium_3_5's own relative noise floor from --variance/--tools3 pooled data"
+          f" ({noise_floor:.0%})" if noise_floor else "  !! No noise floor available for mistral_medium_3_5 — cannot judge drift quantitatively.")
+    print(f"{'═'*100}")
+    for r in agg:
+        if r["old_truncated"] or r["old_reasoning"] is None:
+            continue  # only the 7 rows June did NOT cap
+        old_r = r["old_reasoning"]
+        rel_delta = abs(r["reasoning"] - old_r) / old_r if old_r > 0 else None
+        if noise_floor is not None and rel_delta is not None:
+            verdict = "OK" if rel_delta <= noise_floor else "DRIFT"
+            if verdict == "DRIFT":
+                drift_failed = True
+            print(f"  {r['pid']:<7}  old={old_r}  new={r['reasoning']}  Δrel={rel_delta:.0%}  [{verdict}]")
+        else:
+            print(f"  {r['pid']:<7}  old={old_r}  new={r['reasoning']}  (no verdict — missing noise floor)")
+    if drift_failed:
+        print(f"\n  !!!! DRIFT DETECTED on a row June never capped — stop, do not interpret the light-task median above.")
+    else:
+        print(f"\n  No drift — uncapped June rows reproduced within Mistral's own noise floor.")
+
+    total_cost = sum(r["cost_usd"] for r in agg)
+    print(f"\n{'═'*100}")
+    print(f"  Total cost: ${total_cost:.5f}  ({len(agg)} calls)")
+    status_line = "ALL CALLS COMPLETED" if not has_failure else "ERRORS DETECTED — see rows above"
+    print(f"  {status_line}")
+    print(f"  Structured records → results/full/{run_id}.jsonl")
+    print(f"  Raw traces         → results/full/{run_id}_traces/<model>_<prompt>.txt")
+    print()
+    return 1 if (has_failure or drift_failed) else 0
+
+
+# ---------------------------------------------------------------------------
 # Phase 2 helpers
 # ---------------------------------------------------------------------------
 
@@ -4065,6 +4293,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--juni-recap-mistral",
+        action="store_true",
+        help=(
+            "Cap-artifact check for June Phase 1 (--full): re-runs "
+            "mistral_medium_3_5 on P1-P10 (1 pass each) at thinking_budget=16384 "
+            "(override; panel.yaml's 4096 is untouched). 10 calls. De-censors "
+            "the light-task reasoning median that June's completion cap undercut."
+        ),
+    )
+    parser.add_argument(
         "--steer",
         action="store_true",
         help=(
@@ -4112,6 +4350,9 @@ def main() -> None:
         sys.exit(code)
     elif args.heavy_recap:
         code = run_heavy_recap(repeats=args.repeats)
+        sys.exit(code)
+    elif args.juni_recap_mistral:
+        code = run_juni_recap_mistral()
         sys.exit(code)
     else:
         parser.print_help()
