@@ -9,6 +9,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from datetime import datetime, timezone
@@ -3526,6 +3527,392 @@ def run_heavy(repeats: int = 5) -> int:
 
 
 # ---------------------------------------------------------------------------
+# --heavy-recap — cap-artifact check for the two models --heavy's 4608-token
+# completion cap (thinking_budget 4096 + 512) actually hit: mistral_medium_3_5
+# (10/30 rows) and gemma_4 (1/30 rows). Only mistral_medium_3_5, gemma_4, and
+# a code-only opus_4_8 sanity sample are re-run, at thinking_budget=16384
+# (override — panel.yaml's 4096 is untouched, so 20260709T093542_heavy stays
+# reproducible). Everything else — pinned dated model strings, reasoning_effort,
+# prompts, the (unfixed) Danish HEAVY_INVITATION on English heavy tasks — is
+# byte-identical to 20260709T093542_heavy, so the completion cap is the only
+# variable that moved.
+# ---------------------------------------------------------------------------
+
+HEAVY_RECAP_THINKING_BUDGET = 16384
+
+# task_key scope per model — opus is a stability sample (code only); it never
+# neared the old 4096 budget (18% used, see docs), so finance domains would
+# add cost without adding signal for the cap-artifact question.
+HEAVY_RECAP_SCOPE: dict[str, tuple[str, ...]] = {
+    "mistral_medium_3_5": ("code", "finance_calc", "finance_interp"),
+    "gemma_4": ("code", "finance_calc", "finance_interp"),
+    "opus_4_8": ("code",),
+}
+
+# Source run being re-examined — for the drift control and old-vs-new report.
+HEAVY_RECAP_BASELINE_RUN_ID = "20260709T093542_heavy_corrected"
+
+
+def _load_heavy_jsonl(run_id: str) -> list[dict]:
+    path = HEAVY_DIR / f"{run_id}.jsonl"
+    rows = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    return rows
+
+
+def run_heavy_recap(repeats: int = 5) -> int:
+    """
+    Re-run mistral_medium_3_5 + gemma_4 (all 3 tasks) and opus_4_8 (code only)
+    at thinking_budget=16384 to determine whether --heavy's 0% Mistral
+    HumanEval/94 result was a completion-cap artifact (4096+512=4608, hit on
+    all 10 Mistral code rows and 1/30 Gemma rows) rather than a genuine
+    correctness finding. 70 calls total: 30 + 30 + 10.
+    """
+    panel = load_panel()
+    experiment = load_experiment()
+    reasoning_effort: str = experiment.get("reasoning_effort", "high")
+
+    tasks_safe = load_heavy_tasks(with_facit=False)
+    tasks_facit = load_heavy_tasks(with_facit=True)
+
+    model_keys = [
+        k for k in HEAVY_RECAP_SCOPE
+        if k in panel and panel[k].get("role") in SMOKE_ROLES
+    ]
+
+    tool_defs = available_tool_defs()
+    tools_available_names = [t["name"] for t in tool_defs]
+
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_heavy_recap"
+    traces_dir = HEAVY_DIR / f"{run_id}_traces"
+
+    n_calls = sum(
+        len(HEAVY_RECAP_SCOPE[k]) * len(HEAVY_CONDITIONS) * repeats
+        for k in model_keys
+    )
+    print(f"\n{'═'*120}")
+    print(f"  Heavy Recap (--heavy-recap)   run_id={run_id}")
+    print(f"  Cap-artifact check: thinking_budget={HEAVY_RECAP_THINKING_BUDGET} (panel.yaml's 4096 untouched)")
+    print(f"  Baseline for comparison: results/heavy/{HEAVY_RECAP_BASELINE_RUN_ID}.jsonl")
+    for k in model_keys:
+        print(f"    {k:<22} tasks={', '.join(HEAVY_RECAP_SCOPE[k])}")
+    print(f"  {n_calls} rows total (expected 70)")
+    print(f"  reasoning_effort={reasoning_effort!r}  |  HEAVY_INVITATION unchanged (Danish, known defect, not fixed here)")
+    print(f"{'═'*120}")
+
+    saved_anthropic_key = os.environ.pop("ANTHROPIC_API_KEY", None)
+    if saved_anthropic_key:
+        print(f"  !! ANTHROPIC_API_KEY temporarily removed from env — forcing OpenRouter route for this run.")
+
+    try:
+        resolved = resolve_models(panel, model_keys)
+        print_resolution_table(resolved)
+
+        has_failure = False
+        agg: list[dict] = []
+
+        col_hdr = (
+            f"  {'Model':<22} {'Task':<15} {'Cond':<13} {'Pass':>4} {'Inp':>6} {'Reas':>7} {'Out':>6}  "
+            f"{'Cost($)':>10}  {'Tools called':<20} {'Correct':<8} {'Trunc':<6} Status"
+        )
+        print(col_hdr)
+        print("  " + "─" * 118)
+
+        for task_key in HEAVY_TASK_KEYS:
+            task = tasks_safe[task_key]
+            assert "facit_grading" not in task, (
+                f"CRITICAL SECURITY VIOLATION: facit_grading in request-path object for {task_key}"
+            )
+            base_prompt: str = task["prompt"]
+            domain = task["domain"]
+            task_id = task["task_id"]
+            facit_grading = tasks_facit[task_key]["facit_grading"]
+
+            for model_key in model_keys:
+                if task_key not in HEAVY_RECAP_SCOPE[model_key]:
+                    continue
+
+                cfg = panel[model_key]
+                provider = cfg["provider"]
+                thinking_budget = HEAVY_RECAP_THINKING_BUDGET  # override — NOT cfg.get(...)
+
+                cls = PROVIDER_MAP.get(provider)
+                if cls is None:
+                    print(f"  {model_key:<22} SKIPPED (unknown provider: {provider})")
+                    continue
+
+                for condition in HEAVY_CONDITIONS:
+                    prompt_text = base_prompt + (HEAVY_INVITATION if condition == "invited_auto" else "")
+
+                    for pass_index in range(1, repeats + 1):
+                        try:
+                            adapter = cls(model_key, cfg)
+                        except CredentialMissingError as e:
+                            print(f"  {model_key:<22} {task_key:<15} {condition:<13} {pass_index:>4}  SKIPPED — {e}")
+                            continue
+
+                        try:
+                            if condition == "baseline":
+                                resp = adapter.call(
+                                    prompt_text, thinking_budget=thinking_budget,
+                                    reasoning_effort=reasoning_effort,
+                                )
+                            else:
+                                resp = adapter.call_with_tools(
+                                    prompt_text, thinking_budget=thinking_budget,
+                                    reasoning_effort=reasoning_effort, tool_choice="auto",
+                                )
+                        except ToolsNotSupportedError as e:
+                            save_heavy_result(
+                                run_id=run_id, task_id=task_id, domain=domain, model_key=model_key,
+                                condition=condition, pass_index=pass_index, status="n/a_no_tool_support",
+                                response=None, account=None, cost_usd=None, pricing_snapshot_date=None,
+                                thinking_budget=thinking_budget, reasoning_effort=reasoning_effort,
+                                tools_available=tools_available_names if condition == "invited_auto" else [],
+                                correct=None, extracted_answer=None, grading_detail=None,
+                                extra={"error": str(e)}, results_dir=HEAVY_DIR,
+                            )
+                            print(f"  {model_key:<22} {task_key:<15} {condition:<13} {pass_index:>4}  n/a — no tool support")
+                            continue
+                        except AdapterError as e:
+                            save_heavy_result(
+                                run_id=run_id, task_id=task_id, domain=domain, model_key=model_key,
+                                condition=condition, pass_index=pass_index, status="error",
+                                response=None, account=None, cost_usd=None, pricing_snapshot_date=None,
+                                thinking_budget=thinking_budget, reasoning_effort=reasoning_effort,
+                                tools_available=tools_available_names if condition == "invited_auto" else [],
+                                correct=None, extracted_answer=None, grading_detail=None,
+                                extra={"error": str(e)}, results_dir=HEAVY_DIR,
+                            )
+                            print(f"  {model_key:<22} {task_key:<15} {condition:<13} {pass_index:>4}  ERROR — {e}")
+                            has_failure = True
+                            continue
+                        except Exception as e:
+                            print(f"  {model_key:<22} {task_key:<15} {condition:<13} {pass_index:>4}  ERROR — unexpected: {e}")
+                            has_failure = True
+                            continue
+
+                        account = build_account(resp)
+                        cost_usd, snapshot_date = compute_cost(model_key, account)
+                        gr = grade_heavy(domain, resp.answer_text, facit_grading)
+                        tools_used = _tool_names_used(resp)
+
+                        row = save_heavy_result(
+                            run_id=run_id, task_id=task_id, domain=domain, model_key=model_key,
+                            condition=condition, pass_index=pass_index, status="ok",
+                            response=resp, account=account, cost_usd=cost_usd,
+                            pricing_snapshot_date=snapshot_date, thinking_budget=thinking_budget,
+                            reasoning_effort=reasoning_effort,
+                            tools_available=tools_available_names if condition == "invited_auto" else [],
+                            correct=gr.correct, extracted_answer=gr.extracted_answer,
+                            grading_detail=gr.detail, results_dir=HEAVY_DIR,
+                        )
+                        save_heavy_trace(
+                            traces_dir=traces_dir, model_key=model_key, domain=domain,
+                            condition=condition, pass_index=pass_index, prompt_text=prompt_text,
+                            response=resp, status="ok", correct=gr.correct,
+                            extracted_answer=gr.extracted_answer, grading_detail=gr.detail,
+                        )
+
+                        agg.append({
+                            "task_key": task_key, "domain": domain, "model_key": model_key,
+                            "condition": condition, "pass_index": pass_index,
+                            "input": account.input_tokens, "reasoning": account.reasoning_tokens,
+                            "output": account.output_tokens, "cost_usd": cost_usd,
+                            "tools_used": tools_used, "correct": gr.correct,
+                            "grading_detail": gr.detail, "answer_text": resp.answer_text,
+                            "finish_reason": row.get("finish_reason"),
+                            "native_finish_reason": row.get("native_finish_reason"),
+                            "truncated": row.get("truncated"),
+                        })
+
+                        tools_str = ", ".join(tools_used) if tools_used else "—"
+                        correct_str = "OK" if gr.correct else "FAIL"
+                        trunc_str = "YES" if row.get("truncated") else "no"
+                        print(
+                            f"  {model_key:<22} {task_key:<15} {condition:<13} {pass_index:>4} {account.input_tokens:>6}"
+                            f" {account.reasoning_tokens:>7} {account.output_tokens:>6}  ${cost_usd:>9.5f}  "
+                            f"{tools_str:<20} {correct_str:<8} {trunc_str:<6} ok"
+                        )
+
+        # ═════════════════════════════════════════════════════════
+        # REPORT — 7 sections, answering the recap's actual questions
+        # ═════════════════════════════════════════════════════════
+        import statistics as _stats
+
+        def _median(vals):
+            return _stats.median(vals) if vals else None
+
+        ok_rows = [r for r in agg if r.get("cost_usd") is not None]
+        recap_cap = HEAVY_RECAP_THINKING_BUDGET + 512
+
+        # --- 1. Truncated flag per row ---
+        print(f"\n{'═'*120}")
+        print(f"  1. TRUNCATED — per row, computed (completion_tokens >= {recap_cap}), not inferred")
+        print(f"{'═'*120}")
+        any_truncated = [r for r in ok_rows if r["truncated"]]
+        if any_truncated:
+            for r in any_truncated:
+                print(
+                    f"    !! {r['model_key']:<22} {r['task_key']:<15} {r['condition']:<13} pass={r['pass_index']}"
+                    f"  reas+out={r['reasoning']+r['output']}  finish_reason={r['finish_reason']!r}"
+                    f"  native_finish_reason={r['native_finish_reason']!r}"
+                )
+        else:
+            print(f"  None — no row hit {recap_cap} at thinking_budget={HEAVY_RECAP_THINKING_BUDGET}.")
+
+        # --- 2. Mistral / code ---
+        print(f"\n{'═'*120}")
+        print(f"  2. MISTRAL / CODE — does it deliver code now, at 16384?")
+        print(f"{'═'*120}")
+        mistral_code = [r for r in ok_rows if r["model_key"] == "mistral_medium_3_5" and r["task_key"] == "code"]
+        if mistral_code:
+            delivered = sum(1 for r in mistral_code if r["answer_text"].strip())
+            correct = sum(1 for r in mistral_code if r["correct"])
+            called_tools = sum(1 for r in mistral_code if r["tools_used"])
+            reas_vals = [r["reasoning"] for r in mistral_code]
+            print(f"  n={len(mistral_code)}  delivered_nonempty_answer={delivered}/{len(mistral_code)}  correct={correct}/{len(mistral_code)}")
+            print(f"  reasoning_tokens: median={_median(reas_vals):.0f}  min={min(reas_vals)}  max={max(reas_vals)}  (cap={recap_cap})")
+            print(f"  python_exec called (invited_auto): {called_tools}/{sum(1 for r in mistral_code if r['condition']=='invited_auto')}")
+            still_capped = [r for r in mistral_code if r["truncated"]]
+            if still_capped:
+                print(f"  !! STILL TRUNCATED at 16384 on {len(still_capped)}/{len(mistral_code)} rows — genuine non-termination, not a cap artifact.")
+            else:
+                print(f"  Not truncated at 16384 — the 0% result at 4608 was a cap artifact." if delivered else "  Delivers no code even uncapped — inspect traces, this is NOT what the cap hypothesis predicted.")
+        else:
+            print("  No mistral_medium_3_5 / code rows recorded.")
+
+        # --- 3. Gemma — does the raised cap change the code result? ---
+        print(f"\n{'═'*120}")
+        print(f"  3. GEMMA / CODE — effect of raised cap")
+        print(f"{'═'*120}")
+        gemma_code = [r for r in ok_rows if r["model_key"] == "gemma_4" and r["task_key"] == "code"]
+        if gemma_code:
+            correct = sum(1 for r in gemma_code if r["correct"])
+            print(f"  n={len(gemma_code)}  correct={correct}/{len(gemma_code)}  truncated={sum(1 for r in gemma_code if r['truncated'])}/{len(gemma_code)}")
+        else:
+            print("  No gemma_4 / code rows recorded.")
+
+        # --- 4. Opus sample — stability check ---
+        print(f"\n{'═'*120}")
+        print(f"  4. OPUS / CODE — stability sample (expected: no change)")
+        print(f"{'═'*120}")
+        opus_code = [r for r in ok_rows if r["model_key"] == "opus_4_8" and r["task_key"] == "code"]
+        try:
+            old_rows_for_stability = _load_heavy_jsonl(HEAVY_RECAP_BASELINE_RUN_ID)
+        except FileNotFoundError:
+            old_rows_for_stability = []
+        old_opus_code = [
+            r for r in old_rows_for_stability
+            if r.get("model_key") == "opus_4_8" and r.get("domain") == "code" and r.get("status") == "ok"
+        ]
+        if opus_code and old_opus_code:
+            new_reas = _median([r["reasoning"] for r in opus_code])
+            old_reas = _median([(r.get("tokens") or {}).get("reasoning", 0) for r in old_opus_code])
+            new_correct = sum(1 for r in opus_code if r["correct"])
+            old_correct = sum(1 for r in old_opus_code if r.get("correct"))
+            print(f"  reasoning_tokens median: old={old_reas:.0f}  new={new_reas:.0f}  (budget went 4096 -> 16384)")
+            print(f"  correct: old={old_correct}/{len(old_opus_code)}  new={new_correct}/{len(opus_code)}")
+            print(
+                "  UNCHANGED — thinking_budget behaves as an adaptive allocation for Opus, not a hard ceiling, as expected."
+                if abs(new_reas - old_reas) < max(50, 0.5 * old_reas) and new_correct == old_correct
+                else "  !! CHANGED more than expected — re-examine the adaptive-thinking assumption for Opus."
+            )
+        else:
+            print("  Insufficient data for comparison (missing new or old opus_4_8/code rows).")
+
+        # --- 5. Drift control — rows the cap NEVER touched must reproduce ---
+        print(f"\n{'═'*120}")
+        print(f"  5. DRIFT CONTROL — rows the old 4608 cap never touched must reproduce within variance")
+        print(f"  (Mistral finance_calc/finance_interp; Gemma code/finance rows excluding the one old capped row)")
+        print(f"{'═'*120}")
+        drift_failed = False
+        old_by_cell: dict[tuple, list[dict]] = {}
+        for r in old_rows_for_stability:
+            if r.get("status") != "ok":
+                continue
+            key = (r.get("model_key"), r.get("domain"), r.get("condition"))
+            old_by_cell.setdefault(key, []).append(r)
+
+        drift_targets = [
+            ("mistral_medium_3_5", "finance_calc"),
+            ("mistral_medium_3_5", "finance_interp"),
+            ("gemma_4", "finance_calc"),
+            ("gemma_4", "finance_interp"),
+            ("gemma_4", "code"),
+        ]
+        for model_key, task_key in drift_targets:
+            for condition in HEAVY_CONDITIONS:
+                old_cell = old_by_cell.get((model_key, task_key, condition), [])
+                old_cell_uncapped = [r for r in old_cell if ((r.get("tokens") or {}).get("reasoning", 0) + (r.get("tokens") or {}).get("output", 0)) < 4608]
+                new_cell = [r for r in ok_rows if r["model_key"] == model_key and r["task_key"] == task_key and r["condition"] == condition]
+                if not old_cell_uncapped or not new_cell:
+                    continue
+                old_correct_rate = sum(1 for r in old_cell_uncapped if r.get("correct")) / len(old_cell_uncapped)
+                new_correct_rate = sum(1 for r in new_cell if r["correct"]) / len(new_cell)
+                verdict = "OK" if old_correct_rate == new_correct_rate else "DRIFT"
+                if verdict == "DRIFT":
+                    drift_failed = True
+                print(
+                    f"  {model_key:<22} {task_key:<15} {condition:<13} old_correct={old_correct_rate:.0%} (n={len(old_cell_uncapped)})"
+                    f"  new_correct={new_correct_rate:.0%} (n={len(new_cell)})  [{verdict}]"
+                )
+        if drift_failed:
+            print(f"\n  !!!! DRIFT DETECTED on a row the cap never touched — this is serverside drift, not a cap effect.")
+            print(f"  !!!! STOP: do not interpret sections 2-4 as cap-artifact findings until drift is explained.")
+        else:
+            print(f"\n  No drift — uncapped rows reproduced. The cap is isolated as the sole variable.")
+
+        # --- 6. Correctness / correctness-per-krone ---
+        print(f"\n{'═'*120}")
+        print(f"  6. CORRECTNESS & CORRECTNESS-PER-KRONE (this recap, all cells)")
+        print(f"{'═'*120}")
+        print(f"  {'Model':<22} {'Task':<15} {'Cond':<13} {'n':>3}  {'Correct%':>9}  {'MedCost($)':>11}  {'Corr/$':>8}")
+        for model_key in model_keys:
+            for task_key in HEAVY_RECAP_SCOPE[model_key]:
+                for condition in HEAVY_CONDITIONS:
+                    rows = [r for r in ok_rows if r["model_key"] == model_key and r["task_key"] == task_key and r["condition"] == condition]
+                    if not rows:
+                        continue
+                    med_cost = _median([r["cost_usd"] for r in rows])
+                    n_correct = sum(1 for r in rows if r["correct"])
+                    correct_pct = 100 * n_correct / len(rows)
+                    corr_per_dollar = (n_correct / len(rows)) / med_cost if med_cost else None
+                    corr_per_dollar_str = f"{corr_per_dollar:.1f}" if corr_per_dollar is not None else "—"
+                    print(
+                        f"  {model_key:<22} {task_key:<15} {condition:<13} {len(rows):>3}  "
+                        f"{correct_pct:>8.0f}%  {med_cost:>11.5f}  {corr_per_dollar_str:>8}"
+                    )
+
+        # --- 7. Raw cost ---
+        print(f"\n{'═'*120}")
+        print(f"  7. RAW COST")
+        print(f"{'═'*120}")
+        total_cost = sum(r["cost_usd"] for r in ok_rows)
+        print(f"  Total ({len(ok_rows)} rows): ${total_cost:.5f}")
+        for model_key in model_keys:
+            model_rows = [r for r in ok_rows if r["model_key"] == model_key]
+            if model_rows:
+                print(f"    {model_key:<22} ${sum(r['cost_usd'] for r in model_rows):.5f}  ({len(model_rows)} rows)")
+
+        status_line = "ALL CALLS COMPLETED" if not has_failure else "ERRORS DETECTED — see rows above"
+        print(f"\n{'═'*100}")
+        print(f"  {status_line}")
+        print(f"  Structured records → results/heavy/{run_id}.jsonl")
+        print(f"  Raw traces         → results/heavy/{run_id}_traces/<model>_<domain>_<condition>_pass<N>.txt")
+        print()
+        return 1 if (has_failure or drift_failed) else 0
+
+    finally:
+        if saved_anthropic_key:
+            os.environ["ANTHROPIC_API_KEY"] = saved_anthropic_key
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -3668,6 +4055,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--heavy-recap",
+        action="store_true",
+        help=(
+            "Cap-artifact check for --heavy: re-runs mistral_medium_3_5 + gemma_4 "
+            "(all 3 tasks) and opus_4_8 (code only) at thinking_budget=16384 "
+            "(override; panel.yaml's 4096 is untouched). 70 calls. Only run this "
+            "for models --heavy's 4608-token completion cap actually hit."
+        ),
+    )
+    parser.add_argument(
         "--steer",
         action="store_true",
         help=(
@@ -3712,6 +4109,9 @@ def main() -> None:
         sys.exit(code)
     elif args.heavy:
         code = run_heavy(repeats=args.repeats)
+        sys.exit(code)
+    elif args.heavy_recap:
+        code = run_heavy_recap(repeats=args.repeats)
         sys.exit(code)
     else:
         parser.print_help()
