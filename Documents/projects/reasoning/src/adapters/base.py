@@ -144,6 +144,48 @@ def extract_served_by(resp) -> Optional[str]:
     return None
 
 
+def assert_model_pin_honored(requested_model_id: str, resp, model_key: str) -> None:
+    """
+    Hard stop — NOT a warning, NOT an AdapterError (which every run loop's
+    `except AdapterError`/`except Exception: ... continue` would silently
+    swallow and move on to the next row). Call this immediately after every
+    OpenRouter chat-completion response, for every adapter that pins an exact
+    dated snapshot string.
+
+    resolve_models()'s pre-call catalog check is NOT sufficient: OpenRouter
+    does not error on an unlisted/retired model string — it silently reroutes
+    the request to a live catalog entry and echoes THAT model back in
+    `resp.model`. A pre-call catalog-listing gap was, until 2026-07-14,
+    assumed to be harmless listing lag ("may be absent from the listing even
+    when callable" — see run_heavy()'s historical NOTE). That assumption is
+    what let 20260714T091621_heavy_recap and 20260714T101953_juni_recap_mistral
+    run for 80 total API calls on silently-substituted models (dated pins had
+    been retired from the catalog and OpenRouter rerouted every single call)
+    before anyone noticed via the model_version field in the output JSONL.
+
+    This checks the ACTUAL response, on the FIRST call, and exits the process
+    immediately on mismatch — no row is worth recording once the model pin is
+    not what was requested, because the run can no longer isolate whatever
+    single variable it was designed to test.
+    """
+    served = getattr(resp, "model", None)
+    if served != requested_model_id:
+        import sys
+        print(f"\n{'!'*100}", file=sys.stderr)
+        print(f"  MODEL PIN VIOLATED — {model_key}", file=sys.stderr)
+        print(f"  Requested (cfg['openrouter_model_id']): {requested_model_id!r}", file=sys.stderr)
+        print(f"  Provider actually served (resp.model):  {served!r}", file=sys.stderr)
+        print(
+            "  OpenRouter silently rerouted an unlisted/retired model string to a "
+            "different, live model instead of erroring. This run cannot isolate "
+            "any experimental variable while the model changed underneath it.",
+            file=sys.stderr,
+        )
+        print(f"  Stopping immediately. No further calls will be made.", file=sys.stderr)
+        print(f"{'!'*100}\n", file=sys.stderr)
+        sys.exit(1)
+
+
 def extract_finish_reasons(resp) -> tuple[Optional[str], Optional[str]]:
     """
     Returns (finish_reason, native_finish_reason) from an OpenAI-compatible

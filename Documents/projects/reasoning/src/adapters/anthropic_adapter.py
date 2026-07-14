@@ -21,6 +21,7 @@ from .base import (
     AdapterError,
     BaseAdapter,
     ModelResponse,
+    assert_model_pin_honored,
     estimate_tokens,
     extract_finish_reasons,
     extract_served_by,
@@ -155,6 +156,8 @@ class AnthropicAdapter(BaseAdapter):
             raise AdapterError(
                 f"claude_sonnet_4_6 via OpenRouter API error: {exc}"
             ) from exc
+
+        assert_model_pin_honored(model_id, resp, self.model_key)
 
         msg = resp.choices[0].message
         raw_content = msg.content or ""
@@ -412,4 +415,5 @@ class AnthropicAdapter(BaseAdapter):
             base_extra_body={
                 "thinking": {"type": "enabled", "budget_tokens": thinking_budget},
             },
+            assert_pin=True,
         )

@@ -2831,9 +2831,13 @@ def run_variance(passes: int = 2) -> int:
         resolved = resolve_models(panel, model_keys)
         print_resolution_table(resolved)
         print(
-            f"\n  NOTE: catalog mismatches above are NOT a gate for this run — dated"
-            f" snapshot slugs may be absent from OpenRouter's /models listing even"
-            f" when callable. Only an actual call failure marks a pin dead."
+            f"\n  NOTE: catalog mismatches above are not a gate by themselves — dated"
+            f" snapshot slugs can be absent from OpenRouter's /models listing while"
+            f" still callable. But 'callable' is not proof it's the SAME model: on"
+            f" 2026-07-14 a retired dated pin was silently rerouted to a live model"
+            f" instead of erroring. assert_model_pin_honored() (adapters/base.py)"
+            f" checks the actual resp.model on every call and hard-stops on mismatch —"
+            f" that is the real gate now, not this listing check."
         )
 
         has_failure = False
@@ -3177,7 +3181,12 @@ def run_tools3(repeats: int = 5) -> int:
 
         resolved = resolve_models(panel, model_keys)
         print_resolution_table(resolved)
-        print(f"\n  NOTE: catalog mismatches are informational only for pinned dated snapshots — not a gate here.\n")
+        print(
+            f"\n  NOTE: catalog mismatches are informational only — the real protection is"
+            f" assert_model_pin_honored() checking resp.model on every call, hard-stopping"
+            f" on mismatch (see adapters/base.py; a retired-pin silent-reroute incident on"
+            f" 2026-07-14 is why this exists).\n"
+        )
 
         has_failure = False
         agg: list[dict] = []
@@ -3474,8 +3483,11 @@ def run_heavy(repeats: int = 5) -> int:
         resolved = resolve_models(panel, model_keys)
         print_resolution_table(resolved)
         print(
-            f"\n  NOTE: catalog mismatches above are NOT a gate — dated snapshot slugs may be"
-            f" absent from OpenRouter's /models listing even when callable.\n"
+            f"\n  NOTE: catalog mismatches above are not a gate by themselves — dated snapshot"
+            f" slugs can be absent from OpenRouter's /models listing while still callable."
+            f" The real protection is assert_model_pin_honored() checking resp.model on every"
+            f" call and hard-stopping on mismatch (see adapters/base.py — a retired-pin"
+            f" silent-reroute incident on 2026-07-14 is why this exists).\n"
         )
 
         has_failure = False

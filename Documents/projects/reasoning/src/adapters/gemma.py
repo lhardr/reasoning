@@ -18,6 +18,7 @@ from .base import (
     BaseAdapter,
     CredentialMissingError,
     ModelResponse,
+    assert_model_pin_honored,
     extract_finish_reasons,
     extract_served_by,
     extract_think_tags,
@@ -59,6 +60,8 @@ class GemmaAdapter(BaseAdapter):
             latency = time.perf_counter() - t0
         except Exception as exc:
             raise AdapterError(f"gemma_4 API error: {exc}") from exc
+
+        assert_model_pin_honored(model_id, resp, self.model_key)
 
         msg = resp.choices[0].message
         raw_content = msg.content or ""
@@ -137,4 +140,5 @@ class GemmaAdapter(BaseAdapter):
                 "include_reasoning": True,
                 "reasoning": {"effort": reasoning_effort},
             },
+            assert_pin=True,
         )

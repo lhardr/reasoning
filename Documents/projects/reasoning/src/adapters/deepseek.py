@@ -16,6 +16,7 @@ from .base import (
     AdapterError,
     BaseAdapter,
     ModelResponse,
+    assert_model_pin_honored,
     extract_finish_reasons,
     extract_served_by,
     extract_think_tags,
@@ -29,7 +30,7 @@ class DeepSeekAdapter(BaseAdapter):
     def call(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high") -> ModelResponse:
         from openai import OpenAI
 
-        api_key, base_url, model_id, _via_or = self._resolve_openai_creds()
+        api_key, base_url, model_id, via_or = self._resolve_openai_creds()
         kwargs: dict = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
@@ -51,6 +52,9 @@ class DeepSeekAdapter(BaseAdapter):
             latency = time.perf_counter() - t0
         except Exception as exc:
             raise AdapterError(f"deepseek_v4 API error: {exc}") from exc
+
+        if via_or:
+            assert_model_pin_honored(model_id, resp, self.model_key)
 
         msg = resp.choices[0].message
         answer = msg.content or ""
@@ -114,7 +118,7 @@ class DeepSeekAdapter(BaseAdapter):
 
         from ..tool_loop import call_with_tools_openai_style
 
-        api_key, base_url, model_id, _via_or = self._resolve_openai_creds()
+        api_key, base_url, model_id, via_or = self._resolve_openai_creds()
         kwargs: dict = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
@@ -131,4 +135,5 @@ class DeepSeekAdapter(BaseAdapter):
                 "reasoning": {"effort": reasoning_effort},
             },
             tool_choice=tool_choice,
+            assert_pin=via_or,
         )

@@ -17,6 +17,7 @@ from typing import Optional
 from .adapters.base import (
     AdapterError,
     ModelResponse,
+    assert_model_pin_honored,
     estimate_tokens,
     extract_finish_reasons,
     extract_served_by,
@@ -109,6 +110,7 @@ def run_openai_tool_loop(
     max_tokens: int,
     base_extra_body: Optional[dict] = None,
     tool_choice: Optional[str] = None,
+    assert_pin: bool = False,
 ) -> ToolLoopResult:
     """
     tool_choice: None (provider default, effectively "auto"), "auto", or
@@ -137,6 +139,9 @@ def run_openai_tool_loop(
     except Exception as exc:
         _raise_if_tool_unsupported(exc, model_key)
         raise
+
+    if assert_pin:
+        assert_model_pin_honored(model_id, resp1, model_key)
 
     msg1 = resp1.choices[0].message
     raw_content1 = msg1.content or ""
@@ -232,6 +237,9 @@ def run_openai_tool_loop(
         _raise_if_tool_unsupported(exc, model_key)
         raise
 
+    if assert_pin:
+        assert_model_pin_honored(model_id, resp2, model_key)
+
     msg2 = resp2.choices[0].message
     raw_content2 = msg2.content or ""
     reasoning2, answer2 = _extract_reasoning(msg2, raw_content2)
@@ -305,12 +313,17 @@ def call_with_tools_openai_style(
     max_tokens: int,
     base_extra_body: Optional[dict] = None,
     tool_choice: Optional[str] = None,
+    assert_pin: bool = False,
 ) -> ModelResponse:
     """
     One-call convenience wrapper for the (many) adapters that speak the
     OpenAI chat-completions dialect natively or via OpenRouter. Raises
     ToolsNotSupportedError unchanged (caller marks the row n/a); any other
     failure is wrapped in AdapterError, matching the existing call() contract.
+
+    assert_pin: set True when model_id is a pinned OpenRouter openrouter_model_id
+    (as opposed to a direct-provider undated alias) — asserts the provider's
+    echoed resp.model matches exactly, hard-stopping the process on mismatch.
     """
     openai_tools = to_openai_tools(available_tool_defs())
     try:
@@ -323,6 +336,7 @@ def call_with_tools_openai_style(
             max_tokens=max_tokens,
             base_extra_body=base_extra_body,
             tool_choice=tool_choice,
+            assert_pin=assert_pin,
         )
     except ToolsNotSupportedError:
         raise
