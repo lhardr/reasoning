@@ -48,6 +48,7 @@ class MistralAdapter(BaseAdapter):
 
         or_key = os.environ["OPENROUTER_API_KEY"]
         model_id = self.config.get("openrouter_model_id", self.config["model_id"])
+        assert_model_pin_honored(self.model_key, self.config, model_id)
         client = OpenAI(api_key=or_key, base_url=OPENROUTER_BASE_URL)
 
         try:
@@ -64,8 +65,6 @@ class MistralAdapter(BaseAdapter):
             latency = time.perf_counter() - t0
         except Exception as exc:
             raise AdapterError(f"mistral_medium_3_5 API error: {exc}") from exc
-
-        assert_model_pin_honored(model_id, resp, self.model_key)
 
         msg = resp.choices[0].message
         raw_content = msg.content or ""
@@ -122,6 +121,8 @@ class MistralAdapter(BaseAdapter):
             served_by=extract_served_by(resp),
             finish_reason=finish_reason,
             native_finish_reason=native_finish_reason,
+            request_model_id=model_id,
+            via_openrouter=True,
         )
 
     def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high", tool_choice: str | None = None) -> ModelResponse:
@@ -131,6 +132,7 @@ class MistralAdapter(BaseAdapter):
 
         or_key = os.environ["OPENROUTER_API_KEY"]
         model_id = self.config.get("openrouter_model_id", self.config["model_id"])
+        assert_model_pin_honored(self.model_key, self.config, model_id)
         client = OpenAI(api_key=or_key, base_url=OPENROUTER_BASE_URL)
 
         return call_with_tools_openai_style(
@@ -144,5 +146,5 @@ class MistralAdapter(BaseAdapter):
                 "include_reasoning": True,
                 "reasoning": {"effort": reasoning_effort},
             },
-            assert_pin=True,
+            via_openrouter=True,
         )

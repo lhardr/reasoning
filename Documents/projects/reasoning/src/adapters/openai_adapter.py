@@ -27,6 +27,8 @@ class OpenAIAdapter(BaseAdapter):
         from openai import OpenAI
 
         api_key, base_url, model_id, via_openrouter = self._resolve_openai_creds()
+        if via_openrouter:
+            assert_model_pin_honored(self.model_key, self.config, model_id)
         kwargs: dict = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
@@ -49,9 +51,6 @@ class OpenAIAdapter(BaseAdapter):
             latency = time.perf_counter() - t0
         except Exception as exc:
             raise AdapterError(f"gpt_5_5 API error: {exc}") from exc
-
-        if via_openrouter:
-            assert_model_pin_honored(model_id, resp, self.model_key)
 
         answer = resp.choices[0].message.content or ""
         finish_reason, native_finish_reason = extract_finish_reasons(resp)
@@ -99,6 +98,8 @@ class OpenAIAdapter(BaseAdapter):
             served_by=extract_served_by(resp),
             finish_reason=finish_reason,
             native_finish_reason=native_finish_reason,
+            request_model_id=model_id,
+            via_openrouter=via_openrouter,
         )
 
     def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high", tool_choice: str | None = None) -> ModelResponse:
@@ -107,6 +108,8 @@ class OpenAIAdapter(BaseAdapter):
         from ..tool_loop import call_with_tools_openai_style
 
         api_key, base_url, model_id, via_openrouter = self._resolve_openai_creds()
+        if via_openrouter:
+            assert_model_pin_honored(self.model_key, self.config, model_id)
         kwargs: dict = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
@@ -124,5 +127,5 @@ class OpenAIAdapter(BaseAdapter):
             max_tokens=thinking_budget + 512,
             base_extra_body=extra,
             tool_choice=tool_choice,
-            assert_pin=via_openrouter,
+            via_openrouter=via_openrouter,
         )

@@ -172,3 +172,58 @@ def _required_env_var(provider: str) -> str | None:
         "google": "GOOGLE_API_KEY",
         "local": None,
     }.get(provider)
+
+
+def assert_no_silent_direct_route(
+    panel: dict, model_keys: list[str], allow_direct: bool
+) -> None:
+    """
+    Hard stop at run start (before any API call) if a direct provider key
+    present in the environment would route a pinned model straight to that
+    provider's own API — bypassing OpenRouter, and with it cfg['openrouter_model_id']
+    entirely — with zero error and zero warning. The only trace this leaves in
+    the output is served_by=None on that model's rows, easy to miss.
+
+    _resolve_openai_creds() (adapters/base.py) and AnthropicAdapter.call()
+    both prefer a direct key over OPENROUTER_API_KEY whenever one is present.
+    That is correct default behavior for phases that don't care about pin
+    consistency (--smoke deliberately exercises both paths). But for any run
+    that DOES care — --full, --pilot, --heavy, --heavy-recap,
+    --juni-recap-mistral, --variance, --tools, --tools3, --langcost — a direct
+    key silently swapping in an undated alias mid-run is real, waiting-to-happen
+    version contamination, the same class of bug as Defect 1, just triggered by
+    environment state instead of a catalog change.
+
+    Override with --allow-direct when direct routing for a pinned model is
+    genuinely intended.
+    """
+    if allow_direct:
+        return
+    violations: list[tuple[str, str]] = []
+    for key in model_keys:
+        cfg = panel.get(key, {})
+        if not cfg.get("openrouter_model_id"):
+            continue  # no pin exists for this model — direct routing isn't a contamination risk
+        env_var = _required_env_var(cfg.get("provider", ""))
+        if env_var and os.environ.get(env_var):
+            violations.append((key, env_var))
+    if violations:
+        import sys
+        print(f"\n{'!'*100}", file=sys.stderr)
+        print(f"  SILENT DIRECT ROUTE BLOCKED", file=sys.stderr)
+        for key, env_var in violations:
+            print(
+                f"  {key}: {env_var} is set — would bypass OpenRouter and "
+                f"cfg['openrouter_model_id']={panel[key]['openrouter_model_id']!r} "
+                f"in favor of the direct, undated cfg['model_id']={panel[key].get('model_id')!r}.",
+                file=sys.stderr,
+            )
+        print(
+            "  This run pins model versions via openrouter_model_id. A direct key "
+            "routes around that pin with no error and no warning — only served_by=None "
+            "on the affected rows. Stopping before the first call.",
+            file=sys.stderr,
+        )
+        print(f"  Pass --allow-direct to override if this is intended.", file=sys.stderr)
+        print(f"{'!'*100}\n", file=sys.stderr)
+        sys.exit(1)

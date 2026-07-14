@@ -61,6 +61,11 @@ def save_result(
         "pricing_snapshot_date": pricing_snapshot_date,
         "latency_s": round(response.latency_s, 3),
         "raw_usage": response.raw_usage,
+        # request_model_id: the exact string sent in the API call (Defect 1) —
+        # model_version above is resp.model (the response label), which cannot
+        # prove what was requested; see adapters/base.py:assert_model_pin_honored.
+        "request_model_id": response.request_model_id,
+        "via_openrouter": response.via_openrouter,
         # Phase 3 placeholders — not populated here:
         # "correct": null,
         # "score": null,
@@ -175,6 +180,8 @@ def save_langcost_result(
         "regime": regime,
         "language_metric": language_metric,
         "raw_usage": response.raw_usage,
+        "request_model_id": response.request_model_id,
+        "via_openrouter": response.via_openrouter,
     }
 
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -346,6 +353,8 @@ def save_tools_result(
             "raw_usage": response.raw_usage,
             "tool_calls": response.tool_calls,
             "raw_tool_events": response.raw_tool_events,
+            "request_model_id": response.request_model_id,
+            "via_openrouter": response.via_openrouter,
         })
     else:
         record.update({
@@ -361,6 +370,8 @@ def save_tools_result(
             "raw_usage": None,
             "tool_calls": [],
             "raw_tool_events": [],
+            "request_model_id": None,
+            "via_openrouter": None,
         })
 
     if extra:
@@ -456,9 +467,14 @@ def save_variance_result(
     Persist one (model, prompt, pass) row to results/variance/<run_id>.jsonl.
 
     status: "ok" | "dead_pin" | "error". pinned_model_id is the exact string we
-    requested; response.model_version is what the provider echoed back — for a
-    healthy pin these must match (a divergence is the silent-drift signal this
-    run exists to catch). served_by is OpenRouter's raw backend fingerprint.
+    requested. response.model_version is what the provider echoed back — NOT
+    proof of what was requested (diagnostics on 2026-07-14 showed OpenRouter
+    echoes the same canonical label whether the dated pin or the undated slug
+    is sent). request_model_id is the field that actually proves what was
+    sent — it and pinned_model_id must match; see
+    adapters/base.py:assert_model_pin_honored(), which hard-stops on mismatch
+    before this row would ever be written. served_by is OpenRouter's raw
+    backend fingerprint.
     """
     record: dict = {
         "run_id": run_id,
@@ -492,6 +508,8 @@ def save_variance_result(
             "pricing_snapshot_date": pricing_snapshot_date,
             "latency_s": round(response.latency_s, 3),
             "raw_usage": response.raw_usage,
+            "request_model_id": response.request_model_id,
+            "via_openrouter": response.via_openrouter,
         })
     else:
         record.update({
@@ -505,6 +523,8 @@ def save_variance_result(
             "pricing_snapshot_date": pricing_snapshot_date,
             "latency_s": None,
             "raw_usage": None,
+            "request_model_id": None,
+            "via_openrouter": None,
         })
 
     if extra:
@@ -608,6 +628,8 @@ def save_heavy_result(
             "native_finish_reason": response.native_finish_reason,
             "request_max_tokens": request_max_tokens,
             "truncated": completion_tokens >= request_max_tokens,
+            "request_model_id": response.request_model_id,
+            "via_openrouter": response.via_openrouter,
         })
     else:
         record.update({
@@ -622,6 +644,8 @@ def save_heavy_result(
             "pricing_snapshot_date": pricing_snapshot_date,
             "latency_s": None,
             "raw_usage": None,
+            "request_model_id": None,
+            "via_openrouter": None,
             "tool_calls": [],
             "raw_tool_events": [],
             "finish_reason": None,

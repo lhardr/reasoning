@@ -38,7 +38,7 @@ from src.heavy_grader import grade as grade_heavy
 from src.heavy_tasks import TASK_KEYS as HEAVY_TASK_KEYS
 from src.heavy_tasks import load_heavy_tasks
 from src.language_metric import measure_trace_language
-from src.model_resolver import print_resolution_table, resolve_models
+from src.model_resolver import assert_no_silent_direct_route, print_resolution_table, resolve_models
 from src.storage import (
     HEAVY_DIR,
     PHASE2_DIR,
@@ -648,7 +648,7 @@ _FULL_COL_HDR = (
 _FULL_COL_SEP = "  " + "─" * 132
 
 
-def run_full(model_filter: Optional[list[str]] = None) -> int:
+def run_full(model_filter: Optional[list[str]] = None, allow_direct: bool = False) -> int:
     """
     Phase 1 full economy run: all 10 prompts × all scored+anchor models.
     Adds segment-aware language metrics to every exposed trace.
@@ -686,6 +686,7 @@ def run_full(model_filter: Optional[list[str]] = None) -> int:
 
     resolved = resolve_models(panel, model_keys_ordered)
     hard_errors = print_resolution_table(resolved)
+    assert_no_silent_direct_route(panel, model_keys_ordered, allow_direct)
     if hard_errors > 0:
         print(f"\n  !! {hard_errors} model(s) not resolved. Fix panel.yaml.\n")
         return 1
@@ -984,7 +985,7 @@ JUNI_RECAP_MISTRAL_THINKING_BUDGET = 16384
 JUNI_RECAP_MISTRAL_BASELINE_RUN_ID = "20260626T130846_full"
 
 
-def run_juni_recap_mistral() -> int:
+def run_juni_recap_mistral(allow_direct: bool = False) -> int:
     """
     Re-run mistral_medium_3_5 on P1-P10 (1 pass each) at thinking_budget=16384.
     10 calls. Reuses save_result()'s "extra" dict to log finish_reason,
@@ -1032,6 +1033,7 @@ def run_juni_recap_mistral() -> int:
 
     resolved = resolve_models(panel, [model_key])
     print_resolution_table(resolved)
+    assert_no_silent_direct_route(panel, [model_key], allow_direct)
 
     has_failure = False
     drift_failed = False
@@ -1697,7 +1699,7 @@ def run_judge(source_run_id: Optional[str] = None) -> int:
 # Language-cost run (Step 2)
 # ---------------------------------------------------------------------------
 
-def run_langcost(full: bool = False, steer: bool = False) -> int:
+def run_langcost(full: bool = False, steer: bool = False, allow_direct: bool = False) -> int:
     """
     Language-cost experiment: same content in da/en/zh × 5 open models.
 
@@ -1747,6 +1749,7 @@ def run_langcost(full: bool = False, steer: bool = False) -> int:
 
     resolved = resolve_models(panel, LANGCOST_MODELS)
     hard_errors = print_resolution_table(resolved)
+    assert_no_silent_direct_route(panel, LANGCOST_MODELS, allow_direct)
     if hard_errors > 0:
         print(f"\n  !! {hard_errors} model(s) not resolved. Fix panel.yaml.\n")
         return 1
@@ -2385,7 +2388,7 @@ def _tool_names_used(response) -> tuple[str, ...]:
     return tuple(sorted({tc["name"] for tc in response.tool_calls}))
 
 
-def run_tools() -> int:
+def run_tools(allow_direct: bool = False) -> int:
     """
     Tool-offload experiment: two arms (baseline, tools) per (model, prompt),
     run fresh in the same invocation so there is no cross-run drift.
@@ -2429,6 +2432,7 @@ def run_tools() -> int:
 
     resolved = resolve_models(panel, model_keys)
     hard_errors = print_resolution_table(resolved)
+    assert_no_silent_direct_route(panel, model_keys, allow_direct)
     if hard_errors > 0:
         print(f"\n  !! {hard_errors} model(s) not resolved. Fix panel.yaml.\n")
         return 1
@@ -2777,7 +2781,7 @@ def _classify_pin_error(exc: Exception) -> str:
     return "error"
 
 
-def run_variance(passes: int = 2) -> int:
+def run_variance(passes: int = 2, allow_direct: bool = False) -> int:
     """
     Pure variance repro: baseline only (no tools), all 8 models pinned to fully
     dated openrouter_model_id strings (identical to June), run PASSES times.
@@ -2830,14 +2834,15 @@ def run_variance(passes: int = 2) -> int:
     try:
         resolved = resolve_models(panel, model_keys)
         print_resolution_table(resolved)
+        assert_no_silent_direct_route(panel, model_keys, allow_direct)
         print(
-            f"\n  NOTE: catalog mismatches above are not a gate by themselves — dated"
-            f" snapshot slugs can be absent from OpenRouter's /models listing while"
-            f" still callable. But 'callable' is not proof it's the SAME model: on"
-            f" 2026-07-14 a retired dated pin was silently rerouted to a live model"
-            f" instead of erroring. assert_model_pin_honored() (adapters/base.py)"
-            f" checks the actual resp.model on every call and hard-stops on mismatch —"
-            f" that is the real gate now, not this listing check."
+            f"\n  NOTE: catalog mismatches above are not a gate — dated snapshot slugs"
+            f" can be absent from OpenRouter's /models listing while still callable."
+            f" resp.model (model_version) is NOT proof either way: diagnostics on"
+            f" 2026-07-14 showed OpenRouter echoes the same canonical label whether the"
+            f" dated pin or the undated slug is sent. The actual gate is"
+            f" assert_model_pin_honored() (adapters/base.py), which checks the request"
+            f" variable itself (request_model_id) against panel.yaml, before the call."
         )
 
         has_failure = False
@@ -3111,7 +3116,7 @@ def _tools3_smoke_test(panel: dict, prompts: dict, reasoning_effort: str) -> boo
     return ok
 
 
-def run_tools3(repeats: int = 5) -> int:
+def run_tools3(repeats: int = 5, allow_direct: bool = False) -> int:
     """
     Three-condition tool-offload re-run on pinned dated versions:
       - baseline: REUSED from --variance + June + first-run (not re-run here).
@@ -3181,11 +3186,14 @@ def run_tools3(repeats: int = 5) -> int:
 
         resolved = resolve_models(panel, model_keys)
         print_resolution_table(resolved)
+        assert_no_silent_direct_route(panel, model_keys, allow_direct)
         print(
             f"\n  NOTE: catalog mismatches are informational only — the real protection is"
-            f" assert_model_pin_honored() checking resp.model on every call, hard-stopping"
-            f" on mismatch (see adapters/base.py; a retired-pin silent-reroute incident on"
-            f" 2026-07-14 is why this exists).\n"
+            f" assert_model_pin_honored() checking request_model_id (the request variable"
+            f" itself, NOT resp.model — see adapters/base.py) before every call, hard-"
+            f" stopping on mismatch. A retired-pin silent-reroute incident on 2026-07-14"
+            f" is why this exists; resp.model was proven that day to be identical whether"
+            f" the dated pin or the undated slug is sent, so it cannot serve as this check.\n"
         )
 
         has_failure = False
@@ -3430,7 +3438,7 @@ HEAVY_CONDITIONS: tuple[str, ...] = ("baseline", "invited_auto")
 HEAVY_INVITATION = TOOLS3_INVITATION
 
 
-def run_heavy(repeats: int = 5) -> int:
+def run_heavy(repeats: int = 5, allow_direct: bool = False) -> int:
     """
     3 locked tasks (HumanEval/94, FinQA CDNS calc, FinQA AMAT interp) x
     2 conditions (baseline, invited_auto) x 8 scored+anchor models x
@@ -3482,12 +3490,15 @@ def run_heavy(repeats: int = 5) -> int:
     try:
         resolved = resolve_models(panel, model_keys)
         print_resolution_table(resolved)
+        assert_no_silent_direct_route(panel, model_keys, allow_direct)
         print(
             f"\n  NOTE: catalog mismatches above are not a gate by themselves — dated snapshot"
             f" slugs can be absent from OpenRouter's /models listing while still callable."
-            f" The real protection is assert_model_pin_honored() checking resp.model on every"
-            f" call and hard-stopping on mismatch (see adapters/base.py — a retired-pin"
-            f" silent-reroute incident on 2026-07-14 is why this exists).\n"
+            f" The real protection is assert_model_pin_honored() checking request_model_id"
+            f" (the request variable itself, NOT resp.model — see adapters/base.py) before"
+            f" every call. A retired-pin silent-reroute incident on 2026-07-14 is why this"
+            f" exists; resp.model was proven that day to be identical whether the dated pin"
+            f" or the undated slug is sent, so it cannot serve as this check.\n"
         )
 
         has_failure = False
@@ -3804,7 +3815,7 @@ def _load_heavy_jsonl(run_id: str) -> list[dict]:
     return rows
 
 
-def run_heavy_recap(repeats: int = 5) -> int:
+def run_heavy_recap(repeats: int = 5, allow_direct: bool = False) -> int:
     """
     Re-run mistral_medium_3_5 + gemma_4 (all 3 tasks) and opus_4_8 (code only)
     at thinking_budget=16384 to determine whether --heavy's 0% Mistral
@@ -3851,6 +3862,7 @@ def run_heavy_recap(repeats: int = 5) -> int:
     try:
         resolved = resolve_models(panel, model_keys)
         print_resolution_table(resolved)
+        assert_no_silent_direct_route(panel, model_keys, allow_direct)
 
         has_failure = False
         agg: list[dict] = []
@@ -4323,6 +4335,17 @@ def main() -> None:
             "Keep steered and unsteered runs in separate run_ids (handled automatically)."
         ),
     )
+    parser.add_argument(
+        "--allow-direct",
+        action="store_true",
+        help=(
+            "Override Defect 2's guard: permit a direct provider key (e.g. "
+            "ANTHROPIC_API_KEY) to silently route a pinned model straight to "
+            "that provider's own API, bypassing OpenRouter and openrouter_model_id "
+            "entirely. Without this flag, any pinned model with a direct key "
+            "present in the environment stops the run before the first call."
+        ),
+    )
     args = parser.parse_args()
 
     if args.smoke:
@@ -4334,7 +4357,7 @@ def main() -> None:
         sys.exit(code)
     elif args.full:
         mfilter = [m.strip() for m in args.models.split(",") if m.strip()] if args.models else None
-        code = run_full(model_filter=mfilter)
+        code = run_full(model_filter=mfilter, allow_direct=args.allow_direct)
         sys.exit(code)
     elif args.validate_judges:
         code = run_validate_judges(source_run_id=args.source_run_id)
@@ -4343,28 +4366,28 @@ def main() -> None:
         code = run_judge(source_run_id=args.source_run_id)
         sys.exit(code)
     elif args.langcost or args.langcost_full:
-        code = run_langcost(full=args.langcost_full, steer=args.steer)
+        code = run_langcost(full=args.langcost_full, steer=args.steer, allow_direct=args.allow_direct)
         sys.exit(code)
     elif args.langcost_report:
         code = run_langcost_report(source_run_id=args.source_run_id)
         sys.exit(code)
     elif args.tools:
-        code = run_tools()
+        code = run_tools(allow_direct=args.allow_direct)
         sys.exit(code)
     elif args.variance:
-        code = run_variance(passes=args.passes)
+        code = run_variance(passes=args.passes, allow_direct=args.allow_direct)
         sys.exit(code)
     elif args.tools3:
-        code = run_tools3(repeats=args.repeats)
+        code = run_tools3(repeats=args.repeats, allow_direct=args.allow_direct)
         sys.exit(code)
     elif args.heavy:
-        code = run_heavy(repeats=args.repeats)
+        code = run_heavy(repeats=args.repeats, allow_direct=args.allow_direct)
         sys.exit(code)
     elif args.heavy_recap:
-        code = run_heavy_recap(repeats=args.repeats)
+        code = run_heavy_recap(repeats=args.repeats, allow_direct=args.allow_direct)
         sys.exit(code)
     elif args.juni_recap_mistral:
-        code = run_juni_recap_mistral()
+        code = run_juni_recap_mistral(allow_direct=args.allow_direct)
         sys.exit(code)
     else:
         parser.print_help()

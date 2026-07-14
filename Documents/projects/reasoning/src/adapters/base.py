@@ -42,6 +42,14 @@ class ModelResponse:
     raw_tool_events: list = field(default_factory=list)  # every tool_call block as emitted, incl. unknown/serverside
     n_api_calls: int = 1                                 # 1 = model answered directly; 2 = one tool round + continuation
     served_by: Optional[str] = None                      # OpenRouter's raw "provider" field — which backend served the call
+    # request_model_id: the exact string placed in the API call's `model=` param
+    # — set from the SAME variable the adapter sends, not derived from the
+    # response. model_version (above) is resp.model — the provider's response
+    # label — and diagnostics on 2026-07-14 proved that label is identical
+    # whether the dated pin or the canonical undated slug is requested, so it
+    # can never prove what was sent. request_model_id is the only field that can.
+    request_model_id: str = ""
+    via_openrouter: bool = False  # False = direct provider API (undated cfg["model_id"]), bypassing the pin entirely
 
 
 class BaseAdapter:
@@ -144,41 +152,44 @@ def extract_served_by(resp) -> Optional[str]:
     return None
 
 
-def assert_model_pin_honored(requested_model_id: str, resp, model_key: str) -> None:
+def assert_model_pin_honored(model_key: str, cfg: dict, request_model_id: str) -> None:
     """
     Hard stop — NOT a warning, NOT an AdapterError (which every run loop's
     `except AdapterError`/`except Exception: ... continue` would silently
-    swallow and move on to the next row). Call this immediately after every
-    OpenRouter chat-completion response, for every adapter that pins an exact
-    dated snapshot string.
+    swallow and move on to the next row). Call this right after computing the
+    `model_id` variable that is about to go into (or just went into) the
+    OpenRouter request — before spending an API call, when possible.
 
-    resolve_models()'s pre-call catalog check is NOT sufficient: OpenRouter
-    does not error on an unlisted/retired model string — it silently reroutes
-    the request to a live catalog entry and echoes THAT model back in
-    `resp.model`. A pre-call catalog-listing gap was, until 2026-07-14,
-    assumed to be harmless listing lag ("may be absent from the listing even
-    when callable" — see run_heavy()'s historical NOTE). That assumption is
-    what let 20260714T091621_heavy_recap and 20260714T101953_juni_recap_mistral
-    run for 80 total API calls on silently-substituted models (dated pins had
-    been retired from the catalog and OpenRouter rerouted every single call)
-    before anyone noticed via the model_version field in the output JSONL.
+    IMPORTANT — this checks request_model_id against cfg['openrouter_model_id'],
+    NOT model_version (resp.model). An earlier version of this guard compared
+    resp.model instead, on the theory that OpenRouter's response echoes back
+    what it actually served. Diagnostics on 2026-07-14 disproved that: sending
+    the dated pin (mistralai/mistral-medium-3.5-20260430) and the canonical
+    undated slug (mistralai/mistral-medium-3-5) to OpenRouter both returned
+    resp.model == 'mistralai/mistral-medium-3-5' — identical either way. So
+    resp.model encodes OpenRouter's response-labeling convention, not the
+    request, and can never prove what was sent. This function checks the one
+    thing that CAN prove it: the literal variable placed in the request.
 
-    This checks the ACTUAL response, on the FIRST call, and exits the process
-    immediately on mismatch — no row is worth recording once the model pin is
-    not what was requested, because the run can no longer isolate whatever
-    single variable it was designed to test.
+    In practice this can only fail from a config-authoring mistake (e.g. a
+    typo'd or removed openrouter_model_id key silently falling back to
+    cfg['model_id']) — but that mistake is real and would otherwise route an
+    unpinned string through OpenRouter with zero error or warning, since
+    OpenRouter accepts arbitrary model strings without validation (see Defect
+    1 diagnostics). No row is worth recording once the pin the run is
+    supposed to test isn't the string actually sent.
     """
-    served = getattr(resp, "model", None)
-    if served != requested_model_id:
+    expected = cfg.get("openrouter_model_id")
+    if expected is not None and request_model_id != expected:
         import sys
         print(f"\n{'!'*100}", file=sys.stderr)
         print(f"  MODEL PIN VIOLATED — {model_key}", file=sys.stderr)
-        print(f"  Requested (cfg['openrouter_model_id']): {requested_model_id!r}", file=sys.stderr)
-        print(f"  Provider actually served (resp.model):  {served!r}", file=sys.stderr)
+        print(f"  cfg['openrouter_model_id']: {expected!r}", file=sys.stderr)
+        print(f"  Actually about to send / sent (request_model_id): {request_model_id!r}", file=sys.stderr)
         print(
-            "  OpenRouter silently rerouted an unlisted/retired model string to a "
-            "different, live model instead of erroring. This run cannot isolate "
-            "any experimental variable while the model changed underneath it.",
+            "  The adapter did not use panel.yaml's pinned string. This run cannot "
+            "isolate any experimental variable while the requested model differs "
+            "from the pin.",
             file=sys.stderr,
         )
         print(f"  Stopping immediately. No further calls will be made.", file=sys.stderr)

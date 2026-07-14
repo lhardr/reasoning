@@ -17,7 +17,6 @@ from typing import Optional
 from .adapters.base import (
     AdapterError,
     ModelResponse,
-    assert_model_pin_honored,
     estimate_tokens,
     extract_finish_reasons,
     extract_served_by,
@@ -63,6 +62,8 @@ class ToolLoopResult:
     served_by: Optional[str] = None
     finish_reason: Optional[str] = None
     native_finish_reason: Optional[str] = None
+    request_model_id: str = ""
+    via_openrouter: bool = False
 
 
 def _extract_reasoning(msg, raw_content: str) -> tuple[Optional[str], str]:
@@ -110,7 +111,7 @@ def run_openai_tool_loop(
     max_tokens: int,
     base_extra_body: Optional[dict] = None,
     tool_choice: Optional[str] = None,
-    assert_pin: bool = False,
+    via_openrouter: bool = False,
 ) -> ToolLoopResult:
     """
     tool_choice: None (provider default, effectively "auto"), "auto", or
@@ -119,6 +120,12 @@ def run_openai_tool_loop(
     A "required" call that comes back with no tool_calls means the route did
     NOT enforce it — the caller (run_tools3) treats that as a possible
     adapter/routing defect, not a valid "chose not to call".
+
+    via_openrouter: pure metadata, carried onto the result's via_openrouter
+    field. The model-pin assert itself runs in the calling adapter, before
+    model_id is even handed to this function — see adapters/base.py's
+    assert_model_pin_honored(), which checks the request variable, not any
+    response field (resp.model cannot prove what was requested; see Defect 1).
     """
     base_extra_body = dict(base_extra_body or {})
     messages: list[dict] = [{"role": "user", "content": prompt}]
@@ -139,9 +146,6 @@ def run_openai_tool_loop(
     except Exception as exc:
         _raise_if_tool_unsupported(exc, model_key)
         raise
-
-    if assert_pin:
-        assert_model_pin_honored(model_id, resp1, model_key)
 
     msg1 = resp1.choices[0].message
     raw_content1 = msg1.content or ""
@@ -183,6 +187,8 @@ def run_openai_tool_loop(
             served_by=extract_served_by(resp1),
             finish_reason=finish_reason1,
             native_finish_reason=native_finish_reason1,
+            request_model_id=model_id,
+            via_openrouter=via_openrouter,
         )
 
     # --- Execute every tool call the model emitted, then force a final answer ---
@@ -237,9 +243,6 @@ def run_openai_tool_loop(
         _raise_if_tool_unsupported(exc, model_key)
         raise
 
-    if assert_pin:
-        assert_model_pin_honored(model_id, resp2, model_key)
-
     msg2 = resp2.choices[0].message
     raw_content2 = msg2.content or ""
     reasoning2, answer2 = _extract_reasoning(msg2, raw_content2)
@@ -278,6 +281,8 @@ def run_openai_tool_loop(
         served_by=extract_served_by(resp2),
         finish_reason=finish_reason2,
         native_finish_reason=native_finish_reason2,
+        request_model_id=model_id,
+        via_openrouter=via_openrouter,
     )
 
 
@@ -301,6 +306,8 @@ def _to_model_response(result: ToolLoopResult) -> ModelResponse:
         served_by=result.served_by,
         finish_reason=result.finish_reason,
         native_finish_reason=result.native_finish_reason,
+        request_model_id=result.request_model_id,
+        via_openrouter=result.via_openrouter,
     )
 
 
@@ -313,7 +320,7 @@ def call_with_tools_openai_style(
     max_tokens: int,
     base_extra_body: Optional[dict] = None,
     tool_choice: Optional[str] = None,
-    assert_pin: bool = False,
+    via_openrouter: bool = False,
 ) -> ModelResponse:
     """
     One-call convenience wrapper for the (many) adapters that speak the
@@ -321,9 +328,10 @@ def call_with_tools_openai_style(
     ToolsNotSupportedError unchanged (caller marks the row n/a); any other
     failure is wrapped in AdapterError, matching the existing call() contract.
 
-    assert_pin: set True when model_id is a pinned OpenRouter openrouter_model_id
-    (as opposed to a direct-provider undated alias) — asserts the provider's
-    echoed resp.model matches exactly, hard-stopping the process on mismatch.
+    via_openrouter: pure metadata carried onto ModelResponse.via_openrouter.
+    The caller must run assert_model_pin_honored() itself, before calling this
+    function, when model_id is a pinned openrouter_model_id — see the adapter
+    call_with_tools() methods.
     """
     openai_tools = to_openai_tools(available_tool_defs())
     try:
@@ -336,7 +344,7 @@ def call_with_tools_openai_style(
             max_tokens=max_tokens,
             base_extra_body=base_extra_body,
             tool_choice=tool_choice,
-            assert_pin=assert_pin,
+            via_openrouter=via_openrouter,
         )
     except ToolsNotSupportedError:
         raise

@@ -123,6 +123,8 @@ class AnthropicAdapter(BaseAdapter):
             model_version=resp.model,
             raw_usage=raw,
             finish_reason=resp.stop_reason,
+            request_model_id=model_id,
+            via_openrouter=False,
         )
 
     # ------------------------------------------------------------------
@@ -139,6 +141,7 @@ class AnthropicAdapter(BaseAdapter):
             raise AdapterError("claude_sonnet_4_6: no ANTHROPIC_API_KEY or OPENROUTER_API_KEY")
 
         model_id = self.config.get("openrouter_model_id", self.config["model_id"])
+        assert_model_pin_honored(self.model_key, self.config, model_id)
         client = OpenAI(api_key=or_key, base_url=OPENROUTER_BASE_URL)
 
         try:
@@ -156,8 +159,6 @@ class AnthropicAdapter(BaseAdapter):
             raise AdapterError(
                 f"claude_sonnet_4_6 via OpenRouter API error: {exc}"
             ) from exc
-
-        assert_model_pin_honored(model_id, resp, self.model_key)
 
         msg = resp.choices[0].message
         raw_content = msg.content or ""
@@ -212,6 +213,8 @@ class AnthropicAdapter(BaseAdapter):
             served_by=extract_served_by(resp),
             finish_reason=finish_reason,
             native_finish_reason=native_finish_reason,
+            request_model_id=model_id,
+            via_openrouter=True,
         )
 
     # ------------------------------------------------------------------
@@ -313,6 +316,8 @@ class AnthropicAdapter(BaseAdapter):
                 raw_tool_events=[],
                 n_api_calls=1,
                 finish_reason=resp1.stop_reason,
+                request_model_id=model_id,
+                via_openrouter=False,
             )
 
         assistant_content = [
@@ -386,6 +391,8 @@ class AnthropicAdapter(BaseAdapter):
             raw_tool_events=raw_tool_events,
             n_api_calls=2,
             finish_reason=resp2.stop_reason,
+            request_model_id=model_id,
+            via_openrouter=False,
         )
 
     # ------------------------------------------------------------------
@@ -403,6 +410,7 @@ class AnthropicAdapter(BaseAdapter):
             raise AdapterError(f"{self.model_key}: no ANTHROPIC_API_KEY or OPENROUTER_API_KEY")
 
         model_id = self.config.get("openrouter_model_id", self.config["model_id"])
+        assert_model_pin_honored(self.model_key, self.config, model_id)
         client = OpenAI(api_key=or_key, base_url=OPENROUTER_BASE_URL)
 
         return call_with_tools_openai_style(
@@ -415,5 +423,5 @@ class AnthropicAdapter(BaseAdapter):
             base_extra_body={
                 "thinking": {"type": "enabled", "budget_tokens": thinking_budget},
             },
-            assert_pin=True,
+            via_openrouter=True,
         )

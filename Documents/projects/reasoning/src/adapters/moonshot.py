@@ -28,6 +28,8 @@ class MoonshotAdapter(BaseAdapter):
         from openai import OpenAI
 
         api_key, base_url, model_id, via_or = self._resolve_openai_creds()
+        if via_or:
+            assert_model_pin_honored(self.model_key, self.config, model_id)
         kwargs: dict = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
@@ -50,9 +52,6 @@ class MoonshotAdapter(BaseAdapter):
             latency = time.perf_counter() - t0
         except Exception as exc:
             raise AdapterError(f"kimi_k2_7 API error: {exc}") from exc
-
-        if via_or:
-            assert_model_pin_honored(model_id, resp, self.model_key)
 
         msg = resp.choices[0].message
         answer = msg.content or ""
@@ -108,6 +107,8 @@ class MoonshotAdapter(BaseAdapter):
             served_by=extract_served_by(resp),
             finish_reason=finish_reason,
             native_finish_reason=native_finish_reason,
+            request_model_id=model_id,
+            via_openrouter=via_or,
         )
 
     def call_with_tools(self, prompt: str, thinking_budget: int = 4096, reasoning_effort: str = "high", tool_choice: str | None = None) -> ModelResponse:
@@ -116,6 +117,8 @@ class MoonshotAdapter(BaseAdapter):
         from ..tool_loop import call_with_tools_openai_style
 
         api_key, base_url, model_id, via_or = self._resolve_openai_creds()
+        if via_or:
+            assert_model_pin_honored(self.model_key, self.config, model_id)
         kwargs: dict = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
@@ -132,5 +135,5 @@ class MoonshotAdapter(BaseAdapter):
                 "reasoning": {"effort": reasoning_effort},
             },
             tool_choice=tool_choice,
-            assert_pin=via_or,
+            via_openrouter=via_or,
         )
