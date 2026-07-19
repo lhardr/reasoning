@@ -23,6 +23,7 @@ from .tools import execute_tool
 
 _CODE_FENCE_RE = re.compile(r"```(?:python)?\s*\n(.*?)```", re.DOTALL)
 _NUMBER_RE = re.compile(r"-?\$?\d[\d,]*\.?\d*%?")
+_FINAL_ANSWER_LABEL_RE = re.compile(r"final\s+answer\s*:?", re.IGNORECASE)
 
 RELATIVE_TOLERANCE = 0.01
 
@@ -105,17 +106,46 @@ def grade_finance(answer_text: str, facit_answers) -> GradeResult:
     one-element list; behavior for single-facit tasks (finance_calc) is
     unchanged.
 
-    Primary heuristic: the LAST number in the answer is the model's final
-    answer (matches "Final answer: X" instruction). Also checks whether ANY
-    number in the text matches ANY accepted facit, for data-quality review
-    when the primary heuristic and the tolerance check disagree.
+    Primary heuristic (2026-07-19 fix): the FIRST number after the LAST
+    occurrence of the literal label "Final answer:" (the phrase the prompt
+    itself instructs models to use — see heavy_tasks.py). Falls back to the
+    old last-number-in-the-whole-text heuristic ONLY when the label is
+    entirely absent from the response.
+
+    Why: the old last-number-in-the-whole-text heuristic silently mismatched
+    correct answers whenever a model appended a unit conversion after its own
+    "Final answer:" line (e.g. "Final answer: 90.62% (0.9062)" — the model's
+    stated answer is exactly right, but the trailing parenthetical decimal
+    restatement was what got graded). Confirmed on fable_5 2026-07-19: all 6
+    of its finance failures in that run had a correct "Final answer:" label,
+    zero were real computation errors — a grading defect, not a model defect,
+    the third instance of this pattern in the project (loft/Mistral,
+    tool-loop/Inkling, now extraction/fable_5).
+
+    Using the LAST occurrence of the label (not the first) handles models
+    that restate "Final answer:" multiple times before settling — the most
+    recent statement is treated as authoritative, same principle a human
+    grader would apply.
+
+    Also checks whether ANY number in the text matches ANY accepted facit,
+    for data-quality review when the primary heuristic and the tolerance
+    check disagree.
     """
     if isinstance(facit_answers, str):
         facit_answers = [facit_answers]
     facit_numerics = [n for n in (_parse_number(f) for f in facit_answers) if n is not None]
 
     numbers = _extract_numbers(answer_text)
-    primary = numbers[-1] if numbers else None
+
+    label_matches = list(_FINAL_ANSWER_LABEL_RE.finditer(answer_text))
+    if label_matches:
+        after_label = answer_text[label_matches[-1].end():]
+        numbers_after_label = _extract_numbers(after_label)
+        primary = numbers_after_label[0] if numbers_after_label else None
+        extraction_method = "final_answer_label" if primary is not None else "label_present_no_number_after"
+    else:
+        primary = numbers[-1] if numbers else None
+        extraction_method = "last_number_no_label"
 
     matched_facit = None
     if primary is not None:
@@ -138,6 +168,7 @@ def grade_finance(answer_text: str, facit_answers) -> GradeResult:
             "raw_extracted_numbers": numbers[:20],
             "any_number_in_text_matches": any_match,
             "primary_matched": correct,
+            "extraction_method": extraction_method,
         },
     )
 
