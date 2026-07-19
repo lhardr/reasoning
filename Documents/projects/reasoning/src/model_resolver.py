@@ -26,6 +26,9 @@ INTENDED_NAMES: dict[str, str] = {
     "mistral_medium_3_5": "Mistral Medium 3.5 (OpenRouter)",
     "minimax": "MiniMax M3 (judge)",
     "gemini_3_1_pro": "Gemini 3.1 Pro (judge)",
+    "kimi_k3": "Kimi K3 (Moonshot)",
+    "gpt_5_6_sol": "GPT-5.6-sol (OpenAI)",
+    "fable_5": "Claude Fable 5 (Anthropic)",
 }
 
 _or_model_set: set[str] | None = None

@@ -76,3 +76,30 @@ models:
     output_per_mtok: 12.00
     cache_read_per_mtok: 0.00
     cache_write_per_mtok: 0.00
+
+  # --- Added 2026-07-19 — confirmed against live OpenRouter /models catalog
+  # 2026-07-19 (unlike the dated-pin rows above, undated/base slugs DO list
+  # in the catalog with live pricing; this is not the same lookup that fails
+  # for dated pins).
+  kimi_k3:
+    # moonshotai/kimi-k3 — confirmed OpenRouter 2026-07-19
+    input_per_mtok: 3.00
+    output_per_mtok: 15.00
+    cache_read_per_mtok: 0.30
+    cache_write_per_mtok: 0.00     # not offered for this model per catalog
+
+  gpt_5_6_sol:
+    # openai/gpt-5.6-sol — confirmed OpenRouter 2026-07-19
+    # NOTE: catalog lists a >272k-input-token override tier (input 10.00 / output 45.00
+    # per Mtok). Irrelevant for --heavy (prompts are ~500-1300 tokens) — base tier applies.
+    input_per_mtok: 5.00
+    output_per_mtok: 30.00
+    cache_read_per_mtok: 0.50
+    cache_write_per_mtok: 6.25
+
+  fable_5:
+    # anthropic/claude-fable-5 — confirmed OpenRouter 2026-07-19
+    input_per_mtok: 10.00
+    output_per_mtok: 50.00
+    cache_read_per_mtok: 1.00
+    cache_write_per_mtok: 12.50
