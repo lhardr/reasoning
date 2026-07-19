@@ -8,6 +8,7 @@ from .gemma import GemmaAdapter
 from .minimax import MinimaxAdapter
 from .google_adapter import GoogleAdapter
 from .mistral_adapter import MistralAdapter
+from .thinkingmachines import ThinkingMachinesAdapter
 
 PROVIDER_MAP: dict[str, type[BaseAdapter]] = {
     "deepseek": DeepSeekAdapter,
@@ -19,6 +20,7 @@ PROVIDER_MAP: dict[str, type[BaseAdapter]] = {
     "minimax": MinimaxAdapter,
     "google": GoogleAdapter,     # Gemini judge stub (Phase 2)
     "mistral": MistralAdapter,   # Mistral via OpenRouter
+    "thinkingmachines": ThinkingMachinesAdapter,  # Inkling via OpenRouter (no direct API; third-party hosted)
 }
 
 __all__ = [

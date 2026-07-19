@@ -135,3 +135,16 @@ models:
     reasoning_effort_sent: "high"
     size_estimate: "unknown, ESTIMATED — no public data"
     data_retention_note: "Anthropic's policy does not permit zero-data-retention on this model. Tasks are neutral benchmark prompts, so this is likely unproblematic — noted per instruction, not treated as a blocker."
+
+  # --- Added 2026-07-19, fourth candidate, standalone --heavy run (not
+  # blended with kimi_k3/gpt_5_6_sol/fable_5's already-landed run). ---
+  inkling:
+    provider: thinkingmachines
+    role: scored
+    trace_exposure: raw                           # EXPECTED — preflight confirmed reasoning_tokens>0 AND raw reasoning TEXT in message.reasoning (richer than count_only: this model exposes actual CoT, not just a count). Re-confirm at first real --heavy row, same convention as every row in this file.
+    model_id: thinkingmachines/inkling             # No direct provider API exists for this model at all — third-party-hosted only, see served_by comment below. Same undated slug as openrouter_model_id's base, used here only because there is no separate direct-API identifier to distinguish it from.
+    openrouter_model_id: thinkingmachines/inkling-20260715  # PINNED 2026-07-19. Confirmed via 2 real completion calls (both 200, request_model_id logged, resp.model normalized to the undated slug as expected) + a sweep of 6 other dates (20260701-20260719 minus 0715) and 5 junk suffixes (-99999999, -totally-bogus-xyz123, -pro, -1, :free) — all 400 "not a valid model ID" — ruling out loose prefix-matching, same method as kimi_k3's pin. This is the model's release-day snapshot: there is very likely only one build in existence, so the pin protects nothing yet — its value is future reproducibility if/when a second build ships, not today's run.
+    thinking_budget: 16384
+    reasoning_effort_sent: "high"                 # Accepted alongside "medium"/"low" (200, no error on any). Unlike kimi_k3, NOT byte-identical across levels: high=48 reasoning tokens vs medium=17/low=20 on single trivial-prompt probes — "high" is clearly differentiated. No open comparison-validity concern here the way there is for K3.
+    size_estimate: "41B active (6 of 256 experts + 2 shared), 975B total — KNOWN, per Thinking Machines' own published spec (not a community estimate, unlike kimi_k3's)."
+    served_by_expected: "Together"                # Thinking Machines names FIVE hosting partners (Together, Fireworks, Modal, Databricks, Baseten). OpenRouter may route across more than one of them on future calls — this would reintroduce the exact backend-lottery risk this project has spent two days instrumenting against for other models (Gemma, DeepSeek, GLM, K2.7). served_by was "Together" on all 9 preflight probe calls (usage/effort/pin checks), but that is a preflight sample, not a guarantee. REPORT served_by IN EVERY DEBRIEF for this model, and flag explicitly if any row deviates from "Together" — do not silently pool across backends.

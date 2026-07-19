@@ -29,6 +29,7 @@ INTENDED_NAMES: dict[str, str] = {
     "kimi_k3": "Kimi K3 (Moonshot)",
     "gpt_5_6_sol": "GPT-5.6-sol (OpenAI)",
     "fable_5": "Claude Fable 5 (Anthropic)",
+    "inkling": "Inkling (Thinking Machines)",
 }
 
 _or_model_set: set[str] | None = None
