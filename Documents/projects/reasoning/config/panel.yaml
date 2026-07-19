@@ -19,7 +19,7 @@ models:
     trace_exposure: raw
     model_id: deepseek-reasoner                   # Direct DeepSeek API model ID (verify before run)
     openrouter_model_id: deepseek/deepseek-v4-pro-20260423  # PINNED 2026-07-08 (variance repro) — matches June exactly
-    thinking_budget: 4096
+    thinking_budget: 16384
     base_url: https://api.deepseek.com
 
   glm_5_2:
@@ -28,7 +28,7 @@ models:
     trace_exposure: raw
     model_id: glm-z1-air                          # Direct Z.ai API model ID (verify before run)
     openrouter_model_id: z-ai/glm-5.2-20260616    # PINNED 2026-07-08 (variance repro) — matches June exactly
-    thinking_budget: 4096
+    thinking_budget: 16384
     base_url: https://open.bigmodel.cn/api/paas/v4/
 
   kimi_k2_7:
@@ -39,7 +39,7 @@ models:
     # kimi-k2.7-code is the K2.7 build available on OpenRouter (coding-focused).
     # For general K2.7 reasoning, use the direct Moonshot API with MOONSHOT_API_KEY.
     openrouter_model_id: moonshotai/kimi-k2.7-code-20260612  # PINNED 2026-07-08 (variance repro) — matches June exactly
-    thinking_budget: 4096
+    thinking_budget: 16384
     base_url: https://api.moonshot.cn/v1
 
   gpt_5_5:
@@ -48,7 +48,7 @@ models:
     trace_exposure: count_only
     model_id: gpt-5.5                             # Direct OpenAI API model ID
     openrouter_model_id: openai/gpt-5.5-20260423  # PINNED 2026-07-08 (variance repro) — matches June exactly
-    thinking_budget: 4096
+    thinking_budget: 16384
 
   claude_sonnet_4_6:
     provider: anthropic
@@ -56,7 +56,7 @@ models:
     trace_exposure: summarized
     model_id: claude-sonnet-4-6                   # Direct Anthropic API model ID — undated alias, NOT used by --variance
     openrouter_model_id: anthropic/claude-4.6-sonnet-20260217  # PINNED 2026-07-08 (variance repro) — matches June exactly
-    thinking_budget: 4096
+    thinking_budget: 16384
 
   gemma_4:
     provider: gemma
@@ -64,7 +64,7 @@ models:
     trace_exposure: raw
     model_id: google/gemma-4-31b-it               # OpenRouter model ID (Gemma 4 runs via OpenRouter)
     openrouter_model_id: google/gemma-4-31b-it-20260402  # PINNED 2026-07-08 (variance repro) — matches June exactly
-    thinking_budget: 4096
+    thinking_budget: 16384
 
   opus_4_8:
     provider: anthropic
@@ -72,7 +72,7 @@ models:
     trace_exposure: summarized          # Claude exposes summarized CoT. Same constraint as claude_sonnet_4_6.
     model_id: claude-opus-4-8            # Direct Anthropic API model ID — undated alias, NOT used by --variance
     openrouter_model_id: anthropic/claude-4.8-opus-20260528  # PINNED 2026-07-08 (variance repro) — matches June exactly
-    thinking_budget: 4096
+    thinking_budget: 16384
 
   mistral_medium_3_5:
     provider: mistral
@@ -81,7 +81,7 @@ models:
                                         # If not: stop, correct trace_exposure, report before proceeding.
     model_id: mistral-medium-3.5        # Confirmed OpenRouter 2026-06-26
     openrouter_model_id: mistralai/mistral-medium-3.5-20260430  # PINNED 2026-07-08 (variance repro) — matches June exactly (dot, not hyphen — verified against June's recorded model_version)
-    thinking_budget: 4096
+    thinking_budget: 16384
 
   minimax:
     provider: minimax
