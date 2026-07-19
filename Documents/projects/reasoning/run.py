@@ -38,6 +38,7 @@ from src.heavy_grader import grade as grade_heavy
 from src.heavy_tasks import TASK_KEYS as HEAVY_TASK_KEYS
 from src.heavy_tasks import load_heavy_tasks
 from src.language_metric import measure_trace_language
+from src.metrics import correct_per_dollar
 from src.model_resolver import assert_no_silent_direct_route, print_resolution_table, resolve_models
 from src.storage import (
     HEAVY_DIR,
@@ -3658,7 +3659,7 @@ def run_heavy(repeats: int = 5, allow_direct: bool = False) -> int:
                     med_cost = _median([r["cost_usd"] for r in rows])
                     n_correct = sum(1 for r in rows if r["correct"])
                     correct_pct = 100 * n_correct / len(rows)
-                    corr_per_dollar = (n_correct / len(rows)) / med_cost if med_cost else None
+                    corr_per_dollar = correct_per_dollar(rows)
                     tool_rate = (
                         sum(1 for r in rows if r["tools_used"]) / len(rows)
                         if condition == "invited_auto" else None
@@ -4133,7 +4134,7 @@ def run_heavy_recap(repeats: int = 5, allow_direct: bool = False) -> int:
                     med_cost = _median([r["cost_usd"] for r in rows])
                     n_correct = sum(1 for r in rows if r["correct"])
                     correct_pct = 100 * n_correct / len(rows)
-                    corr_per_dollar = (n_correct / len(rows)) / med_cost if med_cost else None
+                    corr_per_dollar = correct_per_dollar(rows)
                     corr_per_dollar_str = f"{corr_per_dollar:.1f}" if corr_per_dollar is not None else "—"
                     print(
                         f"  {model_key:<22} {task_key:<15} {condition:<13} {len(rows):>3}  "
