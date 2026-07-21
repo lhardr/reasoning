@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Model dynamics · Nowable</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap');
+:root{--paper:#F5F0E8;--ink:#2C3A42;--muted:#5c6b73;--faint:#93a0a6;--line2:#d6cfbf;
+--coral:#E8694A;--teal:#3D7E8C;--amber:#D4952A;--grid:#e4ddd0;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:Helvetica,"Helvetica Neue",Arial,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:1000px;margin:0 auto;padding:32px 32px 64px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--coral);margin-bottom:7px}
+h1{font-size:27px;font-weight:700;letter-spacing:-.015em}
+.sub{color:var(--muted);font-size:13.5px;margin-top:5px;max-width:690px}
+.chartswitch{display:flex;margin:24px 0 0;border:1px solid var(--line2);border-radius:10px;overflow:hidden;width:max-content}
+.csbtn{font-family:"IBM Plex Mono",monospace;font-size:12px;padding:11px 18px;background:transparent;border:none;border-right:1px solid var(--line2);cursor:pointer;color:var(--muted);font-weight:500}
+.csbtn:last-child{border-right:none}.csbtn.active{background:var(--teal);color:var(--paper)}
+.panel{margin-top:22px}.ptitle{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.pdesc{color:var(--muted);font-size:13px;margin-top:3px;max-width:690px}
+.toggle{display:flex;margin:16px 0 4px;border:1px solid var(--line2);border-radius:9px;overflow:hidden;width:max-content}
+.tbtn{font-family:"IBM Plex Mono",monospace;font-size:12px;padding:9px 18px;background:transparent;border:none;border-right:1px solid var(--line2);cursor:pointer;color:var(--muted)}
+.tbtn:last-child{border-right:none}.tbtn.active{background:var(--ink);color:var(--paper)}
+.hint{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--faint);margin:8px 0 0}
+.legend{display:flex;gap:18px;margin:14px 0 0;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:11px;height:11px;border-radius:50%}.dot.est{background:transparent;border:1.5px dashed var(--muted)}
+svg{width:100%;height:auto;display:block;overflow:visible;margin-top:6px}
+.lbl{font-family:"IBM Plex Mono",monospace;font-size:11px;fill:var(--ink)}
+.tag{font-family:"IBM Plex Mono",monospace;font-size:9px;fill:var(--faint)}
+.ax{font-family:"IBM Plex Mono",monospace;font-size:11px;fill:var(--muted)}
+.axt{font-family:"IBM Plex Mono",monospace;font-size:11px;fill:var(--ink)}
+.grid{stroke:var(--grid);stroke-width:1}
+.fn{font-size:11px;fill:var(--faint);font-family:Helvetica,Arial,sans-serif}
+.note{color:var(--muted);font-size:13px;margin-top:18px;max-width:730px}
+.note b{color:var(--ink);font-weight:700}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Nowable · the reasoning series</div>
+<h1>How twelve models shift with task weight</h1>
+<div class="sub">Twelve models on two task sets: ten open-ended Danish prompts, and three heavy tasks in code and finance. Switch chart, toggle the two states, and watch the dots move. Nearly every answer is correct in both sets, so what separates the models is how, and what it costs.</div>
+<div class="chartswitch" id="cs">
+<button class="csbtn active" data-c="size">Size vs reasoning</button>
+<button class="csbtn" data-c="tokprice">Tokens vs price</button>
+<button class="csbtn" data-c="tools">The cost of tools</button></div>
+<div class="panel">
+<div class="ptitle" id="pt"></div><div class="pdesc" id="pd"></div>
+<div class="toggle" id="tg">
+<button class="tbtn active" data-m="a" id="btnA"></button>
+<button class="tbtn" data-m="b" id="btnB"></button></div>
+<div class="hint" id="hn"></div><div class="legend" id="lg"></div>
+<div id="plot"></div><div class="note" id="cm"></div></div></div>
+<script>
+const CJ={"size": [{"key": "gemma_4", "label": "Gemma 4", "tag": "31B dense", "known": true, "open": 1, "light": 448, "heavy": 1178}, {"key": "kimi_k2_7", "label": "Kimi K2.7", "tag": "32B active", "known": true, "open": 1, "light": 428, "heavy": 432}, {"key": "glm_5_2", "label": "GLM 5.2", "tag": "40B active", "known": true, "open": 1, "light": 720, "heavy": 210}, {"key": "inkling", "label": "Inkling", "tag": "41B active", "known": true, "open": 1, "light": 550, "heavy": 570}, {"key": "deepseek_v4", "label": "DeepSeek V4", "tag": "49B active", "known": true, "open": 1, "light": 962, "heavy": 587}, {"key": "kimi_k3", "label": "Kimi K3", "tag": "50B active", "known": true, "open": 1, "light": 44, "heavy": 702}, {"key": "mistral_medium_3_5", "label": "Mistral Medium 3.5", "tag": "est.", "known": false, "open": 1, "light": 653, "heavy": 1494}, {"key": "claude_sonnet_4_6", "label": "Claude Sonnet 4.6", "tag": "est.", "known": false, "open": 0, "light": 81, "heavy": 46}, {"key": "gpt_5_5", "label": "GPT-5.5", "tag": "est.", "known": false, "open": 0, "light": 350, "heavy": 286}, {"key": "gpt_5_6_sol", "label": "GPT-5.6 Sol", "tag": "est.", "known": false, "open": 0, "light": 68, "heavy": 90}, {"key": "opus_4_8", "label": "Claude Opus 4.8", "tag": "est.", "known": false, "open": 0, "light": 29, "heavy": 38}, {"key": "fable_5", "label": "Claude Fable 5", "tag": "est.", "known": false, "open": 0, "light": 53, "heavy": 30}], "tokprice": [{"key": "gemma_4", "label": "Gemma 4", "open": 1, "light": {"tok": 742, "cost": 0.00027}, "heavy": {"tok": 1649, "cost": 0.000664}}, {"key": "kimi_k2_7", "label": "Kimi K2.7", "open": 1, "light": {"tok": 526, "cost": 0.001913}, "heavy": {"tok": 782, "cost": 0.00309}}, {"key": "glm_5_2", "label": "GLM 5.2", "open": 1, "light": {"tok": 1146, "cost": 0.003515}, "heavy": {"tok": 447, "cost": 0.00217}}, {"key": "inkling", "label": "Inkling", "open": 1, "light": {"tok": 691, "cost": 0.00287}, "heavy": {"tok": 895, "cost": 0.004704}}, {"key": "deepseek_v4", "label": "DeepSeek V4", "open": 1, "light": {"tok": 1232, "cost": 0.001101}, "heavy": {"tok": 745, "cost": 0.001108}}, {"key": "kimi_k3", "label": "Kimi K3", "open": 1, "light": {"tok": 369, "cost": 0.00608}, "heavy": {"tok": 1176, "cost": 0.01887}}, {"key": "mistral_medium_3_5", "label": "Mistral Medium 3.5", "open": 1, "light": {"tok": 928, "cost": 0.007125}, "heavy": {"tok": 2344, "cost": 0.01871}}, {"key": "claude_sonnet_4_6", "label": "Claude Sonnet 4.6", "open": 0, "light": {"tok": 441, "cost": 0.006971}, "heavy": {"tok": 441, "cost": 0.010389}}, {"key": "gpt_5_5", "label": "GPT-5.5", "open": 0, "light": {"tok": 504, "cost": 0.015475}, "heavy": {"tok": 574, "cost": 0.0199}}, {"key": "gpt_5_6_sol", "label": "GPT-5.6 Sol", "open": 0, "light": {"tok": 181, "cost": 0.00577}, "heavy": {"tok": 182, "cost": 0.008605}}, {"key": "opus_4_8", "label": "Claude Opus 4.8", "open": 0, "light": {"tok": 523, "cost": 0.013645}, "heavy": {"tok": 228, "cost": 0.013163}}, {"key": "fable_5", "label": "Claude Fable 5", "open": 0, "light": {"tok": 541, "cost": 0.0282}, "heavy": {"tok": 216, "cost": 0.027005}}], "tools": [{"key": "gemma_4", "label": "Gemma 4", "open": 1, "base": 1649, "tool": 1220, "grab": 0, "n": 15}, {"key": "kimi_k2_7", "label": "Kimi K2.7", "open": 1, "base": 782, "tool": 1048, "grab": 13, "n": 15}, {"key": "glm_5_2", "label": "GLM 5.2", "open": 1, "base": 447, "tool": 237, "grab": 10, "n": 15}, {"key": "inkling", "label": "Inkling", "open": 1, "base": 895, "tool": 832, "grab": 15, "n": 15}, {"key": "deepseek_v4", "label": "DeepSeek V4", "open": 1, "base": 745, "tool": 745, "grab": 8, "n": 15}, {"key": "kimi_k3", "label": "Kimi K3", "open": 1, "base": 1176, "tool": 1235, "grab": 6, "n": 15}, {"key": "mistral_medium_3_5", "label": "Mistral Medium 3.5", "open": 1, "base": 2344, "tool": 2461, "grab": 1, "n": 15}, {"key": "claude_sonnet_4_6", "label": "Claude Sonnet 4.6", "open": 0, "base": 441, "tool": 851, "grab": 15, "n": 15}, {"key": "gpt_5_5", "label": "GPT-5.5", "open": 0, "base": 574, "tool": 563, "grab": 0, "n": 15}, {"key": "gpt_5_6_sol", "label": "GPT-5.6 Sol", "open": 0, "base": 182, "tool": 184, "grab": 0, "n": 15}, {"key": "opus_4_8", "label": "Claude Opus 4.8", "open": 0, "base": 228, "tool": 390, "grab": 14, "n": 15}, {"key": "fable_5", "label": "Claude Fable 5", "open": 0, "base": 216, "tool": 376, "grab": 15, "n": 15}]};
+const OPEN='#3D7E8C',CLOSED='#2C3A42',CORAL='#E8694A',NS='http://www.w3.org/2000/svg';
+function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e}
+const W=960,H=505,ml=100,mr=178,mt=28,mb=74,pw=W-ml-mr,ph=H-mt-mb;
+let chart='size',state='a',anim=null,nodes=[],sx,sy,TM,CMIN,CMAX,XM,n;
+const YM=1600;
+const SKEY={size:{a:'light',b:'heavy'},tokprice:{a:'light',b:'heavy'},tools:{a:'base',b:'tool'}};
+function fmtC(v){return '$'+(v<0.01?v.toFixed(4):v.toFixed(3))}
+const TOOLS=[...CJ.tools].sort((x,y)=>(y.tool/y.base)-(x.tool/x.base));
+
+function setScales(){
+ if(chart==='size'){n=CJ.size.length;sx=i=>ml+pw*i/(n-1);sy=v=>mt+ph-ph*Math.min(v,YM)/YM}
+ else if(chart==='tokprice'){let tk=[],ct=[];
+  CJ.tokprice.forEach(m=>['light','heavy'].forEach(s=>{tk.push(m[s].tok);ct.push(m[s].cost)}));
+  TM=Math.ceil(Math.max(...tk)/500)*500;CMIN=Math.min(...ct)*.75;CMAX=Math.max(...ct)*1.35;
+  sx=v=>ml+pw*v/TM;sy=v=>mt+ph-ph*(Math.log10(v)-Math.log10(CMIN))/(Math.log10(CMAX)-Math.log10(CMIN))}
+ else{XM=Math.ceil(Math.max(...TOOLS.map(m=>Math.max(m.base,m.tool)))/500)*500;
+  n=TOOLS.length;sx=v=>ml+pw*v/XM;sy=i=>mt+16+(ph-32)*i/(n-1)}}
+
+function posOf(m,i,st){
+ const k=SKEY[chart][st];
+ if(chart==='size')return{x:sx(i),y:sy(m[k]),v:m[k]};
+ if(chart==='tokprice')return{x:sx(m[k].tok),y:sy(m[k].cost),v:m[k].cost};
+ return{x:sx(m[k]),y:sy(i),v:m[k]}}
+
+function labelPos(i,v,x,y){
+ if(chart==='size'){
+  let dy;
+  if(v>YM*.78)dy=26;                       // top of chart: label below
+  else if(v<YM*.15)dy=[-28,-51,-74][i%3];  // bottom cluster: three rows above, clear of the axis
+  else dy=(i%2===0)?-17:27;
+  const ly=y+dy;
+  return{lx:x,ly:ly,ty:dy<0?ly-11:ly+11,a:'middle'}}
+ if(chart==='tokprice'){const r=x>ml+pw*.68;return{lx:r?x-13:x+13,ly:y+4,ty:y+15,a:r?'end':'start'}}
+ return{lx:ml-12,ly:y+4,ty:0,a:'end'}}
+
+function axes(svg){
+ if(chart==='size'){
+  for(let k=0;k<=YM;k+=400){const y=sy(k);svg.appendChild(el('line',{class:'grid',x1:ml,y1:y,x2:ml+pw,y2:y}));
+   const t=el('text',{class:'ax',x:ml-12,y:y+4,'text-anchor':'end'});t.textContent=k;svg.appendChild(t)}
+  let a=el('text',{class:'axt',x:ml,y:mt+ph+30,'text-anchor':'start'});a.textContent='smaller \u2192';svg.appendChild(a);
+  a=el('text',{class:'axt',x:ml+pw,y:mt+ph+30,'text-anchor':'end'});a.textContent='\u2192 larger';svg.appendChild(a);
+  a=el('text',{class:'axt',x:ml+pw/2,y:mt+ph+52,'text-anchor':'middle'});a.textContent='active parameters per token (ordered)';svg.appendChild(a);
+  a=el('text',{class:'axt',x:-(mt+ph/2),y:22,'text-anchor':'middle',transform:'rotate(-90)'});a.textContent='reasoning tokens (median)';svg.appendChild(a)}
+ else if(chart==='tokprice'){
+  const tk=[];let p=Math.pow(10,Math.floor(Math.log10(CMIN)));
+  while(p<=CMAX*1.01){[1,2,5].forEach(k=>{const v=p*k;if(v>=CMIN*.9&&v<=CMAX*1.05)tk.push(v)});p*=10}
+  tk.forEach(t=>{const y=sy(t);svg.appendChild(el('line',{class:'grid',x1:ml,y1:y,x2:ml+pw,y2:y}));
+   const x=el('text',{class:'ax',x:ml-10,y:y+4,'text-anchor':'end'});x.textContent=fmtC(t);svg.appendChild(x)});
+  for(let k=0;k<=TM;k+=500){const x=sx(k);svg.appendChild(el('line',{class:'grid',x1:x,y1:mt,x2:x,y2:mt+ph}));
+   const t=el('text',{class:'ax',x:x,y:mt+ph+20,'text-anchor':'middle'});t.textContent=k>=1000?k/1000+'k':k;svg.appendChild(t)}
+  let a=el('text',{class:'axt',x:ml+pw/2,y:mt+ph+44,'text-anchor':'middle'});a.textContent='generated tokens per answer (thinking + answer)';svg.appendChild(a);
+  a=el('text',{class:'axt',x:-(mt+ph/2),y:22,'text-anchor':'middle',transform:'rotate(-90)'});a.textContent='price per answer ($, log)';svg.appendChild(a)}
+ else{
+  for(let k=0;k<=XM;k+=500){const x=sx(k);svg.appendChild(el('line',{class:'grid',x1:x,y1:mt,x2:x,y2:mt+ph}));
+   const t=el('text',{class:'ax',x:x,y:mt+ph+20,'text-anchor':'middle'});t.textContent=k>=1000?k/1000+'k':k;svg.appendChild(t)}
+  const a=el('text',{class:'axt',x:ml+pw/2,y:mt+ph+44,'text-anchor':'middle'});a.textContent='generated tokens per answer (median)';svg.appendChild(a);svg.appendChild(a)}}
+
+function legendBox(svg){
+ let y=mt+2;const items=[{c:OPEN,t:'open'},{c:CLOSED,t:'closed'}].concat(chart==='size'?[{dash:1,t:'est.'}]:[]);
+ items.forEach(it=>{
+  if(it.dash)svg.appendChild(el('circle',{cx:ml+pw+36,cy:y,r:6,fill:'none',stroke:CLOSED,'stroke-width':1.5,'stroke-dasharray':'2 2'}));
+  else svg.appendChild(el('circle',{cx:ml+pw+36,cy:y,r:6,fill:it.c,'fill-opacity':.85}));
+  const t=el('text',{class:'ax',x:ml+pw+48,y:y+4});t.textContent=it.t;svg.appendChild(t);y+=20})}
+
+function build(){
+ setScales();const svg=el('svg',{viewBox:`0 0 ${W} ${H}`});axes(svg);
+ if(chart!=='tools')legendBox(svg);
+ const fn=el('text',{class:'fn',x:ml,y:H-6});
+ fn.textContent=chart==='size'?'Active params per token; open weights published, closed estimated by tier. Axis ordered, not to scale.'
+  :chart==='tokprice'?'Generated tokens exclude input. Price is median USD per answer at listed rates. Log price axis.'
+  :'Generated tokens exclude input. Correctness is unchanged whether tools are offered or not.';
+ svg.appendChild(fn);
+ const D=chart==='size'?CJ.size:chart==='tokprice'?CJ.tokprice:TOOLS;
+ nodes=D.map((m,i)=>{
+  const p=posOf(m,i,state),c=chart==='tools'?(m.tool>m.base?CORAL:OPEN):(m.open?OPEN:CLOSED);
+  const noGrab=chart==='tools'&&m.grab===0;
+  const g=el('g',{});
+  const tr=el('line',{x1:p.x,y1:p.y,x2:p.x,y2:p.y,stroke:c,'stroke-width':1.5,'stroke-dasharray':'2 3',opacity:0});g.appendChild(tr);
+  const kn=chart==='size'?m.known:true;
+  const ci=el('circle',{cx:p.x,cy:p.y,r:chart==='tools'?7:9,stroke:c,'stroke-width':1.6,fill:c,
+    'fill-opacity':chart==='tools'?(noGrab?0:(state==='a'?0:.9)):(kn?.85:.15)});
+  if(chart==='size'&&!kn)ci.setAttribute('stroke-dasharray','3 2');
+  if(noGrab)ci.setAttribute('stroke-dasharray','2 2');
+  g.appendChild(ci);
+  const lp=labelPos(i,p.v,p.x,p.y);
+  const L=el('text',{class:'lbl',x:lp.lx,y:lp.ly,'text-anchor':lp.a});L.textContent=m.label;g.appendChild(L);
+  let T=null;
+  if(chart==='size'){T=el('text',{class:'tag',x:lp.lx,y:lp.ty,'text-anchor':lp.a});T.textContent=m.tag;g.appendChild(T)}
+  else if(chart==='tools'){T=el('text',{class:'tag',x:ml+pw+8,y:sy(i)+4});
+   T.textContent=(m.tool/m.base).toFixed(2)+'x  '+m.grab+'/'+m.n+(noGrab?'  (no grabs — condition noise)':'');g.appendChild(T)}
+  svg.appendChild(g);
+  return{m,g,ci,L,T,tr,i,cx:p.x,cy:p.y,noGrab}});
+ const p=document.getElementById('plot');p.innerHTML='';p.appendChild(svg)}
+
+function animateTo(ns){
+ if(anim)cancelAnimationFrame(anim);
+ const t0=performance.now(),from=nodes.map(d=>({x:d.cx,y:d.cy}));
+ const to=nodes.map((d,i)=>posOf(d.m,i,ns));
+ const fillFrom=nodes.map(d=>parseFloat(d.ci.getAttribute('fill-opacity')));
+ const fillTo=nodes.map(d=>chart==='tools'?(d.noGrab?0:(ns==='a'?0:.9)):fillFrom[0]!==undefined?parseFloat(d.ci.getAttribute('fill-opacity')):.85);
+ nodes.forEach((d,i)=>{d.tr.setAttribute('x1',from[i].x);d.tr.setAttribute('y1',from[i].y);d.tr.style.opacity='0.5'});
+ const ez=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+ function fr(now){const p=Math.min(1,(now-t0)/1800),e=ez(p);
+  nodes.forEach((d,i)=>{const x=from[i].x+(to[i].x-from[i].x)*e,y=from[i].y+(to[i].y-from[i].y)*e;
+   d.ci.setAttribute('cx',x);d.ci.setAttribute('cy',y);
+   if(chart==='tools')d.ci.setAttribute('fill-opacity',fillFrom[i]+(fillTo[i]-fillFrom[i])*e);
+   const lp=labelPos(i,to[i].v,x,y);
+   d.L.setAttribute('x',lp.lx);d.L.setAttribute('y',lp.ly);d.L.setAttribute('text-anchor',lp.a);
+   if(d.T&&chart==='size'){d.T.setAttribute('x',lp.lx);d.T.setAttribute('y',lp.ty);d.T.setAttribute('text-anchor',lp.a)}
+   d.tr.setAttribute('x2',x);d.tr.setAttribute('y2',y);d.cx=x;d.cy=y});
+  if(p<1)anim=requestAnimationFrame(fr);else setTimeout(()=>nodes.forEach(d=>d.tr.style.opacity='0'),700)}
+ anim=requestAnimationFrame(fr)}
+
+const CFG={
+ size:{t:'Model size vs reasoning',
+  la:'Light tasks (10 Danish)',lb:'Heavy tasks (code + finance)',
+  d:'Active parameters per token against median reasoning tokens. Heavy-task values are the median across both the no-tools and tools-offered conditions, not baseline alone (baseline-only breaks the ordering — see note below). The token-heavy models climb as tasks get harder; the capable mid-size open models fall.',
+  h:'Dots and labels glide together; a faint trail shows the path.',
+  c:{a:'<b>Light tasks:</b> DeepSeek V4 and GLM 5.2 are the heavy thinkers at 962 and 720 tokens. The frontier closed models barely think at all, Opus 29 and Fable 53. Kimi K3 sits with them at 44, and its <i>highest</i> spend on any of these ten prompts, 325 tokens, still falls below every other open model\u2019s median.',
+     b:'<b>Heavy tasks:</b> Kimi K3 makes the largest move in the panel, 44 tokens to 702, and lands among its open peers after starting far below them. Mistral climbs to 1,494 and Gemma to 1,178, both compensating with more steps. GLM 5.2 and DeepSeek V4 <i>fall</i>. At the heavy end the open mixture-of-experts band lines up across four labs: 32B/432, 41B/570, 49B/587, 50B/702. Individual runs vary widely around these medians, so read them as centres, not as fixed rates.'}},
+ tokprice:{t:'Tokens vs price',
+  la:'Light tasks (10 Danish)',lb:'Heavy tasks (code + finance)',
+  d:'Generated tokens per answer against absolute price. Tokens shift with task weight; the price ranking barely moves.',
+  h:'Watch Kimi K3 and Mistral slide right, GLM and DeepSeek slide left.',
+  c:{a:'<b>Light tasks:</b> a broad spread in tokens. DeepSeek V4 and GLM 5.2 sit right; the frontier models cluster left.',
+     b:'<b>Heavy tasks:</b> a 39x spread in price for the same correctness, from Gemma 4 at 1,286 correct answers per dollar to Claude Fable 5 at 33. Kimi K3 and Fable 5 are marketed as competitors and score alike, yet sit at opposite corners: K3 generates far more tokens at a third of the unit price.'}},
+ tools:{t:'The cost of tools',
+  la:'No tools offered',lb:'Tools offered',
+  d:'Generated tokens on the heavy tasks, with and without tools available. Correctness is identical in both states, so any movement is overhead.',
+  h:'Toggle and watch the dots slide. Right is more expensive. The figures on the right show the factor and how often the model actually reached for a tool. Hollow, dashed dots (Gemma 4, GPT-5.5, GPT-5.6 Sol) never called a tool at all — their movement is condition-to-condition noise, not a tool effect, and should not be read as a real ratio.',
+  c:{a:'<b>No tools:</b> every model solves all three tasks unaided. This is the baseline cost of the same correct answers.',
+     b:'<b>Tools offered:</b> nine of twelve models move right, and the ones that reach most often move furthest. Claude Fable 5 doubles its generated tokens at a 15/15 grab rate; Sonnet 4.6 nearly so. Models that never reach still pay, up to 29 percent more in input tokens, because the tool definitions sit in every prompt. Only GLM 5.2 and Inkling move left, shifting real work off their own thinking. <b>Willingness to use tools is sold as a strength; on tasks the model can already solve, it is a bill.</b>'}}};
+
+function paint(){const c=CFG[chart];
+ document.getElementById('pt').textContent=c.t;
+ document.getElementById('pd').textContent=c.d;
+ document.getElementById('hn').textContent=c.h;
+ document.getElementById('btnA').textContent=c.la;
+ document.getElementById('btnB').textContent=c.lb;
+ document.getElementById('cm').innerHTML=c.c[state];
+ let lg=chart==='tools'
+  ?'<span><span class="dot" style="background:var(--coral)"></span>spends more with tools</span><span><span class="dot" style="background:var(--teal)"></span>spends less</span><span><span class="dot est"></span>0% grab — never reached for a tool, ratio is condition noise</span><span style="color:var(--faint)">right of each row: factor &amp; tool grabs</span>'
+  :'<span><span class="dot" style="background:var(--teal)"></span>open</span><span><span class="dot" style="background:var(--ink)"></span>closed</span>';
+ if(chart==='size')lg+='<span><span class="dot est"></span>estimated size</span>';
+ document.getElementById('lg').innerHTML=lg}
+
+document.getElementById('cs').addEventListener('click',e=>{const b=e.target.closest('.csbtn');
+ if(!b||b.classList.contains('active'))return;
+ document.querySelectorAll('.csbtn').forEach(x=>x.classList.remove('active'));
+ b.classList.add('active');chart=b.dataset.c;state='a';
+ document.querySelectorAll('.tbtn').forEach((x,i)=>x.classList.toggle('active',i===0));
+ build();paint()});
+document.getElementById('tg').addEventListener('click',e=>{const b=e.target.closest('.tbtn');
+ if(!b||b.classList.contains('active'))return;
+ document.querySelectorAll('.tbtn').forEach(x=>x.classList.remove('active'));
+ b.classList.add('active');state=b.dataset.m;animateTo(state);paint()});
+build();paint();
+</script></body></html>
