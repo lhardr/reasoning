@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: #FBF9F5; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  ::selection { background: #72BDC5; color: #14232a; }
+  .scrolly::-webkit-scrollbar { width: 9px; height: 9px; }
+  .scrolly::-webkit-scrollbar-track { background: transparent; }
+  .scrolly::-webkit-scrollbar-thumb { background: #E0D8CB; border-radius: 6px; border: 2px solid transparent; }
+  .scrolly::-webkit-scrollbar-thumb:hover { background: #CFC5B4; }
+</style>
+</helmet>
+<div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #2C3A42; min-height: 100vh; padding-bottom: 80px; background: linear-gradient(158deg, #1f454c 0%, #183a40 52%, #123036 100%); background-attachment: fixed;">
+
+  <header style="position: sticky; top: 0; z-index: 50; background: rgba(20,44,49,0.80); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.09);">
+    <div style="max-width: 1440px; margin: 0 auto; padding: 15px 32px; display: flex; align-items: center; justify-content: space-between; gap: 24px;">
+      <div style="display: flex; align-items: baseline; gap: 0;">
+        <span style="font-size: 21px; font-weight: 700; letter-spacing: -0.028em; color: #F3F7F7;">nowable</span><span style="font-size: 21px; font-weight: 700; color: #72BDC5;">.</span>
+      </div>
+      <nav style="display: flex; gap: 4px; background: rgba(255,255,255,0.08); padding: 4px; border-radius: 999px;">
+        <button onClick="{{ onCompare }}" style="{{ compareTabStyle }}">Compare</button>
+        <button onClick="{{ onLeaderboard }}" style="{{ leaderTabStyle }}">Leaderboard</button>
+      </nav>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8FA6AB; white-space: nowrap;">{{ panelSummary }}</div>
+    </div>
+  </header>
+
+  <sc-if value="{{ isCompare }}" hint-placeholder-val="{{ true }}">
+  <main>
+
+    <!-- ===================== WIZARD STEP 1 : USE CASES ===================== -->
+    <sc-if value="{{ stageW1 }}" hint-placeholder-val="{{ true }}">
+    <div style="max-width: 1120px; margin: 0 auto; padding: 40px 24px 4px;">
+      <div style="text-align: center;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #6FB0B8; letter-spacing: 0.05em;">STEP 1 OF 2</div>
+        <h1 style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin: 10px 0 0; line-height: 1.14; color: #F3F7F7;">What tasks did we give the models?</h1>
+        <p style="font-size: 15.5px; color: #B7C8CB; line-height: 1.6; max-width: 560px; margin: 12px auto 0;">Slide through the ten prompts and pick the ones you want to compare. They collect at the bottom — hit Continue when you're ready.</p>
+      </div>
+
+      <sc-if value="{{ notLoaded }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top: 30px; text-align: center; font-family: 'IBM Plex Mono', monospace; color: #a09c93; font-size: 13px;">Loading benchmark data…</div>
+      </sc-if>
+
+      <sc-if value="{{ loaded }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; align-items: center; gap: 6px; margin-top: 20px;">
+        <button onClick="{{ onW1Prev }}" style="{{ w1PrevStyle }}" style-hover="transform: translateX(-4px); color: #3D7E8C; border-color: #C9DED9;">‹</button>
+        <div style="flex: 1; min-width: 0; overflow: hidden; padding: 26px 0;">
+          <div style="{{ w1TrackStyle }}">
+            <sc-for list="{{ w1Cards }}" as="card" hint-placeholder-count="3">
+              <div onClick="{{ card.onClick }}" style="{{ card.cardStyle }}">
+                <div style="{{ card.numberStyle }}">{{ card.number }}</div>
+                <div style="{{ card.typeStyle }}">{{ card.typeLabel }}</div>
+                <div style="font-size: 23px; font-weight: 600; letter-spacing: -0.015em; margin-top: 14px; color: #2C3A42;">{{ card.title }}</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a7a296; margin-top: 7px;">{{ card.metaLine }}</div>
+                <div class="scrolly" style="{{ card.bodyBoxStyle }}">{{ card.body }}</div>
+                <sc-if value="{{ card.active }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ card.onToggle }}" style="{{ card.selectBtnStyle }}">{{ card.selectBtnLabel }}</button>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <button onClick="{{ onW1Next }}" style="{{ w1NextArrowStyle }}" style-hover="transform: translateX(4px); color: #3D7E8C; border-color: #C9DED9;">›</button>
+      </div>
+      <div style="display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 14px; flex-wrap: wrap;">
+        <sc-for list="{{ w1Dots }}" as="d" hint-placeholder-count="10">
+          <button onClick="{{ d.onClick }}" style="{{ d.styleObj }}" title="{{ d.title }}"></button>
+        </sc-for>
+      </div>
+
+      <div style="margin-top: 26px; border-top: 1px solid rgba(255,255,255,0.10); padding-top: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.05em; color: #8FA6AB; text-transform: uppercase;">Selected tasks — {{ w1SelCount }}</div>
+          <button onClick="{{ onGoStep2 }}" style="{{ continueBtnStyle }}">Continue to models →</button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px;">
+          <sc-for list="{{ selectedCards }}" as="sc" hint-placeholder-count="2">
+            <div style="display: flex; align-items: center; gap: 11px; background: #FFFFFF; border: 1px solid #E4DED2; border-radius: 12px; padding: 9px 10px 9px 14px; box-shadow: 0 2px 8px -5px rgba(44,58,66,0.2);">
+              <span style="{{ sc.dotStyle }}"></span>
+              <div>
+                <div style="font-size: 13.5px; font-weight: 600; color: #2C3A42;">{{ sc.title }}</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #a09c93; margin-top: 1px;">{{ sc.meta }}</div>
+              </div>
+              <button onClick="{{ sc.onRemove }}" style="border: none; background: #F5F0E8; color: #8a8880; width: 22px; height: 22px; border-radius: 999px; cursor: pointer; font-size: 14px; line-height: 1; flex: 0 0 auto;">×</button>
+            </div>
+          </sc-for>
+          <sc-if value="{{ w1NoSelection }}" hint-placeholder-val="{{ true }}">
+            <div style="font-size: 13.5px; color: #93A7AC; padding: 8px 2px;">Nothing selected yet — pick tasks above to continue.</div>
+          </sc-if>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- ===================== WIZARD STEP 2 : MODELS ===================== -->
+    <sc-if value="{{ stageW2 }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width: 1040px; margin: 0 auto; padding: 40px 32px 4px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #6FB0B8; letter-spacing: 0.05em;">STEP 2 OF 2</div>
+      <h1 style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin: 10px 0 0; line-height: 1.14; color: #F3F7F7;">Select models to compare</h1>
+      <p style="font-size: 15.5px; color: #B7C8CB; line-height: 1.6; max-width: 640px; margin: 12px 0 0;">Line up two to four models side by side. Click a slot to choose a model — you can swap any of them later on the board.</p>
+
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 24px;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.05em; color: #8FA6AB; text-transform: uppercase;">Quick sets</span>
+        <sc-for list="{{ quickSets }}" as="q" hint-placeholder-count="3">
+          <button onClick="{{ q.onClick }}" style="{{ q.styleObj }}">{{ q.label }}</button>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px;">
+        <sc-for list="{{ modelSlots }}" as="slot" hint-placeholder-count="3">
+          <div style="flex: 1 1 240px; min-width: 240px;">
+            <sc-if value="{{ slot.filled }}" hint-placeholder-val="{{ false }}">
+              <div style="border: 1px solid #C9DED9; background: #FFFFFF; border-radius: 16px; padding: 18px 18px; min-height: 150px; display: flex; flex-direction: column;">
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                  <span style="{{ slot.dotStyle }}"></span>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 15px; font-weight: 600; letter-spacing: -0.01em;">{{ slot.name }}</div>
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #a09c93; margin-top: 2px;">{{ slot.org }}</div>
+                  </div>
+                  <button onClick="{{ slot.onClear }}" style="border: none; background: #F1EBE0; color: #8a8880; width: 24px; height: 24px; border-radius: 999px; cursor: pointer; font-size: 15px; line-height: 1; flex: 0 0 auto;">×</button>
+                </div>
+                <div style="font-size: 13px; color: #6b7178; line-height: 1.5; margin-top: 12px; flex: 1;">{{ slot.desc }}</div>
+                <button onClick="{{ slot.onClick }}" style="align-self: flex-start; margin-top: 10px; border: none; background: none; color: #3D7E8C; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 500; cursor: pointer; padding: 0;">Change model</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ slot.isEmpty }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ slot.onClick }}" style="width: 100%; min-height: 150px; border: 1.5px dashed #D8D2C6; background: #FBFAF7; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 11px; color: #9a978f;">
+                <span style="width: 36px; height: 36px; border-radius: 999px; background: #F1EBE0; display: flex; align-items: center; justify-content: center; font-size: 21px; color: #8a8880;">+</span>
+                <span style="font-size: 14px; font-weight: 500; color: #7a8087;">Select a model</span>
+              </button>
+            </sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{ canAddSlot }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ onAddSlot }}" style="flex: 0 0 auto; width: 92px; min-height: 150px; border: 1.5px dashed #D8D2C6; background: #FBFAF7; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #9a978f; font-size: 12px;"><span style="font-size: 22px;">+</span>Add</button>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 28px; flex-wrap: wrap;">
+        <button onClick="{{ onBackStep1 }}" style="border: 1px solid #E4DED2; background: #FFFFFF; color: #6b7178; font-size: 14px; font-weight: 500; padding: 10px 18px; border-radius: 10px; cursor: pointer;">← Back to tasks</button>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #a09c93;">{{ w2Hint }}</span>
+          <button onClick="{{ onFinishWizard }}" style="{{ compareBtnStyle }}">Compare →</button>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===================== COMPARE BOARD ===================== -->
+    <sc-if value="{{ stageApp }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width: 1440px; margin: 0 auto; padding: 30px 32px 4px;">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+        <div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #6FB0B8; letter-spacing: 0.05em;">BENCHMARK / COMPARE</div>
+          <h1 style="font-size: 25px; font-weight: 600; letter-spacing: -0.02em; margin: 8px 0 0; line-height: 1.14; color: #F3F7F7;">Comparison board</h1>
+        </div>
+        <button onClick="{{ onToggleEdit }}" style="{{ editBtnStyle }}">{{ editBtnLabel }}</button>
+      </div>
+
+      <sc-if value="{{ editOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="border: 1px solid #C9DED9; background: #FFFFFF; border-radius: 16px; padding: 16px 18px; margin-top: 16px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 12px 32px -18px rgba(44,58,66,0.24);">
+        <div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.05em; color: #8a8880; text-transform: uppercase;">Models</span>
+            <label onClick="{{ onToggleHighlight }}" style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+              <span style="{{ hlTrackStyle }}"><span style="{{ hlKnobStyle }}"></span></span>
+              <span style="font-size: 12.5px; color: #6b7178; font-weight: 500; white-space: nowrap;">Highlight leanest</span>
+            </label>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <sc-for list="{{ modelSlots }}" as="slot" hint-placeholder-count="3">
+              <sc-if value="{{ slot.filled }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ slot.onClick }}" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 8px 6px 11px; border: 1px solid #C9DED9; background: #F4F9F8; border-radius: 999px; cursor: pointer;" title="Click to change model">
+                  <span style="{{ slot.dotStyle }}"></span>
+                  <span style="font-size: 13px; font-weight: 600;">{{ slot.name }}</span>
+                  <button onClick="{{ slot.onClear }}" style="border: none; background: #E4EEEC; color: #6a8a86; width: 19px; height: 19px; border-radius: 999px; cursor: pointer; font-size: 13px; line-height: 1; flex: 0 0 auto;">×</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ slot.isEmpty }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ slot.onClick }}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 1.5px dashed #D8D2C6; background: #FBFAF7; border-radius: 999px; cursor: pointer; color: #8a8880; font-size: 13px;"><span style="font-size: 15px;">+</span> add model</button>
+              </sc-if>
+            </sc-for>
+            <sc-if value="{{ canAddSlot }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ onAddSlot }}" style="width: 30px; height: 30px; border-radius: 999px; border: 1.5px dashed #D8D2C6; background: #FBFAF7; color: #8a8880; cursor: pointer; font-size: 16px; line-height: 1;">+</button>
+            </sc-if>
+          </div>
+        </div>
+        <div style="height: 1px; background: #F0EADF;"></div>
+        <div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.05em; color: #8a8880; text-transform: uppercase;">Use cases — {{ ucCount }}</span>
+            <button onClick="{{ onEditUcs }}" style="border: 1px solid #E4DED2; background: #FBF9F5; color: #3D7E8C; font-size: 12.5px; font-weight: 500; padding: 7px 12px; border-radius: 9px; cursor: pointer;">+ Add or edit tasks</button>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{ ucChips }}" as="uc" hint-placeholder-count="3">
+              <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border: 1px solid #E4DED2; border-radius: 999px; background: #FBF9F5;">
+                <button onClick="{{ uc.onJump }}" style="border: none; background: none; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; padding: 0;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: {{ uc.tagColor }};">{{ uc.tag }}</span>
+                  <span style="font-size: 13px; color: #3A454C;">{{ uc.title }}</span>
+                </button>
+                <button onClick="{{ uc.onRemove }}" style="border: none; background: #F5F0E8; color: #9a978f; width: 20px; height: 20px; border-radius: 999px; cursor: pointer; font-size: 13px; line-height: 1; flex: 0 0 auto;">×</button>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noUcsBoard }}" hint-placeholder-val="{{ false }}"><div style="font-size: 13px; color: #a09c93; padding: 6px 2px;">No use cases selected.</div></sc-if>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ noModels }}" hint-placeholder-val="{{ false }}">
+        <div style="border: 1px dashed #E4DED2; border-radius: 14px; padding: 48px; text-align: center; color: #a09c93; font-family: 'IBM Plex Mono', monospace; font-size: 13px; margin-top: 22px;">Open “Edit selection” to add models.</div>
+      </sc-if>
+      <sc-if value="{{ noUcsBoardMain }}" hint-placeholder-val="{{ false }}">
+        <div style="border: 1px dashed #E4DED2; border-radius: 14px; padding: 48px; text-align: center; color: #a09c93; font-family: 'IBM Plex Mono', monospace; font-size: 13px; margin-top: 22px;">Open “Edit selection” to add tasks.</div>
+      </sc-if>
+
+      <sc-if value="{{ hasActive }}" hint-placeholder-val="{{ true }}">
+        <div style="position: sticky; top: 59px; z-index: 30; background: rgba(20,44,49,0.92); backdrop-filter: blur(8px); padding: 12px 0 12px; margin-top: 8px; box-shadow: 0 10px 16px -14px rgba(44,58,66,0.22);">
+          <div style="{{ gridStyle }}">
+            <sc-for list="{{ activeBlock.cols }}" as="col" hint-placeholder-count="3">
+              <div style="{{ col.headerStyle }}">
+                <div>
+                  <div style="font-size: 15px; font-weight: 600; letter-spacing: -0.01em;">{{ col.modelName }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #a09c93; margin-top: 2px;">{{ col.org }}</div>
+                </div>
+                <span style="{{ col.tsBadgeStyle }}" title="{{ col.tsDesc }}">{{ col.tsLabel }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: stretch; gap: 12px; margin-top: 16px;">
+          <button onClick="{{ onUcPrev }}" style="{{ ucPrevStyle }}" style-hover="transform: translateX(-4px); color: #3D7E8C; border-color: #C9DED9;">‹</button>
+          <div style="position: relative; overflow: hidden; flex: 1; min-width: 0; background: #FFFFFF; border: 1px solid #EBE5DA; border-radius: 20px; padding: 24px 28px; box-shadow: 0 10px 30px -18px rgba(44,58,66,0.2); display: flex; flex-direction: column;">
+            <div style="{{ activeTaskCard.numberStyle }}">{{ activeTaskCard.number }}</div>
+            <div style="{{ activeTaskCard.typeStyle }}">{{ activeTaskCard.typeLabel }}</div>
+            <div style="font-size: 22px; font-weight: 600; letter-spacing: -0.015em; margin-top: 12px; color: #2C3A42;">{{ activeTaskCard.title }}</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a7a296; margin-top: 6px;">{{ activeTaskCard.metaLine }}</div>
+            <div class="scrolly" style="background: #FAF8F3; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.62; color: #3A454C; white-space: pre-wrap; max-height: 150px; overflow-y: auto; margin-top: 14px;">{{ activeTaskCard.body }}</div>
+          </div>
+          <button onClick="{{ onUcNext }}" style="{{ ucNextStyle }}" style-hover="transform: translateX(4px); color: #3D7E8C; border-color: #C9DED9;">›</button>
+        </div>
+        <div style="display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap;">
+          <sc-for list="{{ ucDots }}" as="d" hint-placeholder-count="3">
+            <button onClick="{{ d.onClick }}" style="{{ d.styleObj }}" title="{{ d.title }}"></button>
+          </sc-for>
+        </div>
+
+        <div style="margin-top: 18px;">
+          <div style="{{ gridStyle }}">
+            <sc-for list="{{ activeBlock.cols }}" as="col" hint-placeholder-count="3">
+              <div style="{{ col.contentCardStyle }}">
+                <div style="padding: 16px 17px 14px; border-bottom: 1px solid #F0EADF;">
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: #9a978f; text-transform: uppercase;">Reasoning tokens</span>
+                    <sc-if value="{{ col.bestReas }}" hint-placeholder-val="{{ false }}"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; color: #2A6F4F; background: #E7F2EC; padding: 2px 6px; border-radius: 5px;">LEANEST</span></sc-if>
+                  </div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 25px; font-weight: 600; color: #2C3A42; margin-top: 3px; line-height: 1;">{{ col.reasFmt }}</div>
+                  <div style="height: 6px; background: #F0EADF; border-radius: 4px; margin-top: 10px; overflow: hidden;"><div style="{{ col.reasBarStyle }}"></div></div>
+                </div>
+
+                <div style="padding: 16px 17px; border-bottom: 1px solid #F0EADF;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px;">
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.05em; color: #9a978f; text-transform: uppercase;">Reasoning trace · {{ col.langLabel }}</span>
+                    <sc-if value="{{ col.hasReasoning }}" hint-placeholder-val="{{ true }}"><button onClick="{{ col.onToggleExpand }}" style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #3D7E8C; background: none; border: none; cursor: pointer; padding: 0; font-weight: 500;">{{ col.expandLabel }}</button></sc-if>
+                  </div>
+                  <sc-if value="{{ col.warning }}" hint-placeholder-val="{{ false }}"><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #b0752e; background: #FBEFD8; padding: 6px 9px; border-radius: 7px; line-height: 1.45; margin-bottom: 9px;">⚠ {{ col.warning }}</div></sc-if>
+                  <sc-if value="{{ col.hasReasoning }}" hint-placeholder-val="{{ true }}">
+                    <div style="position: relative;">
+                      <div class="scrolly" style="{{ col.reasPanelStyle }}">{{ col.reasoning }}</div>
+                      <sc-if value="{{ col.showFade }}" hint-placeholder-val="{{ false }}"><div style="position: absolute; left: 0; right: 0; bottom: 0; height: 46px; background: linear-gradient(to bottom, rgba(252,250,247,0), #FCFAF7); pointer-events: none; border-radius: 0 0 9px 9px;"></div></sc-if>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ col.noReasoning }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #a5a199; background: #F7F3EC; border: 1px dashed #E4DED2; padding: 14px; border-radius: 9px; text-align: center;">{{ col.noReasonText }}</div>
+                  </sc-if>
+                </div>
+
+                <div style="padding: 14px 17px; border-bottom: 1px solid #F0EADF;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.05em; color: #9a978f; text-transform: uppercase; margin-bottom: 8px;">Answer</div>
+                  <div class="scrolly" style="max-height: 200px; overflow-y: auto; font-size: 13px; line-height: 1.62; color: #384249; white-space: pre-wrap; padding-right: 6px;">{{ col.answer }}</div>
+                </div>
+
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top: 18px; border: 1px solid #EBE5DA; background: #FFFFFF; border-radius: 16px; overflow: hidden;">
+          <div style="{{ dataHeadStyle }}">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.05em; color: #9a978f; text-transform: uppercase;">Model data</div>
+            <sc-for list="{{ activeBlock.cols }}" as="col" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                <span style="{{ col.dataDotStyle }}"></span>
+                <span style="font-size: 13px; font-weight: 600; color: #2C3A42; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ col.modelName }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <sc-for list="{{ dataRows }}" as="row" hint-placeholder-count="6">
+            <div style="{{ dataRowStyle }}">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a8880; letter-spacing: 0.02em;">{{ row.label }}</div>
+              <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="3">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="{{ cell.style }}">{{ cell.text }}</span>
+                  <sc-if value="{{ cell.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: #2A6F4F; background: #E7F2EC; padding: 2px 6px; border-radius: 5px; text-transform: uppercase;">{{ cell.badge }}</span></sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+  </main>
+  </sc-if>
+
+  <!-- ===================== LEADERBOARD ===================== -->
+  <sc-if value="{{ isLeaderboard }}" hint-placeholder-val="{{ false }}">
+  <main>
+    <div style="max-width: 1180px; margin: 0 auto; padding: 44px 32px 4px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #6FB0B8; letter-spacing: 0.04em;">BENCHMARK / LEADERBOARD</div>
+      <h1 style="font-size: 33px; font-weight: 600; letter-spacing: -0.022em; margin: 12px 0 0; max-width: 780px; line-height: 1.13; color: #F3F7F7;">The whole panel, ranked</h1>
+      <p style="font-size: 16.5px; color: #B7C8CB; line-height: 1.62; max-width: 730px; margin: 16px 0 0;">Twelve models across ten light tasks and three heavy ones. Sort by any metric. Correctness was uniform — all models passed every graded task — so the leaderboard ranks what actually separates them: how many tokens they burn, what that costs, and how much of the thinking is waste.</p>
+    </div>
+
+    <div style="max-width: 1180px; margin: 22px auto 0; padding: 0 32px; display: flex; gap: 10px; flex-wrap: wrap;">
+      <button onClick="{{ onToggleGlossary }}" style="{{ glossaryBtnStyle }}">{{ glossaryBtnLabel }}</button>
+      <button onClick="{{ onToggleReport }}" style="{{ reportBtnStyle }}">{{ reportBtnLabel }}</button>
+    </div>
+
+    <sc-if value="{{ showGlossary }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width: 1180px; margin: 14px auto 0; padding: 0 32px;">
+        <div style="border: 1px solid #EBE5DA; background: #FFFFFF; border-radius: 16px; padding: 8px 4px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px 0;">
+            <sc-for list="{{ glossary }}" as="g" hint-placeholder-count="7">
+              <div style="padding: 16px 20px; border-bottom: 1px solid #F3EEE4;">
+                <div style="font-size: 14px; font-weight: 600; color: #2C3A42; margin-bottom: 5px;">{{ g.t }}</div>
+                <div style="font-size: 13px; color: #6b7178; line-height: 1.58;">{{ g.d }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showReport }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width: 1180px; margin: 14px auto 0; padding: 0 32px;">
+        <div style="border: 1px solid #E6D9C4; background: #FBF6EC; border-radius: 16px; padding: 22px 24px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.05em; color: #b0752e; text-transform: uppercase; margin-bottom: 4px;">From the study</div>
+          <div style="font-size: 18px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 16px;">What the experiment found</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px;">
+            <sc-for list="{{ insights }}" as="ins" hint-placeholder-count="6">
+              <div style="border-left: 2px solid #E0B76A; padding-left: 15px;">
+                <div style="font-size: 14.5px; font-weight: 600; color: #2C3A42; margin-bottom: 5px;">{{ ins.t }}</div>
+                <div style="font-size: 13px; color: #6b6455; line-height: 1.6;">{{ ins.d }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="max-width: 1180px; margin: 22px auto 0; padding: 0 32px;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.05em; color: #8FA6AB; text-transform: uppercase; margin-right: 4px;">Task type</span>
+        <sc-for list="{{ filterChips }}" as="f" hint-placeholder-count="7">
+          <button onClick="{{ f.onClick }}" style="{{ f.styleObj }}">{{ f.label }}</button>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ notLoaded }}" hint-placeholder-val="{{ true }}">
+        <div style="font-family: 'IBM Plex Mono', monospace; color: #a09c93; font-size: 13px; padding: 30px 4px;">Loading benchmark data…</div>
+      </sc-if>
+
+      <sc-if value="{{ loaded }}" hint-placeholder-val="{{ false }}">
+      <div style="border: 1px solid #EBE5DA; background: #FFFFFF; border-radius: 16px; overflow: hidden;">
+        <div style="display: grid; grid-template-columns: 44px 1.6fr repeat(6, 1fr); align-items: center; padding: 13px 20px; border-bottom: 1px solid #EFE9DE; background: #FBF9F5;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #a09c93;">#</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.04em; color: #8a8880; text-transform: uppercase;">Model</div>
+          <sc-for list="{{ columns }}" as="c" hint-placeholder-count="6">
+            <button onClick="{{ c.onClick }}" style="{{ c.headStyle }}" title="{{ c.hint }}">{{ c.label }}{{ c.arrow }}</button>
+          </sc-for>
+        </div>
+        <sc-for list="{{ rows }}" as="row" hint-placeholder-count="8">
+          <div style="{{ row.rowStyle }}">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; color: {{ row.rankColor }};">{{ row.rank }}</div>
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="{{ row.dotStyle }}"></span>
+              <div>
+                <div style="font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em;">{{ row.name }}</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #a09c93; margin-top: 1px;">{{ row.org }} · {{ row.tsWord }}</div>
+              </div>
+            </div>
+            <div style="{{ row.reasCellStyle }}"><div style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; color: #2C3A42;">{{ row.reasFmt }}</div><div style="height: 4px; background: #F0EADF; border-radius: 3px; margin-top: 5px; overflow: hidden;"><div style="{{ row.reasBar }}"></div></div></div>
+            <div style="{{ row.outCellStyle }}"><div style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; color: #2C3A42;">{{ row.outFmt }}</div><div style="height: 4px; background: #F0EADF; border-radius: 3px; margin-top: 5px; overflow: hidden;"><div style="{{ row.outBar }}"></div></div></div>
+            <div style="{{ row.costCellStyle }}" title="{{ row.costTitle }}"><div style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; color: #2C3A42;">{{ row.costFmt }}{{ row.costIndicativeMark }}</div><div style="height: 4px; background: #F0EADF; border-radius: 3px; margin-top: 5px; overflow: hidden;"><div style="{{ row.costBar }}"></div></div></div>
+            <div style="{{ row.redCellStyle }}"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; color: {{ row.redColor }};">{{ row.redFmt }}</span></div>
+            <div style="{{ row.cohCellStyle }}"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #3D7E8C;">{{ row.cohFmt }}</span></div>
+            <div style="{{ row.corrCellStyle }}"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #2A6F4F; background: #E7F2EC; padding: 3px 9px; border-radius: 6px;">{{ row.corrFmt }}</span></div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 22px; flex-wrap: wrap; margin-top: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a09c93;">
+        <span>Redundancy &amp; Coherence 1–5 · lower / higher is better</span>
+        <span>Totals across {{ includedCount }} use case(s)</span>
+        <span>— = trace hidden, not scored</span>
+      </div>
+      </sc-if>
+    </div>
+  </main>
+  </sc-if>
+
+  <!-- ===================== MODEL PICKER OVERLAY ===================== -->
+  <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ onClosePicker }}" style="position: fixed; inset: 0; z-index: 100; background: rgba(24,30,33,0.42); display: flex; align-items: center; justify-content: center; padding: 24px;">
+      <div onClick="{{ onStopProp }}" style="width: 460px; max-width: 100%; max-height: 82vh; background: #FFFFFF; border-radius: 18px; box-shadow: 0 24px 60px rgba(24,30,33,0.32); display: flex; flex-direction: column; overflow: hidden;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid #F0EADF;">
+          <div style="font-size: 16px; font-weight: 600;">Select a model</div>
+          <button onClick="{{ onClosePicker }}" style="border: none; background: #F5F0E8; color: #6b7178; width: 28px; height: 28px; border-radius: 999px; cursor: pointer; font-size: 16px; line-height: 1;">×</button>
+        </div>
+        <div class="scrolly" style="overflow-y: auto; padding: 8px;">
+          <sc-for list="{{ pickerModels }}" as="pm" hint-placeholder-count="8">
+            <button onClick="{{ pm.onClick }}" style="{{ pm.rowStyle }}">
+              <span style="{{ pm.dotStyle }}"></span>
+              <span style="flex: 1; min-width: 0; text-align: left;">
+                <span style="display: block; font-size: 14px; font-weight: 600; color: #2C3A42;">{{ pm.name }}</span>
+                <span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a8880; margin-top: 2px;">{{ pm.org }} · {{ pm.desc }}</span>
+              </span>
+              <span style="{{ pm.tagStyle }}">{{ pm.stateLabel }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1280, &quot;height&quot;: 920}, &quot;startView&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;compare&quot;, &quot;leaderboard&quot;], &quot;default&quot;: &quot;compare&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Defaults&quot;}, &quot;highlightBest&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Defaults&quot;}, &quot;showFindings&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Defaults&quot;}}">
+class Component extends DCLogic {
+  state = {
+    view: null,
+    loaded: false,
+    loadErr: null,
+    stage: 'w1',
+    slots: [null, null, null],
+    selPrompts: [],
+    w1idx: 0,
+    activeUc: 0,
+    pickerSlot: null,
+    ucMenuOpen: false,
+    editOpen: false,
+    highlight: null,
+    expanded: {},
+    sortKey: 'redundancy',
+    sortDir: 'asc',
+    typeFilter: 'all',
+    showGlossary: false,
+    showReport: null,
+  };
+
+  MODELS = [
+    { id: 'deepseek_v4', name: 'DeepSeek V4', org: 'DeepSeek', dot: '#3D7E8C' },
+    { id: 'glm_5_2', name: 'GLM 5.2', org: 'Zhipu', dot: '#72BDC5' },
+    { id: 'kimi_k2_7', name: 'Kimi K2.7', org: 'Moonshot', dot: '#E07A54' },
+    { id: 'gpt_5_5', name: 'GPT-5.5', org: 'OpenAI', dot: '#2C3A42' },
+    { id: 'claude_sonnet_4_6', name: 'Claude Sonnet 4.6', org: 'Anthropic', dot: '#D4952A' },
+    { id: 'gemma_4', name: 'Gemma 4', org: 'Google', dot: '#F0A08A' },
+    { id: 'opus_4_8', name: 'Claude Opus 4.8', org: 'Anthropic', dot: '#8a6d3b' },
+    { id: 'mistral_medium_3_5', name: 'Mistral Med 3.5', org: 'Mistral', dot: '#E8694A' },
+    { id: 'kimi_k3', name: 'Kimi K3', org: 'Moonshot', dot: '#C4603A' },
+    { id: 'inkling', name: 'Inkling', org: 'Thinking Machines', dot: '#4E93A0' },
+    { id: 'gpt_5_6_sol', name: 'GPT-5.6 Sol', org: 'OpenAI', dot: '#4A5860' },
+    { id: 'fable_5', name: 'Claude Fable 5', org: 'Anthropic', dot: '#B8862B' },
+  ];
+
+  DESC = {
+    deepseek_v4: 'Thinks in Danish · mid redundancy',
+    glm_5_2: 'Leanest, tightest trace',
+    kimi_k2_7: 'Token-heavy · circles a lot',
+    gpt_5_5: 'Hidden trace · count only',
+    claude_sonnet_4_6: 'Summarized trace · very few reasoning tokens',
+    gemma_4: 'Open English anchor · tight',
+    opus_4_8: 'Hidden trace · few reasoning tokens',
+    mistral_medium_3_5: 'Most tokens · most redundant',
+  };
+
+  QUICK = [
+    { label: 'Lean reasoners', ids: ['glm_5_2', 'gemma_4', 'deepseek_v4'] },
+    { label: 'Token-heavy', ids: ['mistral_medium_3_5', 'kimi_k2_7', 'deepseek_v4'] },
+    { label: 'Hidden vs raw', ids: ['gpt_5_5', 'claude_sonnet_4_6', 'deepseek_v4'] },
+  ];
+
+  PROMPTS = [
+    { id: 'P1', n: 1, title: 'Plain-language explainer', sub: 'Folkeregister address, ≤120 words', type: 'Natural language', tkey: 'da_natural_language', load: 'Low' },
+    { id: 'P2', n: 2, title: 'Rewrite into plain language', sub: 'Legalese → citizen-friendly', type: 'Natural language', tkey: 'da_natural_language', load: 'Low' },
+    { id: 'P3', n: 3, title: 'Appeal deadline', sub: 'Administrative law, date reasoning', type: 'Legal', tkey: 'da_legal', load: 'High' },
+    { id: 'P4', n: 4, title: 'Sick-pay decision', sub: 'Administrative law, due process', type: 'Legal', tkey: 'da_legal', load: 'Very high' },
+    { id: 'P5', n: 5, title: 'Train travel time', sub: 'Two-leg arithmetic', type: 'Math', tkey: 'math', load: 'High' },
+    { id: 'P6', n: 6, title: 'Race ordering', sub: 'Constraint deduction', type: 'Logic', tkey: 'logic', load: 'High' },
+    { id: 'P7', n: 7, title: 'Text → JSON', sub: 'Schema-bound structuring', type: 'Code', tkey: 'code_structure', load: 'Medium' },
+    { id: 'P8', n: 8, title: 'Python bug fix', sub: 'Find & fix the defect', type: 'Code', tkey: 'code_bug', load: 'High' },
+    { id: 'P9', n: 9, title: 'Self-host an open LLM?', sub: 'Open pros-and-cons analysis', type: 'Open analysis', tkey: 'da_open_analysis', load: 'High' },
+    { id: 'P10', n: 10, title: 'Which AI initiative?', sub: 'Open trade-off analysis', type: 'Open analysis', tkey: 'da_open_analysis', load: 'High' },
+    { id: 'H1', n: 11, title: 'Largest prime \u2192 digit sum', sub: 'HumanEval/94 \u00b7 no tools', type: 'Heavy code', tkey: 'code', load: 'Very high', suite: 'heavy' },
+    { id: 'H1T', n: 12, title: 'Largest prime \u2192 digit sum', sub: 'HumanEval/94 \u00b7 tools offered', type: 'Heavy code', tkey: 'code', load: 'Very high', suite: 'heavy' },
+    { id: 'H2', n: 13, title: '5-year return difference', sub: 'Cadence vs NASDAQ \u00b7 no tools', type: 'Heavy finance', tkey: 'finance_calc', load: 'High', suite: 'heavy' },
+    { id: 'H2T', n: 14, title: '5-year return difference', sub: 'Cadence vs NASDAQ \u00b7 tools offered', type: 'Heavy finance', tkey: 'finance_calc', load: 'High', suite: 'heavy' },
+    { id: 'H3', n: 15, title: 'Total return on $100,000', sub: 'S&P 500 graph \u00b7 no tools', type: 'Heavy finance', tkey: 'finance_interp', load: 'High', suite: 'heavy' },
+    { id: 'H3T', n: 16, title: 'Total return on $100,000', sub: 'S&P 500 graph \u00b7 tools offered', type: 'Heavy finance', tkey: 'finance_interp', load: 'High', suite: 'heavy' },
+  ];
+
+  TYPEC = {
+    'Natural language': { c: '#3D7E8C', bg: '#EAF2F3' },
+    'Legal': { c: '#b0562e', bg: '#FBE7DD' },
+    'Math': { c: '#b0752e', bg: '#FBEFD8' },
+    'Logic': { c: '#3D7E8C', bg: '#EAF2F3' },
+    'Code': { c: '#5a6a72', bg: '#EEF0F1' },
+    'Open analysis': { c: '#b0562e', bg: '#FBE7DD' },
+    'Heavy code': { c: '#2C3A42', bg: '#E4E8EA' },
+    'Heavy finance': { c: '#8a6d3b', bg: '#F5EDDC' },
+  };
+
+  NUMCOLORS = [
+    'rgba(61,126,140,0.20)',
+    'rgba(114,189,197,0.28)',
+    'rgba(78,147,160,0.22)',
+    'rgba(212,149,42,0.26)',
+    'rgba(224,122,84,0.26)',
+    'rgba(232,105,74,0.24)',
+    'rgba(240,160,138,0.32)',
+    'rgba(192,112,90,0.26)',
+    'rgba(90,106,114,0.24)',
+    'rgba(44,58,66,0.20)',
+  ];
+
+  TYPEC2 = {
+    'Natural language': { c: '#3D7E8C', bg: '#E7F1F1' },
+    'Legal': { c: '#BE6A43', bg: '#FBEADF' },
+    'Math': { c: '#AE7B1E', bg: '#FAF0D6' },
+    'Logic': { c: '#4E93A0', bg: '#E6F1F2' },
+    'Code': { c: '#4A5860', bg: '#ECEEF0' },
+    'Open analysis': { c: '#C0705A', bg: '#FBEAE3' },
+    'Heavy code': { c: '#3A454C', bg: '#E6EAEC' },
+    'Heavy finance': { c: '#96773F', bg: '#F6EFE0' },
+  };
+
+  TS = {
+    raw: { label: 'Raw', word: 'raw', desc: 'Full thinking is visible', c: '#2A6F4F', bg: '#E7F2EC' },
+    raw_anchor: { label: 'Raw · anchor', word: 'raw', desc: 'English reference trace (Gemma)', c: '#2A6F4F', bg: '#E7F2EC' },
+    summarized: { label: 'Summarized', word: 'summarized', desc: "Provider's summary of the chain of thought — not the raw trace", c: '#b0752e', bg: '#FBEFD8' },
+    count_only: { label: 'Count only', word: 'count-only', desc: 'Token count exposed, reasoning text hidden', c: '#b0562e', bg: '#FBE7DD' },
+    absent: { label: 'Hidden', word: 'hidden', desc: 'No reasoning text exposed', c: '#9A3B3B', bg: '#F6E0DE' },
+  };
+
+  GLOSSARY = [
+    { t: 'Reasoning tokens', d: 'Tokens the model spends thinking before it answers — hidden work you still pay for. On raw-trace models this is visible text; on others only the count is exposed.' },
+    { t: 'Input / Output tokens', d: 'Input is the prompt; output is the visible answer. Reasoning tokens are billed on top of both.' },
+    { t: 'Cost', d: "The call's total price at each provider's per-token rate, summing input, reasoning and output." },
+    { t: 'Redundancy — 1 to 5, lower is better', d: 'How much of the trace is wasted motion — re-deciding, circling, meta-filler — rather than progress. Scored by two independent judges (MiniMax and Gemini 3.1 Pro) against a fixed rubric.' },
+    { t: 'Coherence — 1 to 5, higher is better', d: 'How well the trace holds together as a logical sequence. Reported as uniformly high, so it separates the models less than redundancy does.' },
+    { t: 'Trace status', d: 'Raw = full thinking visible. Summarized = the provider\u2019s summary of the chain of thought. Count-only = token count exposed but text hidden. Hidden = no reasoning text at all.' },
+    { t: 'Correctness', d: 'Graded blind against a withheld answer key on the six factual tasks (math, logic, JSON, legal, code). Every model passed — 48 of 48 verdicts.' },
+  ];
+
+  INSIGHTS = [
+    { t: "Correctness doesn't separate them", d: 'All eight models answered every graded task correctly — 48 of 48 verdicts. On these tasks the question isn\u2019t whether a model can reach the answer, but what it costs to get there.' },
+    { t: 'Reasoning is the main expense', d: 'For models with visible traces, thinking is roughly two-thirds to four-fifths of all tokens. The cost lives in the reasoning, not the final answer.' },
+    { t: 'More reasoning tokens \u2260 more thinking', d: 'Much of the spread is waste, not thoroughness. GLM reasons tightly; Kimi and Mistral circle, re-decide and pad with meta-commentary while reaching the same correct answer.' },
+    { t: 'No one thinks in Chinese', d: 'None of the three Chinese models reason primarily in Chinese. They think in English or in the prompt\u2019s language; Chinese appears only as leakage. The more symbolic the task, the more they revert to an English substrate.' },
+    { t: 'Volume follows task type, not the label', d: 'A legal deadline calculation and an arithmetic problem are both marked high-load, yet cost wildly different amounts. Symbolic single-path tasks are cheap; open and legal tasks are expensive.' },
+    { t: 'A correct answer can hide a false premise', d: 'On the appeal-deadline task, DeepSeek spent 2,405 reasoning tokens and knew 3 April 2026 is Good Friday. Sonnet reached the same verdict far cheaper — but explicitly claimed the day was neither weekend nor holiday. Both scored correct, because the check grades the landing, not the path.' },
+  ];
+
+  componentDidMount() {
+    fetch('data/reasoning-data.json')
+      .then(r => r.json())
+      .then(d => {
+        this.byKey = {};
+        this.ptext = {};
+        d.cells.forEach(c => { this.byKey[c.model + '|' + c.prompt] = c; });
+        (d.prompts || []).forEach(p => { this.ptext[p.id] = p.text; });
+        this.setState({ loaded: true });
+      })
+      .catch(e => this.setState({ loadErr: String((e && e.message) || e) }));
+  }
+
+  cell(m, p) { return (this.byKey && this.byKey[m + '|' + p]) || null; }
+  avgRed(c) { if (!c || !c.judges || !c.judges.length) return null; const v = c.judges.map(j => j.redundancy).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; }
+  avgCoh(c) { if (!c || !c.judges || !c.judges.length) return null; const v = c.judges.map(j => j.coherence).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; }
+  fmtInt(n) { return n == null ? '\u2014' : Number(n).toLocaleString('en-US'); }
+  fmtCost(n) { return n == null ? '\u2014' : '$' + Number(n).toFixed(4); }
+  fmtTime(n) { return n == null ? '\u2014' : Number(n).toFixed(1) + 's'; }
+  filledSlots() { return this.state.slots.filter(Boolean); }
+  selPromptsOrdered() { return this.PROMPTS.filter(p => this.state.selPrompts.includes(p.id)); }
+
+  // wizard step 1
+  w1Prev() { this.setState(s => ({ w1idx: Math.max(0, s.w1idx - 1) })); }
+  w1Next() { this.setState(s => ({ w1idx: Math.min(this.PROMPTS.length - 1, s.w1idx + 1) })); }
+  w1Jump(i) { this.setState({ w1idx: i }); }
+  toggleSelPrompt(id) { this.setState(s => ({ selPrompts: s.selPrompts.includes(id) ? s.selPrompts.filter(x => x !== id) : [...s.selPrompts, id] })); }
+  goStep2() { if (this.state.selPrompts.length > 0) this.setState({ stage: 'w2' }); }
+  backStep1() { this.setState({ stage: 'w1' }); }
+  finishWizard() { if (this.filledSlots().length >= 2) this.setState({ stage: 'app', activeUc: 0 }); }
+  restart() { this.setState({ stage: 'w1' }); }
+
+  // model slots
+  openPicker(i) { this.setState({ pickerSlot: i }); }
+  closePicker() { this.setState({ pickerSlot: null }); }
+  pickModel(id) {
+    this.setState(s => {
+      if (s.pickerSlot == null) return {};
+      if (s.slots.includes(id) && s.slots[s.pickerSlot] !== id) return {};
+      const slots = s.slots.slice();
+      slots[s.pickerSlot] = id;
+      return { slots, pickerSlot: null };
+    });
+  }
+  clearSlot(i, e) { if (e && e.stopPropagation) e.stopPropagation(); this.setState(s => { const slots = s.slots.slice(); slots[i] = null; return { slots }; }); }
+  addSlot() { this.setState(s => (s.slots.length < 4 ? { slots: [...s.slots, null] } : {})); }
+  applyQuick(ids) { this.setState({ slots: ids.slice(0, 4) }); }
+
+  // board use cases
+  ucPrev() { this.setState(s => ({ activeUc: Math.max(0, s.activeUc - 1) })); }
+  ucNext() { this.setState(s => ({ activeUc: Math.min(this.selPromptsOrdered().length - 1, s.activeUc + 1) })); }
+  ucJump(i) { this.setState({ activeUc: i, ucMenuOpen: false }); }
+  removeUc(id) {
+    this.setState(s => {
+      const next = s.selPrompts.filter(x => x !== id);
+      const len = this.PROMPTS.filter(p => next.includes(p.id)).length;
+      return { selPrompts: next, activeUc: Math.max(0, Math.min(s.activeUc, len - 1)) };
+    });
+  }
+  toggleExp(k) { this.setState(s => ({ expanded: { ...s.expanded, [k]: !s.expanded[k] } })); }
+  setSort(k) {
+    this.setState(s => {
+      if (s.sortKey === k) return { sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' };
+      const asc = (k === 'reasSum' || k === 'costSum' || k === 'redundancy' || k === 'outSum');
+      return { sortKey: k, sortDir: asc ? 'asc' : 'desc' };
+    });
+  }
+
+  chipBtn(sel) {
+    return { display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 13px', borderRadius: '999px', fontSize: '13px', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", cursor: 'pointer', border: '1px solid ' + (sel ? '#3D7E8C' : '#E4DED2'), background: sel ? '#3D7E8C' : '#FFFFFF', color: sel ? '#FFFFFF' : '#5E6A72', fontWeight: sel ? 600 : 500, transition: 'all .12s' };
+  }
+
+  buildBlock(pm, filled, highlight) {
+    const rawCells = filled.map(mid => this.cell(mid, pm.id)).filter(Boolean);
+    const maxReas = Math.max(1, ...rawCells.map(c => c.reasoningTok || 0));
+    const reasVals = rawCells.filter(c => c.reasoningTok != null).map(c => c.reasoningTok);
+    const minReas = reasVals.length ? Math.min(...reasVals) : null;
+    const costVals = rawCells.filter(c => c.cost != null).map(c => c.cost);
+    const minCost = costVals.length ? Math.min(...costVals) : null;
+    const redVals = rawCells.map(c => this.avgRed(c)).filter(x => x != null);
+    const minRed = redVals.length ? Math.min(...redVals) : null;
+    const isFacit = this.MODELS.some(m => { const c = this.cell(m.id, pm.id); return c && c.correct != null; });
+    const tc = this.TYPEC[pm.type] || { c: '#5a6a72', bg: '#EEF0F1' };
+    const s = this.state;
+
+    const cols = filled.map(mid => {
+      const m = this.MODELS.find(x => x.id === mid);
+      const c = this.cell(mid, pm.id);
+      const ts = this.TS[c ? (c.regime === 'raw_anchor' ? 'raw_anchor' : c.ts) : 'absent'] || this.TS.absent;
+      const ar = this.avgRed(c);
+      const ac = this.avgCoh(c);
+      const hasJudges = !!(c && c.judges && c.judges.length);
+      const hasReasoning = !!(c && c.reasoningText);
+      const expanded = !!s.expanded[mid + '|' + pm.id];
+      const redColor = ar == null ? '#9a978f' : (ar <= 1.6 ? '#2A6F4F' : (ar >= 2.8 ? '#b0562e' : '#3A454C'));
+      const langMap = { da: 'Danish', en: 'English', zh: 'Chinese' };
+      const langLabel = c && c.lang && langMap[c.lang] ? langMap[c.lang] : (ts.word === 'raw' ? '\u2014' : 'not exposed');
+      const reasBase = { fontFamily: "'IBM Plex Mono', monospace", fontSize: '11.5px', lineHeight: 1.62, color: '#4a555c', whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#FCFAF7', border: '1px solid #F0EADF', borderRadius: '9px', padding: '13px 14px' };
+      const reasPanelStyle = expanded ? { ...reasBase, maxHeight: '640px', overflowY: 'auto' } : { ...reasBase, maxHeight: '300px', overflow: 'hidden' };
+      return {
+        key: mid + '|' + pm.id, modelName: m.name, org: m.org, dotColor: m.dot,
+        headerStyle: { background: '#FFFFFF', border: '1px solid #EBE5DA', borderTop: '3px solid ' + m.dot, borderRadius: '12px', padding: '13px 15px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' },
+        contentCardStyle: { background: '#FFFFFF', border: '1px solid #EBE5DA', borderTop: '3px solid ' + m.dot, borderRadius: '16px', overflow: 'hidden', display: 'flex', flexDirection: 'column' },
+        dataDotStyle: { width: '9px', height: '9px', borderRadius: '999px', background: m.dot, flex: '0 0 auto' },
+        tsLabel: ts.label, tsDesc: ts.desc, tsWord: ts.word,
+        tsBadgeStyle: { fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', fontWeight: 600, padding: '3px 8px', borderRadius: '6px', color: ts.c, background: ts.bg, whiteSpace: 'nowrap' },
+        reasFmt: this.fmtInt(c ? c.reasoningTok : null),
+        reasBarStyle: { width: Math.round(((c && c.reasoningTok) || 0) / maxReas * 100) + '%', height: '100%', background: (highlight && c && c.reasoningTok === minReas && rawCells.length > 1) ? '#2A6F4F' : '#72BDC5', borderRadius: '4px' },
+        inputFmt: this.fmtInt(c ? c.inputTok : null), outputFmt: this.fmtInt(c ? c.outputTok : null),
+        timeFmt: this.fmtTime(c ? c.timeSec : null), costFmt: this.fmtCost(c ? c.cost : null),
+        bestReas: highlight && c && c.reasoningTok === minReas && rawCells.length > 1,
+        bestCost: highlight && c && c.cost === minCost && rawCells.length > 1,
+        bestRed: highlight && ar != null && ar === minRed && redVals.length > 1,
+        hasJudges, noJudges: !hasJudges, redFmt: ar == null ? '\u2014' : ar.toFixed(1), cohFmt: ac == null ? '\u2014' : ac.toFixed(1), redColor,
+        isFacit: isFacit && c && c.correct != null,
+        correctLabel: c && c.correct ? '\u2713 Correct' : (c && c.correct === false ? '\u2717 Incorrect' : ''),
+        correctBadgeStyle: { fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px', fontWeight: 600, padding: '3px 9px', borderRadius: '6px', color: (c && c.correct) ? '#2A6F4F' : '#9A3B3B', background: (c && c.correct) ? '#E7F2EC' : '#F6E0DE' },
+        correctMethod: c && c.correctMethod ? c.correctMethod : '',
+        hasCorrectJust: !!(c && c.correctJust), correctJust: c ? c.correctJust : '',
+        answer: c && c.answerText ? c.answerText : '\u2014',
+        langLabel,
+        hasReasoning, noReasoning: !hasReasoning,
+        noReasonText: ts.word === 'count-only' ? 'Token count only — the reasoning text is not exposed by this model.' : (ts.word === 'summarized' ? 'Only a provider summary is available for this cell.' : 'No reasoning text exposed.'),
+        reasoning: c ? c.reasoningText : '',
+        reasPanelStyle, showFade: hasReasoning && !expanded, expandLabel: expanded ? 'Collapse' : 'Read full trace',
+        onToggleExpand: () => this.toggleExp(mid + '|' + pm.id),
+        warning: c && c.traceWarning ? c.traceWarning : null,
+      };
+    });
+
+    return {
+      pid: pm.id, tag: 'P' + pm.n, promptTitle: pm.title, promptSub: pm.sub,
+      typeLabel: pm.type, loadLabel: pm.load, isFacit,
+      typeChipStyle: { fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', fontWeight: 600, color: tc.c, background: tc.bg, padding: '3px 9px', borderRadius: '6px' },
+      promptText: (this.ptext && this.ptext[pm.id]) || '',
+      cols,
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const view = s.view || (this.props.startView) || 'compare';
+    const highlight = s.highlight != null ? s.highlight : (this.props.highlightBest != null ? this.props.highlightBest : true);
+    const showReport = s.showReport != null ? s.showReport : (this.props.showFindings || false);
+    const loaded = s.loaded;
+    const compareTab = view === 'compare';
+
+    const tabBase = { border: 'none', cursor: 'pointer', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '13.5px', fontWeight: 600, padding: '7px 18px', borderRadius: '999px', transition: 'all .14s' };
+    const tabOn = { ...tabBase, background: '#FFFFFF', color: '#2C3A42', boxShadow: '0 1px 3px rgba(44,58,66,0.12)' };
+    const tabOff = { ...tabBase, background: 'transparent', color: '#AEC2C5' };
+
+    const arrowBig = (disabled) => ({ flex: '0 0 auto', width: '48px', height: '48px', border: '1px solid rgba(255,255,255,0.16)', background: 'rgba(255,255,255,0.08)', borderRadius: '999px', cursor: disabled ? 'default' : 'pointer', color: disabled ? 'rgba(255,255,255,0.22)' : '#DCE7E8', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px -6px rgba(44,58,66,0.2)', transition: 'transform .18s ease, color .18s, border-color .18s' });
+    const arrowSm = (disabled) => ({ width: '30px', height: '30px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.16)', background: 'rgba(255,255,255,0.08)', cursor: disabled ? 'default' : 'pointer', color: disabled ? 'rgba(255,255,255,0.22)' : '#DCE7E8', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' });
+
+    // ---------- WIZARD STEP 1 ----------
+    const CW = 74, GAP = 2, STEP = CW + GAP;
+    const w1TrackStyle = { display: 'flex', gap: GAP + '%', width: '100%', transform: 'translateX(' + (((100 - CW) / 2) - s.w1idx * STEP) + '%)', transition: 'transform .44s cubic-bezier(.22,.61,.36,1)' };
+    const w1Cards = this.PROMPTS.map((p, i) => {
+      const active = i === s.w1idx;
+      const sel = s.selPrompts.includes(p.id);
+      const tc = this.TYPEC2[p.type] || { c: '#5a6a72', bg: '#EEF0F1' };
+      return {
+        active, selected: sel,
+        typeLabel: p.type,
+        typeStyle: { alignSelf: 'flex-start', fontFamily: "'IBM Plex Mono', monospace", fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: tc.c, background: tc.bg, padding: '5px 11px', borderRadius: '999px' },
+        title: p.title,
+        metaLine: p.load + ' load   ·   ' + p.sub,
+        number: String(p.n),
+        numberStyle: { position: 'absolute', top: '4px', right: '24px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '86px', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.04em', color: this.NUMCOLORS[i % this.NUMCOLORS.length], pointerEvents: 'none', userSelect: 'none' },
+        body: (this.ptext && this.ptext[p.id]) || '',
+        bodyBoxStyle: { flex: '1', minHeight: '0', background: '#FAF8F3', border: 'none', borderRadius: '10px', padding: '14px 16px', fontSize: '14px', lineHeight: 1.62, color: '#3A454C', whiteSpace: 'pre-wrap', maxHeight: '192px', overflowY: 'auto', marginTop: '16px' },
+        cardStyle: { position: 'relative', overflow: 'hidden', boxSizing: 'border-box', flex: '0 0 ' + CW + '%', minHeight: '396px', display: 'flex', flexDirection: 'column', borderRadius: '20px', padding: '26px 28px', background: '#FFFFFF', border: '1px solid ' + (sel ? '#3D7E8C' : '#EBE5DA'), boxShadow: active ? '0 14px 34px -18px rgba(44,58,66,0.24)' : '0 4px 14px -10px rgba(44,58,66,0.12)', transform: active ? 'scale(1)' : 'scale(0.92)', opacity: active ? 1 : 0.55, transformOrigin: 'center center', transition: 'transform .44s cubic-bezier(.22,.61,.36,1), opacity .44s ease, box-shadow .44s ease, border-color .2s', cursor: active ? 'default' : 'pointer' },
+        onClick: active ? undefined : () => this.w1Jump(i),
+        onToggle: () => this.toggleSelPrompt(p.id),
+        selectBtnLabel: sel ? '✓ Selected — remove' : '+ Select this task',
+        selectBtnStyle: { marginTop: '18px', alignSelf: 'flex-start', padding: '11px 20px', borderRadius: '11px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', border: '1px solid #3D7E8C', background: sel ? '#3D7E8C' : '#FFFFFF', color: sel ? '#FFFFFF' : '#2c5a66' },
+      };
+    });
+    const w1Dots = this.PROMPTS.map((p, i) => {
+      const sel = s.selPrompts.includes(p.id), active = i === s.w1idx;
+      return {
+        title: 'P' + p.n + ' · ' + p.title, onClick: () => this.w1Jump(i),
+        styleObj: { border: 'none', cursor: 'pointer', padding: 0, borderRadius: '999px', transition: 'all .2s', width: active ? '22px' : '8px', height: '8px', background: active ? '#3D7E8C' : (sel ? '#72BDC5' : '#E0D8CB') },
+      };
+    });
+    const selectedCards = this.selPromptsOrdered().map(p => {
+      const tc = this.TYPEC2[p.type] || { c: '#3D7E8C' };
+      return { title: p.title, meta: p.type, onRemove: () => this.toggleSelPrompt(p.id), dotStyle: { width: '9px', height: '9px', borderRadius: '999px', background: tc.c, flex: '0 0 auto' } };
+    });
+    const w1Has = s.selPrompts.length > 0;
+    const continueBtnStyle = { padding: '12px 24px', borderRadius: '12px', fontWeight: 600, fontSize: '15px', border: 'none', cursor: w1Has ? 'pointer' : 'default', background: w1Has ? '#3D7E8C' : '#E4DED2', color: w1Has ? '#FFFFFF' : '#a09c93', boxShadow: w1Has ? '0 8px 18px -8px rgba(61,126,140,0.55)' : 'none' };
+
+    // ---------- MODEL SLOTS (shared: step 2 + board) ----------
+    const modelSlots = s.slots.map((id, i) => {
+      const m = id ? this.MODELS.find(x => x.id === id) : null;
+      return {
+        i, filled: !!m, isEmpty: !m,
+        name: m ? m.name : '', org: m ? m.org : '', desc: m ? (this.DESC[id] || '') : '',
+        dotStyle: { width: '10px', height: '10px', borderRadius: '999px', background: m ? m.dot : '#D8D2C6', flex: '0 0 auto', marginTop: '4px' },
+        onClick: () => this.openPicker(i),
+        onClear: (e) => this.clearSlot(i, e),
+      };
+    });
+    const quickSets = this.QUICK.map(q => ({
+      label: q.label, onClick: () => this.applyQuick(q.ids),
+      styleObj: { fontFamily: "'IBM Plex Mono', monospace", fontSize: '11.5px', padding: '6px 12px', borderRadius: '999px', border: '1px solid #E4DED2', background: '#FFFFFF', color: '#5a6a72', cursor: 'pointer' },
+    }));
+    const filled = this.filledSlots();
+    const canCompare = filled.length >= 2;
+    const compareBtnStyle = { padding: '11px 22px', borderRadius: '11px', fontWeight: 600, fontSize: '14.5px', border: 'none', cursor: canCompare ? 'pointer' : 'default', background: canCompare ? '#3D7E8C' : '#E4DED2', color: canCompare ? '#FFFFFF' : '#a09c93' };
+
+    // ---------- BOARD ----------
+    const ordered = this.selPromptsOrdered();
+    const activeUc = Math.max(0, Math.min(s.activeUc, ordered.length - 1));
+    const ucChips = ordered.map((p, i) => ({
+      tag: 'P' + p.n, title: p.title, onJump: () => this.ucJump(i), onRemove: () => this.removeUc(p.id),
+      tagColor: i === activeUc ? '#3D7E8C' : '#a09c93',
+      rowStyle: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '9px', background: i === activeUc ? '#EAF2F3' : '#FBF9F5', border: '1px solid ' + (i === activeUc ? '#C9DED9' : '#F0EADF') },
+    }));
+    const activePm = ordered[activeUc];
+    const hasActive = loaded && filled.length > 0 && !!activePm;
+    const activeBlock = hasActive ? this.buildBlock(activePm, filled, highlight) : { cols: [] };
+    const N = Math.max(1, filled.length);
+    const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(' + N + ', minmax(0, 1fr))', gap: '16px', alignItems: 'start' };
+    const tcTask = activePm ? (this.TYPEC2[activePm.type] || { c: '#5a6a72', bg: '#EEF0F1' }) : null;
+    const activeTaskCard = activePm ? {
+      number: String(activePm.n),
+      numberStyle: { position: 'absolute', top: '0px', right: '26px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '96px', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.04em', color: this.NUMCOLORS[(activePm.n - 1) % this.NUMCOLORS.length], pointerEvents: 'none', userSelect: 'none' },
+      typeLabel: activePm.type,
+      typeStyle: { alignSelf: 'flex-start', fontFamily: "'IBM Plex Mono', monospace", fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: tcTask.c, background: tcTask.bg, padding: '5px 11px', borderRadius: '999px' },
+      title: activePm.title,
+      metaLine: activePm.load + ' load   ·   ' + activePm.sub,
+      body: (this.ptext && this.ptext[activePm.id]) || '',
+    } : null;
+    const ucDots = ordered.map((p, i) => ({ onClick: () => this.ucJump(i), title: 'P' + p.n + ' · ' + p.title, styleObj: { border: 'none', cursor: 'pointer', padding: 0, borderRadius: '999px', transition: 'all .2s', width: i === activeUc ? '22px' : '8px', height: '8px', background: i === activeUc ? '#79C3CE' : 'rgba(255,255,255,0.22)' } }));
+
+    // aligned data box (stats broken out so they line up across models)
+    const dcols = activeBlock.cols || [];
+    const valBase = { fontFamily: "'IBM Plex Mono', monospace", fontSize: '14px', color: '#2C3A42' };
+    const dataHeadStyle = { display: 'grid', gridTemplateColumns: '150px repeat(' + N + ', minmax(0, 1fr))', alignItems: 'center', columnGap: '16px', padding: '13px 18px', background: '#FBF9F5' };
+    const dataRowStyle = { display: 'grid', gridTemplateColumns: '150px repeat(' + N + ', minmax(0, 1fr))', alignItems: 'center', columnGap: '16px', padding: '12px 18px', borderTop: '1px solid #F3EEE4' };
+    const mkCell = (text, style, badge) => ({ text, style, badge: badge || '', hasBadge: !!badge });
+    const dataRows = [
+      { label: 'Input tokens', cells: dcols.map(c => mkCell(c.inputFmt, valBase)) },
+      { label: 'Output tokens', cells: dcols.map(c => mkCell(c.outputFmt, valBase)) },
+      { label: 'Response time', cells: dcols.map(c => mkCell(c.timeFmt, valBase)) },
+      { label: 'Cost', cells: dcols.map(c => mkCell(c.costFmt, c.bestCost ? { ...valBase, color: '#2A6F4F', fontWeight: 600 } : valBase, c.bestCost ? 'cheapest' : '')) },
+      { label: 'Redundancy ↓', cells: dcols.map(c => mkCell(c.redFmt, { ...valBase, color: c.redColor, fontWeight: 600 }, c.bestRed ? 'tightest' : '')) },
+      { label: 'Coherence ↑', cells: dcols.map(c => mkCell(c.cohFmt, { ...valBase, color: '#3D7E8C', fontWeight: 600 })) },
+    ];
+
+    // ---------- MODEL PICKER ----------
+    const pickerOpen = s.pickerSlot != null;
+    const pickerModels = this.MODELS.map(m => {
+      const inUse = s.slots.includes(m.id) && (s.pickerSlot == null || s.slots[s.pickerSlot] !== m.id);
+      const current = s.pickerSlot != null && s.slots[s.pickerSlot] === m.id;
+      return {
+        id: m.id, name: m.name, org: m.org, desc: this.DESC[m.id] || '',
+        dotStyle: { width: '11px', height: '11px', borderRadius: '999px', background: m.dot, flex: '0 0 auto', opacity: inUse ? 0.4 : 1 },
+        onClick: () => { if (!inUse) this.pickModel(m.id); },
+        rowStyle: { display: 'flex', alignItems: 'center', gap: '12px', width: '100%', textAlign: 'left', padding: '12px 13px', borderRadius: '11px', border: 'none', cursor: inUse ? 'default' : 'pointer', background: current ? '#EAF2F3' : 'transparent', opacity: inUse ? 0.5 : 1 },
+        stateLabel: current ? '✓ selected' : (inUse ? 'in use' : ''),
+        tagStyle: { fontFamily: "'IBM Plex Mono', monospace", fontSize: '10.5px', color: current ? '#2A6F4F' : '#a09c93', flex: '0 0 auto' },
+      };
+    });
+
+    // ---------- LEADERBOARD ----------
+    const filterDefs = [
+      { k: 'all', label: 'All light tasks' }, { k: 'da_natural_language', label: 'Natural language' }, { k: 'da_legal', label: 'Legal' },
+      { k: 'math', label: 'Math' }, { k: 'logic', label: 'Logic' }, { k: 'code', label: 'Code' }, { k: 'da_open_analysis', label: 'Open analysis' },
+      { k: 'heavy_base', label: 'Heavy \u00b7 no tools' }, { k: 'heavy_tools', label: 'Heavy \u00b7 tools offered' },
+    ];
+    const isHeavy = p => p.suite === 'heavy';
+    const includedPrompts = this.PROMPTS.filter(p => {
+      // Heavy tasks appear twice (with and without tools). Never mix the two in one
+      // sum, or the same task is counted against itself.
+      if (s.typeFilter === 'heavy_base') return isHeavy(p) && p.id.slice(-1) !== 'T';
+      if (s.typeFilter === 'heavy_tools') return isHeavy(p) && p.id.slice(-1) === 'T';
+      if (isHeavy(p)) return false;
+      if (s.typeFilter === 'all') return true;
+      if (s.typeFilter === 'code') return p.tkey === 'code_structure' || p.tkey === 'code_bug';
+      return p.tkey === s.typeFilter;
+    });
+    const filterChips = filterDefs.map(f => ({ k: f.k, label: f.label, onClick: () => this.setState({ typeFilter: f.k }), styleObj: this.chipBtn(s.typeFilter === f.k) }));
+
+    let rows0 = this.MODELS.map(m => {
+      const cs = includedPrompts.map(p => this.cell(m.id, p.id)).filter(Boolean);
+      const reasSum = cs.reduce((a, c) => a + (c.reasoningTok || 0), 0);
+      const outSum = cs.reduce((a, c) => a + (c.outputTok || 0), 0);
+      // Prefer the real sum of all runs (costSumActual, heavy cells) over the
+      // single median-cost estimate. A light cell (n=1) has no costSumActual
+      // but its median IS the exact cost — that fallback isn't an estimate.
+      // Only mark the row indicative when a cell with n>1 actually lacks a
+      // real sum to fall back to.
+      let costIndicative = false;
+      const costSum = cs.reduce((a, c) => {
+        if (c.costSumActual != null) return a + c.costSumActual;
+        if ((c.n || 1) > 1) costIndicative = true;
+        return a + (c.cost || 0);
+      }, 0);
+      const redJ = cs.flatMap(c => (c.judges || []).map(j => j.redundancy)).filter(x => x != null);
+      const cohJ = cs.flatMap(c => (c.judges || []).map(j => j.coherence)).filter(x => x != null);
+      const avgRed = redJ.length ? redJ.reduce((a, b) => a + b, 0) / redJ.length : null;
+      const avgCoh = cohJ.length ? cohJ.reduce((a, b) => a + b, 0) / cohJ.length : null;
+      // Heavy cells hold n runs each; count runs passed, not tasks passed, or a
+      // task that passed 4 of 5 runs reads as a failure.
+      const graded = cs.filter(c => c.correct != null);
+      const corr = graded.reduce((a, c) => a + (c.correctN != null ? c.correctN : (c.correct ? 1 : 0)), 0);
+      const gradedN = graded.reduce((a, c) => a + (c.correctN != null ? c.n : 1), 0);
+      const anyTs = cs.length ? this.TS[cs[0].regime === 'raw_anchor' ? 'raw_anchor' : cs[0].ts] : null;
+      return { m, reasSum, outSum, costSum, costIndicative, avgRed, avgCoh, corr, gradedTotal: gradedN, tsWord: anyTs ? anyTs.word : '\u2014' };
+    });
+
+    const maxReasL = Math.max(1, ...rows0.map(r => r.reasSum));
+    const maxOutL = Math.max(1, ...rows0.map(r => r.outSum));
+    const maxCostL = Math.max(1e-9, ...rows0.map(r => r.costSum));
+
+    const sk = s.sortKey, dir = s.sortDir;
+    const val = (r) => ({ reasSum: r.reasSum, outSum: r.outSum, costSum: r.costSum, redundancy: r.avgRed, coherence: r.avgCoh, correct: r.gradedTotal ? r.corr / r.gradedTotal : 0 })[sk];
+    rows0.sort((a, b) => {
+      let va = val(a), vb = val(b);
+      const na = va == null, nb = vb == null;
+      if (na && nb) return 0;
+      if (na) return 1;
+      if (nb) return -1;
+      return dir === 'asc' ? va - vb : vb - va;
+    });
+
+    const rows = rows0.map((r, i) => {
+      const redColor = r.avgRed == null ? '#9a978f' : (r.avgRed <= 1.9 ? '#2A6F4F' : (r.avgRed >= 2.8 ? '#b0562e' : '#3A454C'));
+      const cellPad = { padding: '0 8px' };
+      const hi = (key) => sk === key ? { ...cellPad, background: '#FBF8F1', borderRadius: '8px', padding: '8px' } : cellPad;
+      return {
+        rank: i + 1, rankColor: i === 0 ? '#3D7E8C' : '#b3afa5',
+        name: r.m.name, org: r.m.org, tsWord: r.tsWord,
+        dotStyle: { width: '10px', height: '10px', borderRadius: '999px', background: r.m.dot, flex: '0 0 auto' },
+        rowStyle: { display: 'grid', gridTemplateColumns: '44px 1.6fr repeat(6, 1fr)', alignItems: 'center', padding: '14px 20px', borderBottom: i === rows0.length - 1 ? 'none' : '1px solid #F3EEE4', background: i === 0 ? '#FCFBF8' : '#FFFFFF' },
+        reasFmt: this.fmtInt(r.reasSum), outFmt: this.fmtInt(r.outSum), costFmt: this.fmtCost(r.costSum),
+        costIndicativeMark: r.costIndicative ? ' ~' : '',
+        costTitle: r.costIndicative ? 'indicative — includes at least one multi-run cell with no recorded per-pass cost sum; falling back to median × 1' : 'sum of actual per-run cost across all included cells',
+        redFmt: r.avgRed == null ? '\u2014' : r.avgRed.toFixed(2), cohFmt: r.avgCoh == null ? '\u2014' : r.avgCoh.toFixed(2), redColor,
+        corrFmt: r.gradedTotal ? (r.corr + '/' + r.gradedTotal) : '\u2014',
+        reasBar: { width: Math.round(r.reasSum / maxReasL * 100) + '%', height: '100%', background: '#72BDC5', borderRadius: '3px' },
+        outBar: { width: Math.round(r.outSum / maxOutL * 100) + '%', height: '100%', background: '#E0C58A', borderRadius: '3px' },
+        costBar: { width: Math.round(r.costSum / maxCostL * 100) + '%', height: '100%', background: '#F0A08A', borderRadius: '3px' },
+        reasCellStyle: hi('reasSum'), outCellStyle: hi('outSum'), costCellStyle: hi('costSum'),
+        redCellStyle: hi('redundancy'), cohCellStyle: hi('coherence'), corrCellStyle: hi('correct'),
+      };
+    });
+
+    const colDefs = [
+      { key: 'reasSum', label: 'Reasoning', hint: 'Total reasoning tokens — lower is leaner' },
+      { key: 'outSum', label: 'Output', hint: 'Total output tokens' },
+      { key: 'costSum', label: 'Cost', hint: 'Total cost — lower is cheaper' },
+      { key: 'redundancy', label: 'Redundancy', hint: '1–5, lower is better' },
+      { key: 'coherence', label: 'Coherence', hint: '1–5, higher is better' },
+      { key: 'correct', label: 'Correct', hint: 'Graded tasks passed' },
+    ];
+    const headBase = { border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, fontFamily: "'IBM Plex Mono', monospace", fontSize: '10.5px', letterSpacing: '0.04em', textTransform: 'uppercase' };
+    const columns = colDefs.map(c => ({
+      key: c.key, label: c.label, hint: c.hint, onClick: () => this.setSort(c.key),
+      arrow: sk === c.key ? (dir === 'asc' ? ' \u2191' : ' \u2193') : '',
+      headStyle: { ...headBase, color: sk === c.key ? '#3D7E8C' : '#8a8880', fontWeight: sk === c.key ? 600 : 500 },
+    }));
+
+    const outlineBtn = (on) => ({ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '13px', fontWeight: 500, padding: '9px 15px', borderRadius: '10px', cursor: 'pointer', border: '1px solid ' + (on ? '#3D7E8C' : '#E4DED2'), background: on ? '#EAF2F3' : '#FFFFFF', color: on ? '#2c5a66' : '#6b7178', transition: 'all .12s' });
+
+    return {
+      panelSummary: this.MODELS.length + ' models \u00b7 ' + this.PROMPTS.length + ' tasks',
+      isCompare: compareTab, isLeaderboard: !compareTab,
+      onCompare: () => this.setState({ view: 'compare' }), onLeaderboard: () => this.setState({ view: 'leaderboard' }),
+      compareTabStyle: compareTab ? tabOn : tabOff, leaderTabStyle: compareTab ? tabOff : tabOn,
+      loaded, notLoaded: !loaded && !s.loadErr,
+      stageW1: s.stage === 'w1', stageW2: s.stage === 'w2', stageApp: s.stage === 'app',
+
+      // wizard step 1
+      w1Cards, w1TrackStyle, w1Dots, selectedCards,
+      w1SelCount: s.selPrompts.length, w1NoSelection: !w1Has,
+      onW1Prev: () => this.w1Prev(), onW1Next: () => this.w1Next(),
+      w1PrevStyle: arrowBig(s.w1idx === 0), w1NextArrowStyle: arrowBig(s.w1idx === this.PROMPTS.length - 1),
+      onGoStep2: () => this.goStep2(), continueBtnStyle,
+
+      // wizard step 2
+      modelSlots, quickSets, canAddSlot: s.slots.length < 4, onAddSlot: () => this.addSlot(),
+      onBackStep1: () => this.backStep1(), onFinishWizard: () => this.finishWizard(), compareBtnStyle,
+      w2Hint: filled.length < 2 ? 'Pick at least 2 models' : (filled.length + ' models ready'),
+
+      // board
+      editOpen: s.editOpen, onToggleEdit: () => this.setState(st => ({ editOpen: !st.editOpen })),
+      editBtnStyle: { border: '1px solid ' + (s.editOpen ? '#3D7E8C' : '#E4DED2'), background: s.editOpen ? '#EAF2F3' : '#FFFFFF', color: s.editOpen ? '#2c5a66' : '#6b7178', fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px', padding: '9px 15px', borderRadius: '10px', cursor: 'pointer' },
+      editBtnLabel: s.editOpen ? '✕ Close editor' : '✎ Edit selection',
+      onToggleHighlight: () => this.setState({ highlight: !highlight }),
+      hlTrackStyle: { width: '36px', height: '21px', borderRadius: '999px', background: highlight ? '#3D7E8C' : '#DDD6C9', position: 'relative', transition: 'background .15s', flex: '0 0 auto' },
+      hlKnobStyle: { position: 'absolute', top: '2px', left: highlight ? '17px' : '2px', width: '17px', height: '17px', borderRadius: '999px', background: '#FFFFFF', transition: 'left .15s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' },
+      ucChips, ucCount: ordered.length, ucDots,
+      ucPosLabel: ordered.length ? ((activeUc + 1) + ' / ' + ordered.length) : '',
+      onUcPrev: () => this.ucPrev(), onUcNext: () => this.ucNext(),
+      ucPrevStyle: arrowBig(activeUc === 0 || ordered.length === 0), ucNextStyle: arrowBig(activeUc >= ordered.length - 1 || ordered.length === 0),
+      onEditUcs: () => this.setState({ stage: 'w1' }),
+      gridStyle, activeTaskCard, dataRows, dataHeadStyle, dataRowStyle,
+      hasActive, activeBlock,
+      noModels: s.stage === 'app' && filled.length === 0,
+      noUcsBoard: ordered.length === 0,
+      noUcsBoardMain: s.stage === 'app' && filled.length > 0 && ordered.length === 0,
+
+      // picker
+      pickerOpen, pickerModels, onClosePicker: () => this.closePicker(), onStopProp: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+
+      // leaderboard
+      filterChips, columns, rows, includedCount: includedPrompts.length,
+      glossary: this.GLOSSARY, insights: this.INSIGHTS,
+      showGlossary: s.showGlossary, showReport,
+      onToggleGlossary: () => this.setState({ showGlossary: !s.showGlossary }),
+      onToggleReport: () => this.setState({ showReport: !showReport }),
+      glossaryBtnStyle: outlineBtn(s.showGlossary), glossaryBtnLabel: (s.showGlossary ? 'Hide' : 'Show') + ' terminology',
+      reportBtnStyle: outlineBtn(showReport), reportBtnLabel: (showReport ? 'Hide' : 'Show') + ' study findings',
+    };
+  }
+}
+</script>
+</body>
+</html>
