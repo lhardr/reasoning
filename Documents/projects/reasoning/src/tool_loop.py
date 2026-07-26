@@ -21,6 +21,7 @@ from .adapters.base import (
     extract_finish_reasons,
     extract_served_by,
     extract_think_tags,
+    extract_warnings,
     split_token_estimate,
 )
 from .tools import available_tool_defs, execute_tool, to_openai_tools
@@ -64,6 +65,7 @@ class ToolLoopResult:
     native_finish_reason: Optional[str] = None
     request_model_id: str = ""
     via_openrouter: bool = False
+    warnings: Optional[list] = None
 
 
 def _extract_reasoning(msg, raw_content: str) -> tuple[Optional[str], str]:
@@ -189,6 +191,7 @@ def run_openai_tool_loop(
             native_finish_reason=native_finish_reason1,
             request_model_id=model_id,
             via_openrouter=via_openrouter,
+            warnings=extract_warnings(resp1),
         )
 
     # --- Execute every tool call the model emitted, then force a final answer ---
@@ -283,6 +286,7 @@ def run_openai_tool_loop(
         native_finish_reason=native_finish_reason2,
         request_model_id=model_id,
         via_openrouter=via_openrouter,
+        warnings=(extract_warnings(resp1) or []) + (extract_warnings(resp2) or []) or None,
     )
 
 
@@ -308,6 +312,7 @@ def _to_model_response(result: ToolLoopResult) -> ModelResponse:
         native_finish_reason=result.native_finish_reason,
         request_model_id=result.request_model_id,
         via_openrouter=result.via_openrouter,
+        warnings=result.warnings,
     )
 
 

@@ -50,6 +50,7 @@ class ModelResponse:
     # can never prove what was sent. request_model_id is the only field that can.
     request_model_id: str = ""
     via_openrouter: bool = False  # False = direct provider API (undated cfg["model_id"]), bypassing the pin entirely
+    warnings: Optional[list] = None  # OpenRouter's dropped/altered-parameter notices, see extract_warnings()
 
 
 class BaseAdapter:
@@ -149,6 +150,20 @@ def extract_served_by(resp) -> Optional[str]:
     extra = getattr(resp, "model_extra", None)
     if extra:
         return extra.get("provider")
+    return None
+
+
+def extract_warnings(resp) -> Optional[list]:
+    """
+    OpenRouter attaches a top-level "warnings" field when it drops or alters a
+    request parameter the routed model/endpoint doesn't support (e.g. an
+    unsupported reasoning.effort level). Same model_extra mechanism as
+    extract_served_by(). None when absent — that is the common case and is
+    not itself evidence of anything.
+    """
+    extra = getattr(resp, "model_extra", None)
+    if extra:
+        return extra.get("warnings")
     return None
 
 
