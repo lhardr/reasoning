@@ -30,6 +30,7 @@ INTENDED_NAMES: dict[str, str] = {
     "gpt_5_6_sol": "GPT-5.6-sol (OpenAI)",
     "fable_5": "Claude Fable 5 (Anthropic)",
     "inkling": "Inkling (Thinking Machines)",
+    "claude_opus_5": "Claude Opus 5 (Anthropic)",
 }
 
 _or_model_set: set[str] | None = None

@@ -110,3 +110,15 @@ models:
     output_per_mtok: 4.05
     cache_read_per_mtok: 0.17
     cache_write_per_mtok: 0.00     # not offered for this model per catalog
+
+  claude_opus_5:
+    # anthropic/claude-opus-5 — confirmed OpenRouter live /models catalog 2026-07-27.
+    # Identical to opus_4_8's snapshot (input/output/cache_read/cache_write all match
+    # exactly) — cross-checked against a live preflight call's own usage.cost_details
+    # (upstream_inference_prompt_cost / upstream_inference_completions_cost divided
+    # by token counts reproduced these figures to the cent). A separate, pricier
+    # anthropic/claude-opus-5-fast slug exists (2x these prices) — not used here.
+    input_per_mtok: 5.00
+    output_per_mtok: 25.00
+    cache_read_per_mtok: 0.50
+    cache_write_per_mtok: 6.25
