@@ -63,11 +63,14 @@ def main() -> int:
     print(f"{'='*110}")
 
     resolved = resolve_models(panel, MODEL_KEYS)
-    hard_errors = print_resolution_table(resolved)
+    print_resolution_table(resolved)
     assert_no_silent_direct_route(panel, MODEL_KEYS, allow_direct=False)
-    if hard_errors > 0:
-        print(f"\n  !! {hard_errors} model(s) not resolved. Fix panel.yaml.\n")
-        return 1
+    print(
+        "\n  NOTE: catalog mismatches above are not a gate by themselves -- dated snapshot"
+        " slugs (kimi_k3, inkling) can be absent from OpenRouter's /models listing while"
+        " still callable. Same convention as run_heavy() in run.py: the real protection is"
+        " assert_model_pin_honored() checking request_model_id before every call.\n"
+    )
 
     total_cost = 0.0
     stopped_reason: str | None = None
