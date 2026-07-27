@@ -334,7 +334,7 @@
     <div style="max-width: 1180px; margin: 0 auto; padding: 44px 32px 4px;">
       <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #6FB0B8; letter-spacing: 0.04em;">BENCHMARK / LEADERBOARD</div>
       <h1 style="font-size: 33px; font-weight: 600; letter-spacing: -0.022em; margin: 12px 0 0; max-width: 780px; line-height: 1.13; color: #F3F7F7;">The whole panel, ranked</h1>
-      <p style="font-size: 16.5px; color: #B7C8CB; line-height: 1.62; max-width: 730px; margin: 16px 0 0;">Twelve models across ten light tasks and three heavy ones. Sort by any metric. Correctness was uniform — all models passed every graded task — so the leaderboard ranks what actually separates them: how many tokens they burn, what that costs, and how much of the thinking is waste.</p>
+      <p style="font-size: 16.5px; color: #B7C8CB; line-height: 1.62; max-width: 730px; margin: 16px 0 0;">Thirteen models across ten light tasks and three heavy ones. Sort by any metric. Correctness is near-uniform wherever it's been graded — so the leaderboard ranks what actually separates them: how many tokens they burn, what that costs, and how much of the thinking is waste.</p>
     </div>
 
     <div style="max-width: 1180px; margin: 22px auto 0; padding: 0 32px; display: flex; gap: 10px; flex-wrap: wrap;">
@@ -486,6 +486,7 @@ class Component extends DCLogic {
     { id: 'inkling', name: 'Inkling', org: 'Thinking Machines', dot: '#4E93A0' },
     { id: 'gpt_5_6_sol', name: 'GPT-5.6 Sol', org: 'OpenAI', dot: '#4A5860' },
     { id: 'fable_5', name: 'Claude Fable 5', org: 'Anthropic', dot: '#B8862B' },
+    { id: 'claude_opus_5', name: 'Claude Opus 5', org: 'Anthropic', dot: '#DDB24C' },
   ];
 
   DESC = {
@@ -497,6 +498,11 @@ class Component extends DCLogic {
     gemma_4: 'Open English anchor · tight',
     opus_4_8: 'Hidden trace · few reasoning tokens',
     mistral_medium_3_5: 'Most tokens · most redundant',
+    kimi_k3: 'Adaptive tokens · frontier-style triage',
+    inkling: 'Drafts the answer inside its own trace',
+    gpt_5_6_sol: 'Cut reasoning 4x · fastest median latency',
+    fable_5: 'Same behavior as Opus 4.8 · 2x the price',
+    claude_opus_5: 'Same price as 4.8 · 1.5x more reasoning',
   };
 
   QUICK = [
@@ -567,23 +573,43 @@ class Component extends DCLogic {
     absent: { label: 'Hidden', word: 'hidden', desc: 'No reasoning text exposed', c: '#9A3B3B', bg: '#F6E0DE' },
   };
 
+  // tool_loop.py stamps ANY tool-call turn with visible reasoning text as
+  // "raw", regardless of provider. For these three Anthropic models that's a
+  // mislabel: their API only ever returns a summarized CoT, never raw. This
+  // is a display-only remap — the underlying data field (c.ts) is untouched.
+  ANTHROPIC_RAW_FIX = ['claude_sonnet_4_6', 'opus_4_8', 'fable_5', 'claude_opus_5'];
+  dispTsKey(mid, c) {
+    if (!c) return 'absent';
+    if (c.regime === 'raw_anchor') return 'raw_anchor';
+    if (c.ts === 'raw' && this.ANTHROPIC_RAW_FIX.includes(mid)) return 'summarized';
+    return c.ts;
+  }
+
   GLOSSARY = [
+    { t: 'Panel', d: '13 models across 16 task-cells: 10 light, single-turn Danish prompts (P1-P10, one run each) and 3 heavy, English tasks (H1-H3, 5 runs each) under two conditions.' },
+    { t: 'Conditions', d: 'Heavy tasks run twice: baseline (closed-book, no tools) and tools-offered (python_exec + web_search available; the model decides whether to use them).' },
     { t: 'Reasoning tokens', d: 'Tokens the model spends thinking before it answers — hidden work you still pay for. On raw-trace models this is visible text; on others only the count is exposed.' },
+    { t: 'Billed tokens', d: 'Reasoning + output tokens — the two token types actually charged at the (higher) output rate. Input tokens are priced separately and lower, and are excluded from this figure.' },
     { t: 'Input / Output tokens', d: 'Input is the prompt; output is the visible answer. Reasoning tokens are billed on top of both.' },
     { t: 'Cost', d: "The call's total price at each provider's per-token rate, summing input, reasoning and output." },
-    { t: 'Redundancy — 1 to 5, lower is better', d: 'How much of the trace is wasted motion — re-deciding, circling, meta-filler — rather than progress. Scored by two independent judges (MiniMax and Gemini 3.1 Pro) against a fixed rubric.' },
+    { t: 'Heavy convention', d: "A model's heavy-task number is the median of its three task medians (code, finance-calc, finance-interp) - each itself a median over 5 runs on that one task, at baseline. Not a single pooled median across all 15 runs." },
+    { t: 'Efficiency — correct per dollar', d: 'Correct answers divided by the actual summed cost across every run (costSumActual), not the median-cost estimate. The metric the cost ranking implies but doesn’t show directly — spans a 38x range across the panel at the same correctness.' },
+    { t: 'Tool-grab rate', d: 'Share of tools-offered runs where the model actually called a tool at least once, given the identical invitation text. Ranges from 0% to 100% across the panel — it tracks training choices, not model size or open/closed status.' },
+    { t: 'Redundancy — 1 to 5, lower is better', d: 'How much of the trace is wasted motion — re-deciding, circling, meta-filler — rather than progress. Scored by two independent judges (MiniMax and Gemini 3.1 Pro) against a fixed rubric. Only scored for models with a raw, judge-legible trace; newer panel additions may not have judge data yet.' },
     { t: 'Coherence — 1 to 5, higher is better', d: 'How well the trace holds together as a logical sequence. Reported as uniformly high, so it separates the models less than redundancy does.' },
-    { t: 'Trace status', d: 'Raw = full thinking visible. Summarized = the provider\u2019s summary of the chain of thought. Count-only = token count exposed but text hidden. Hidden = no reasoning text at all.' },
-    { t: 'Correctness', d: 'Graded blind against a withheld answer key on the six factual tasks (math, logic, JSON, legal, code). Every model passed — 48 of 48 verdicts.' },
+    { t: 'Trace status', d: 'Raw = full thinking visible. Summarized = the provider’s summary of the chain of thought. Count-only = token count exposed but text hidden. Hidden = no reasoning text at all. None of the six closed models has ever exposed a genuine raw trace — the axis is binary (open = readable, closed = not), not a spectrum.' },
+    { t: 'Correctness', d: 'Graded blind against a withheld answer key: six light tasks (math, logic, JSON, legal, code) plus all three heavy tasks under both conditions. Reported per-run for heavy tasks (e.g. 30/30). Newly added models may not have light-task grading yet even where their heavy-task grading is complete.' },
   ];
 
   INSIGHTS = [
-    { t: "Correctness doesn't separate them", d: 'All eight models answered every graded task correctly — 48 of 48 verdicts. On these tasks the question isn\u2019t whether a model can reach the answer, but what it costs to get there.' },
-    { t: 'Reasoning is the main expense', d: 'For models with visible traces, thinking is roughly two-thirds to four-fifths of all tokens. The cost lives in the reasoning, not the final answer.' },
-    { t: 'More reasoning tokens \u2260 more thinking', d: 'Much of the spread is waste, not thoroughness. GLM reasons tightly; Kimi and Mistral circle, re-decide and pad with meta-commentary while reaching the same correct answer.' },
-    { t: 'No one thinks in Chinese', d: 'None of the three Chinese models reason primarily in Chinese. They think in English or in the prompt\u2019s language; Chinese appears only as leakage. The more symbolic the task, the more they revert to an English substrate.' },
-    { t: 'Volume follows task type, not the label', d: 'A legal deadline calculation and an arithmetic problem are both marked high-load, yet cost wildly different amounts. Symbolic single-path tasks are cheap; open and legal tasks are expensive.' },
-    { t: 'A correct answer can hide a false premise', d: 'On the appeal-deadline task, DeepSeek spent 2,405 reasoning tokens and knew 3 April 2026 is Good Friday. Sonnet reached the same verdict far cheaper — but explicitly claimed the day was neither weekend nor holiday. Both scored correct, because the check grades the landing, not the path.' },
+    { t: "Correctness doesn't separate them — economy does", d: 'Every model in the panel solves essentially every graded task at the same correctness. Correct-per-dollar is where they actually split: a 38x range (Gemma vs. Claude Fable 5) at identical correctness.' },
+    { t: 'Two different reasoning economies', d: 'Open models spend 60-95% of their billed tokens on reasoning; Anthropic’s closed models spend only 20-24% on heavy tasks — their tokens go to the visible answer instead. Same benchmark, two different cost structures, not one scale.' },
+    { t: 'Adaptive allocation is a frontier trait', d: 'Kimi K3’s version jump taught it to spend almost nothing on easy prompts and far more on hard ones (a 16.8x swing) — joining the closed frontier models as the only open model that discriminates by difficulty. Its predecessor, K2.7, used one flat gear for everything.' },
+    { t: 'Tools cost more — for the models that use them', d: 'Across models that actually call a tool, offering tools raises the total bill by a median of 1.31x. Only GLM comes out cheaper with tools on; every other tool-user pays more, up to 3.4x for Claude Sonnet 4.6.' },
+    { t: 'Tool-grab rate is a lab signature', d: 'Anthropic’s three generations — Sonnet, Opus 5, Fable 5 — all grab a tool 100% of the time when one is offered; OpenAI’s two — GPT-5.5, Sol — never do, 0% each. Moonshot proves it’s trained, not architectural: Kimi K2.7 grabbed 87% of the time, K3 only 40% — the same lab retrained the behavior.' },
+    { t: 'Sampling noise is real at this scale', d: 'Re-running an identical prompt shows a median 1.95x spread in billed tokens on heavy tasks, and 4.2x at the 90th percentile. Read close comparisons between similarly-sized models against that noise floor.' },
+    { t: 'Transparency is binary, not a spectrum', d: 'None of the six closed models — Sonnet, Opus 4.8, Opus 5, Fable 5, GPT-5.5, Sol — ever exposed a genuine raw reasoning trace. What looks like "raw" text from Anthropic’s models under tool use is actually their own summary, mislabeled by an unrelated logging quirk. Only the seven open models let you read the thinking at all.' },
+    { t: 'Four version jumps, no shared direction', d: 'Moonshot’s jump bought behavior (adaptive allocation, ~5x the price). OpenAI’s bought efficiency (thinking cut 4x, price down). Anthropic’s first jump (Opus 4.8 → Fable 5) bought nothing measurable at 2x the price. Its second (Opus 4.8 → Opus 5) held price flat, raised reasoning 1.5x, and landed a mild economy regression — 71 → 60 correct-per-dollar — despite identical 30/30 correctness. Four jumps, three different stories: the version number tells you nothing about which one you’re getting.' },
   ];
 
   componentDidMount() {
@@ -674,7 +700,7 @@ class Component extends DCLogic {
     const cols = filled.map(mid => {
       const m = this.MODELS.find(x => x.id === mid);
       const c = this.cell(mid, pm.id);
-      const ts = this.TS[c ? (c.regime === 'raw_anchor' ? 'raw_anchor' : c.ts) : 'absent'] || this.TS.absent;
+      const ts = this.TS[this.dispTsKey(mid, c)] || this.TS.absent;
       const ar = this.avgRed(c);
       const ac = this.avgCoh(c);
       const hasJudges = !!(c && c.judges && c.judges.length);
@@ -895,7 +921,7 @@ class Component extends DCLogic {
       const graded = cs.filter(c => c.correct != null);
       const corr = graded.reduce((a, c) => a + (c.correctN != null ? c.correctN : (c.correct ? 1 : 0)), 0);
       const gradedN = graded.reduce((a, c) => a + (c.correctN != null ? c.n : 1), 0);
-      const anyTs = cs.length ? this.TS[cs[0].regime === 'raw_anchor' ? 'raw_anchor' : cs[0].ts] : null;
+      const anyTs = cs.length ? this.TS[this.dispTsKey(m.id, cs[0])] : null;
       return { m, reasSum, outSum, costSum, costIndicative, avgRed, avgCoh, corr, gradedTotal: gradedN, tsWord: anyTs ? anyTs.word : '\u2014' };
     });
 
