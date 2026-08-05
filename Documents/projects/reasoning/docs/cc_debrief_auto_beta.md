@@ -296,3 +296,160 @@ vandtæt bevis for routerens interne cache-adfærd.
 `results/heavy/`, `results/full/`, `datasite/data/reasoning-data.json`,
 `docs/reasoning_findings.md`, `config/pricing.yaml`, `config/panel.yaml`,
 `run_auto_router.py`, `results/auto/20260726T111445_auto.jsonl`.
+
+---
+
+## TILLÆG (2026-08-05): Judge-run på de 35 dommer-egnede lette celler
+
+Formål: efterprøve kvalitetspåstanden i routing-diskussionen (registerets
+§6.1: "Auto optimerer muligvis kvalitet/hastighed, ikke pris") — leverer
+auto-beta's billige, spredte modelvalg svar der er lige så legible som
+panelets egne modeller, eller er billigheden købt med et kvalitetstab der
+bare ikke viser sig i correctness-tallene?
+
+**Setup:** `judge_auto_beta.py`, ny standalone-fil, rører ikke
+`run_auto_beta.py`. 35 rækker (P1/P2/P3/P4/P8/P9/P10 × 5 pass) fra
+`results/auto/20260805T080708_autobeta.jsonl`, dømt blindt af de samme to
+dommere i de samme (udaterede) versioner som `panel.yaml` altid har brugt —
+`minimax/minimax-m3` og `google/gemini-3.1-pro-preview`. Begge blev
+bekræftet stadig live i OpenRouters kataloge før scriptet blev skrevet;
+ingen af dem har nogensinde haft en dateret pin at miste, så "samme
+version" er den samme udaterede slug som producerede `judges-light-new.json`
+— ingen substitution var nødvendig, og STOP-betingelsen udløste derfor ikke.
+Samme rubrik: `src/judge.py`s `_RUBRIC_TEMPLATE`, uændret (bekræftet
+byte-identisk med `src/judge_rubric.py`s `ANCHORED_RUBRIC_TEMPLATE` — der
+er reelt kun én rubrik i kodebasen i dag). Samme to dimensioner som
+`judges-light-new.json`: redundans + kohærens — ingen separat
+"kvalitet/korrekthed"-dimension findes i skemaet eller i `src/judge.py`s
+`DIMENSIONS`, så ingen ny dimension er opfundet til denne kørsel. Blind per
+konstruktion: rubrikteksten nævner aldrig modelidentitet eller routing.
+Pris: **$0,3569** af $3-loftet, 35/35 celler, ingen fejl, ingen stop.
+
+**BEVIDST AFVIGELSE fra panelets setup — læs dette før tabellerne:**
+panelets Phase 2 dømmer altid `raw_reasoning_trace`, aldrig `answer_text`
+(`run.py`: `trace_text = row.get("raw_reasoning_trace") or ""`). Denne
+kørsel dømmer **`answer_text`** for alle 35 rækker, efter eksplicit
+instruktion. To grunde: (1) det var en direkte instruktion, ikke betinget af
+panelets praksis; (2) det er den eneste måde P8-cellen kunne bedømmes
+overhovedet — P8 blev routet til `anthropic/claude-sonnet-5`, som gav
+`trace_status="absent"` (intet brugbart reasoning-spor), præcis den
+betingelse panelets egen Phase 2 bruger til at EKSKLUDERE en model helt
+(`LEGIBILITY_EXCLUDED` dækker `claude_sonnet_4_6`/`opus_4_8` af samme
+grund). **Konsekvens: sammenligningerne nedenfor er IKKE et rent
+æbler-mod-æbler-mål.** Svar er kortere og mere strukturerede end rå
+tænkespor næsten per definition — enhver models FÆRDIGE svar vil typisk
+score bedre på denne rubrik end enhver models RÅ tænkespor, uanset
+routing. Dette skal holdes for øje gennem hele afsnittet.
+
+### 1. Score-tabel per opgave
+
+| Opgave | Routet til (auto-beta) | Auto-beta red. (median af 5 pass) | Auto-beta koh. (median) |
+|---|---|---|---|
+| P1 | deepseek-v4-flash-0731 | 1,0 | 5,0 |
+| P2 | deepseek-v4-flash-0731 | 1,0 | 5,0 |
+| P3 | deepseek-v4-pro | 1,0 | 5,0 |
+| P4 | deepseek-v4-pro | 1,0 | 5,0 |
+| P8 | claude-sonnet-5 | 1,0 | 5,0 |
+| P9 | glm-5.2 | 1,5 | 5,0 |
+| P10 | glm-5.2 | 1,5 | 5,0 |
+
+Bemærkelsesværdigt lidt spredning: alle 7 opgaver ligger i et snævert bånd
+(redundans 1,0-1,5, kohærens konsekvent 5,0), uanset hvilken af de fem
+forskellige routede modeller der svarede. To dommere var også stort set
+enige med hinanden på denne kørsel: gennemsnitlig absolut uenighed 0,34
+(redundans) / 0,09 (kohærens), **ingen** af de 70 vurderinger nåede
+høj-uenigheds-tærsklen (≥2). Det er konsistent med loft-effekt: færdige,
+korte svar har simpelthen mindre plads til at variere på denne skala end
+rå tænkespor har.
+
+### 2. Sammenligning mod panelets scorer på samme opgaver
+
+Panelets tal er fra `datasite/data/reasoning-data.json` (gennemsnit af de
+samme to dommere, RÅ TÆNKESPOR — se afvigelsesnoten ovenfor):
+
+| Opgave | Auto-beta red. | Gemma red. | DeepSeek red. | GLM red. | Panel-median red. | Auto-beta koh. | Panel-median koh. |
+|---|---|---|---|---|---|---|---|
+| P1 | 1,0 | 1,5 | 1,5 | 1,0 | 1,5 | 5,0 | 4,5 |
+| P2 | 1,0 | 2,0 | 2,5 | 2,0 | 2,0 | 5,0 | 4,5 |
+| P3 | 1,0 | 1,5 | 3,5 | 2,0 | 2,5 | 5,0 | 4,5 |
+| P4 | 1,0 | 2,0 | 2,0 | 1,5 | 2,0 | 5,0 | 4,0 |
+| P8 | 1,0 | 1,5 | 4,0 | 3,5 | 4,0 | 5,0 | 4,5 |
+| P9 | 1,5 | 3,0 | 3,0 | 2,0 | 3,0 | 5,0 | 4,5 |
+| P10 | 1,5 | 4,0 | 1,5 | 3,5 | 3,5 | 5,0 | 4,5 |
+
+Samlet (35 vs. 35 datapunkter): auto-beta redundans gns. **1,17** (median
+1,0) mod panelets gns. **2,73** (median 2,5). Auto-beta kohærens gns.
+**4,96** (median 5,0) mod panelets gns. **4,31** (median 4,5). Auto-beta
+scorer bedre på **hver eneste** af de 7 opgaver, på begge dimensioner, uden
+undtagelse.
+
+**Dette skal IKKE læses som "auto-betas modeller ræsonnerer mere legibelt
+end panelets."** Det er forventeligt og reelt uinformativt om selve
+ræsonnementets legibilitet: vi sammenligner et FÆRDIGT SVAR mod et RÅT
+TÆNKESPOR. Et tænkespor indeholder pr. natur udforskning, fejlspor og
+selvkorrektion, som et endeligt svar aldrig viser — det er redigeret ned
+til konklusionen. Forskellen måler primært hvilket artefakt der blev dømt,
+ikke hvilken model der producerede det.
+
+### 3. P8 særskilt
+
+**Faktuel rettelse først:** P8 er IKKE en empati-opgave — det er
+`code_bug` (en Python-funktion med en fejl, der skal findes og forklares;
+se `data/prompts.yaml`). Note fortsætter alligevel med den substantielle
+del af spørgsmålet, da P8 rent faktisk er den eneste celle af de 7 der blev
+routet til en model uden for de fire billige DeepSeek/GLM-varianter.
+
+Sonnet 5 (den dyreste model auto-beta valgte i dette scope, og den eneste
+uden rå tænkespor) scorer **red=1,0, koh=5,0** — identisk med, ikke bedre
+end, de billigt routede cellernes bedste tal (P1-P4, også red=1,0/koh=5,0).
+**Nej, den leverer ikke målbart bedre kvalitet** på dette mål end de billige
+valg. Men givet loft-effekten fra punkt 1 (næsten alle 35 celler klumper i
+et meget snævert topbånd), har dette mål reelt meget lidt diskriminerende
+kraft ved n=5 — en "ingen forskel"-konklusion her er lige så meget et
+udtryk for målets ufølsomhed på svar-niveau som et bevis på ægte lighed i
+underliggende svarkvalitet.
+
+### 4. Konklusion
+
+**Delvist — og strengt taget ikke afgørende afprøvet.** Auto-betas svar er
+konsekvent meget legible på dette mål, uden nogen svaghed synlig i de 7
+dømte celler; det modsiger ikke påstanden om at billig routing ikke koster
+kvalitet her. Men fordi denne kørsel dømmer svar mod panelets tænkespor
+(se afvigelsesnoten), kan den hverken bekræfte eller afkræfte "samme
+kvalitet som panelet" med den stringens registeret ellers kræver — en
+egentlig test ville skulle dømme RÅ TÆNKESPOR for de fire routede modeller,
+der faktisk har ét (`deepseek-v4-flash-0731`, `deepseek-v4-pro`, `glm-5.2`,
+`gemini-2.5-flash` havde alle `trace_status="raw"` i kildedataen), mod
+panelets egne tænkespor-scorer, og efterlade kun P8/Sonnet-5 som
+svar-baseret undtagelse. Det er ikke gjort her — ville kræve ny
+dommer-kørsel og nyt prisloft-samtykke.
+
+### Forbehold
+
+- **Dommer-scorer er ordinaler, ikke facit** — en gennemsnitlig forskel på
+  under 1 skalapunkt bør ikke over-fortolkes som en kvalitativ forskel.
+- **n=5 per celle.** Selv med enighed mellem de to dommere er fem pass et
+  spinkelt grundlag for at generalisere ud over denne specifikke kørsel.
+- **Blind gradering fjerner model-bias, ikke stil-bias.** Dommeren ved ikke
+  hvilken model der svarede, men kan stadig favorisere en bestemt
+  svarstil (fx struktureret med overskrifter) som nogle modeller
+  systematisk producerer og andre ikke gør — det er ikke kontrolleret for
+  her.
+- **Dato-bundet**, som resten af beta-målingen — kørt 2026-08-05, samme
+  forbehold om routing-politikkens og spend-share-vinduets bevægelighed som
+  hovedafsnittet ovenfor.
+- **Svar-mod-spor-artefaktforskellen (se afvigelsesnoten) er den største
+  enkeltstående begrænsning** i denne tillægsanalyse — vigtigere end de
+  fire forbehold ovenfor tilsammen for at forstå hvad tallene rent faktisk
+  viser.
+
+### Ikke rørt (tillæg)
+
+`judges-light-new.json`, `judges-heavy.json`, `datasite/data/reasoning-data.json`,
+`docs/reasoning_findings.md`, `results/auto/20260805T080708_autobeta.jsonl`
+(kun læst, ikke ændret), `results/auto/20260726T111445_auto.jsonl`,
+`run_auto_beta.py`, `run_auto_router.py`.
+
+Output: `results/auto/judges-autobeta.json` (nyt, gitignored som resten af
+`results/`). Registeret opdateres IKKE her — Lars fører selv resultatet ind
+i §6.2.
