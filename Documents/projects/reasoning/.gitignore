@@ -1,6 +1,7 @@
 .env
 results/
 data/heavy/
+data_release/
 __pycache__/
 *.pyc
 *.pyo
