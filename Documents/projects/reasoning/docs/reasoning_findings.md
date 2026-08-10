@@ -121,24 +121,34 @@ Kilde: judges-light-new.json + judges-heavy.json.
 
 ## TEMA 2 — Tokenspend & varians
 
-Konvention (deklareret her, gælder hele registeret): tunge tal er median af
-opgave-medianer, baseline, med dedup-reglen at seneste run vinder per celle
-(recaps erstatter 20260709-cellerne). Verificeret at 1.1-tabellen allerede
-følger denne konvention. Lette tal er ét gennemløb per prompt, juni-runnet
-for de 8 gamle modeller, juli-runnet for de 4 nye. (2.1's reasoning-andel er
-undtagelsen: den er fladt median over alle 10/15 rækker, ikke median af
-opgave-medianer — verificeret ved eksakt reproduktion af alle 12 gamle
-celler; se 2.1's note.)
+Konvention (deklareret her, gælder hele registeret), TO FORSKELLIGE
+AGGREGERINGER, IKKE ÉN: **tunge tal er median af opgave-medianer** (hver
+opgaves egen median regnes først over dens gentagne gennemløb, baseline,
+med dedup-reglen at seneste run vinder per celle — recaps erstatter
+20260709-cellerne), **lette tal er ét fladt median direkte over
+prompt-rækkerne** — der er ingen opgave-gruppering at nestle i på let, så
+et enkelt let-tal er det flade median over modellens prompt-rækker (10
+rækker, ét gennemløb hver, i hovedsuiten; 20 rækker, 10 prompts × 2 pass, i
+varians-suiten). At anvende tung-metoden på lette tal (eller omvendt) giver
+et andet, forkert tal uden varsel — se 2.1's tidligere version for et
+eksempel på præcis denne fejl. Verificeret at 1.1-tabellen og 2.1 allerede
+følger denne konvention efter rettelsen 2026-08-10 (eksakt reproduktion af
+alle 12 gamle celler i begge suiter). Lette tal er juni-runnet for de 8
+gamle modeller, juli-runnet for de 4 nye.
 
-DEDUP-RISIKO (fundet 2026-08-10, ramte 2.2 og 2.3, se begge poster): to
-overlappende filer med SAMME run_id (20260709T093542_heavy.jsonl og dens
-`_corrected`-søster) adskiller sig kun på `correct`/`grading_detail` i 79/240
-celler — tokens er identiske, så ingen token-baseret post rammes. Men
-dedup-koden afgør uafgjorte run_id'er ved filens iterationsrækkefølge, ikke
-ved en regel, og beholder den U-RETTEDE fil ved uafgjort. Rammer intet i
-dette register i dag, men SKAL rettes (eksplicit præference for
-`_corrected`/`_recap`-filnavne) før nogen genberegner et korrekthedstal
-(f.eks. 4.3's "28/30"-typer) fra heavy-jsonl.
+DEDUP-KODE (rettet 2026-08-10, se `scripts/compute_findings.py::_dedup`):
+to overlappende filer med SAMME run_id (20260709T093542_heavy.jsonl og dens
+`_corrected`-søster) adskiller sig kun på `correct`/`grading_detail` i
+79/240 celler — tokens er identiske, så ingen token-baseret post i dette
+register var nogensinde ramt. Den faktiske kode (ikke min engangs-
+analyseskript, som brugte en anden — og mindre korrekt — sammenligning)
+valgte allerede `_corrected` ved uafgjort, men kun ved et tilfælde af
+alfabetisk filsortering (`.` < `_`, så `_heavy.jsonl` sorteres før
+`_heavy_corrected.jsonl`) kombineret med "seneste-behandlede-vinder" — ikke
+en deklareret regel. Rettet til en eksplicit `_dedup_priority()`
+(run_id primært, `_corrected`/`_recap`-filnavn som eksplicit
+uafgjort-regel), dækket af `tests/test_compute_findings.py`, verificeret
+som no-op mod nuværende `results/` (byte-identisk output før/efter).
 
 ### 2.1 Reasoning-andel af billed tokens · BEKRÆFTET + ny nuance, Mistral let-tal RETTET 2026-08-10
 reasoning/(reasoning+output), median per model:
