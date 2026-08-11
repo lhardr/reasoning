@@ -193,6 +193,45 @@ reads exclusively from there — no hardcoded prices in logic. Update the file a
 
 ---
 
+## Known pitfalls
+
+- **`FULL_MODEL_ORDER` and `TRACE_TEXT_MODELS` (`run.py`) are both frozen at
+  the original 8 models** — `deepseek_v4`, `glm_5_2`, `kimi_k2_7`, `gemma_4`,
+  `claude_sonnet_4_6`, `gpt_5_5`, `opus_4_8`, `mistral_medium_3_5`. Neither
+  list was ever extended when `kimi_k3`, `gpt_5_6_sol`, `fable_5`, `inkling`,
+  or `claude_opus_5` were added to `config/panel.yaml`.
+  - `TOOLS_MODELS`, `VARIANCE_MODELS`, and `HEAVY_MODELS` are all literally
+    `= FULL_MODEL_ORDER` — so `--full`, `--tools`, `--variance`, and `--heavy`
+    share one gate, not four independent ones.
+  - **Consequence 1:** adding a model to `panel.yaml` alone does nothing — it
+    is silently absent from every run mode's `model_keys`/`model_keys_ordered`
+    list comprehension (e.g. `run.py:672`), no error, no warning. `--model
+    <new_key>` can't add it back either, since those filters only ever
+    *subset* `FULL_MODEL_ORDER`, never extend it. This is exactly why the 4
+    newest models needed a standalone script outside `run.py` to run at all
+    (see Limitations, "generating code unverifiable").
+  - **Consequence 2:** even for a model that *is* wired into a run (via a
+    one-off script that imports `run.py`'s helpers directly), the language
+    trace metric is computed by a different rule depending on
+    `TRACE_TEXT_MODELS` membership — `key in TRACE_TEXT_MODELS and
+    response.raw_reasoning_trace` → `measure_trace_language(raw_trace)`;
+    otherwise → `measure_trace_language(None)` unconditionally (`run.py:757`,
+    `run.py:1081`). This is not "worse coverage," it's a different code path:
+    `kimi_k3` and `inkling` both have `trace_exposure: raw` in `panel.yaml`
+    and genuinely expose trace text, but because neither is in
+    `TRACE_TEXT_MODELS`, any code reusing this function scores them as if no
+    trace existed at all — a silent false negative, not a documented gap.
+  - **What to do instead:** when adding a model to `panel.yaml`, add its key
+    to `FULL_MODEL_ORDER` in the same change, and to `TRACE_TEXT_MODELS` too
+    if its `trace_exposure` is `raw` or `summarized`. Do this instead of
+    writing a new standalone script — the standalone-script route is what
+    produced the 4 currently-unverifiable models' code path (see
+    Limitations). Extending the shared lists keeps every run mode and the
+    language metric consistent for the new model with one change, and keeps
+    the generating code inside version control.
+
+---
+
 ## Limitations (draft — points only, prose TBD)
 
 - **Contamination, heavy vs. light.** The 3 heavy tasks (H1-H3) are unmodified
