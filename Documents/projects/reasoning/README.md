@@ -190,3 +190,55 @@ guard for the `include_reasoning` flag.
 Prices live in `config/pricing.yaml` with a `snapshot_date`. The cost formula
 reads exclusively from there — no hardcoded prices in logic. Update the file and
 `snapshot_date` before each production run.
+
+---
+
+## Limitations (draft — points only, prose TBD)
+
+- **Contamination, heavy vs. light.** The 3 heavy tasks (H1-H3) are unmodified
+  records from public benchmarks: `HumanEval/94` (HumanEval, MIT) and FinQA
+  test-set ids `CDNS/2015/page_30.pdf-3` / `AMAT/2013/page_37.pdf-2` — both
+  scraped GitHub repos, plausibly in pretraining data for most panel models.
+  The 10 light prompts (P1-P10, `data/prompts.yaml`) are self-written Danish
+  bureaucratic/legal scenarios with no public source. Contamination risk is
+  structurally different across the two suites, not just a caveat that
+  applies equally to both.
+- **Provider routing.** Open models run via OpenRouter, which routes each
+  call across 7-14 different backends per model (`served_by` field) —
+  token counts for open models are therefore averages over a shifting
+  backend population, not one reproducible channel. `kimi_k3`, `inkling`,
+  `mistral_medium_3_5`, and the Claude/GPT models each stayed on one backend.
+  (See `docs/handover_findings_konsolidering.md`, "Datagrundlags-fælder" #4.)
+- **n=1 on light.** Every light-suite number is a single pass per prompt per
+  model (10 rows) — there is no per-prompt spread to report, only the flat
+  median across prompts. The dedicated variance-suite (2 passes on light)
+  shows run-to-run spread up to 23.6x max on identical light input, which
+  the main light numbers cannot see or bound.
+- **Judge validation.** Each judged cell gets two independent scorers
+  (minimax, gemini_3_1_pro), but the canonical judge files that feed every
+  redundancy/coherence number in the findings register
+  (`datasite/data/judges-heavy.json`, `judges-light-new.json`) never call
+  the codebase's own `compute_agreement()` (`src/judge.py`) — no
+  `agreement` field is stored, unlike the earlier Phase 2 validation runs
+  that did compute it. Recomputing it directly from the two judges' raw
+  scores, using the codebase's own high-disagreement threshold (max
+  per-dimension diff ≥2 on a 1-5 scale): 11/55 heavy cells (20%) and 7/20
+  light cells (35%) disagree at that level, unflagged, under every
+  redundancy/coherence claim in the register.
+- **June run's route inferred, not logged.** `via_openrouter` and
+  `request_model_id` were added 2026-07-14 (commit `04c21a5`).  The
+  canonical June light run (`results/full/20260625T181036_full.jsonl`, the
+  8 old models, source of table 1.1's light column for those 8) predates
+  that by ~3 weeks and has neither field — whether each of those 8 rows
+  went via OpenRouter or a direct provider API can only be inferred from
+  the shape of `model_version` (slug-with-slash vs. bare label), not read
+  off a logged flag.
+- **Generating code unverifiable for 4 of 13 models.** `fable_5`,
+  `kimi_k3`, `gpt_5_6_sol`, and `inkling` were never added to `run.py`'s
+  `FULL_MODEL_ORDER`/`HEAVY_MODELS` lists. Per `docs/cc_debrief_opus5.md`
+  ("Afvigelser fra registerets konventioner" #1), their canonical July
+  light+heavy runs were produced by a standalone script written outside
+  `run.py`'s shared path — and that script itself was never committed.
+  Of the 13 models in the datagrundlag (12 panel + Opus 5), these 4 have
+  numbers in the register whose exact generating code path cannot be
+  inspected or re-run from anything in version control.
