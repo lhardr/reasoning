@@ -155,6 +155,7 @@ Tokens are kept strictly separate — never collapsed:
 |-------|-------------|
 | `input_tokens` | Tokens in the prompt |
 | `reasoning_tokens` | Billed thinking tokens (count; text may be absent for GPT-5.5) |
+| `reasoning_source` | `"api"` — `reasoning_tokens` came straight from the provider's usage/billing fields, or `"text_estimate"` — the provider didn't report a reasoning count, so the value is a proportional split estimated from the response text. Set by every adapter, stored in every `tokens` sub-object written by `src/storage.py` (`save_result`, `save_langcost_result`, `save_tools_result`, `save_variance_result`, `save_heavy_result`). Not comparable 1:1 across the two values — see the analysis code's `reasoning_source != "api"` filter before pooling estimated and measured cells. |
 | `output_tokens` | Visible answer tokens |
 | `cache_read_tokens` | Cache-read tokens |
 | `cache_write_tokens` | Cache-write tokens |
