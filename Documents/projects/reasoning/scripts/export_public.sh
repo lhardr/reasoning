@@ -9,7 +9,7 @@
 #
 # Usage:
 #   scripts/export_public.sh [DEST_DIR]
-#   DEST_DIR defaults to ../reasoning-harness-public (sibling directory).
+#   DEST_DIR defaults to ../reasoning-economy-harness (sibling directory).
 #
 # What it does:
 #   1. rsync each listed file from this repo into DEST_DIR, preserving path
@@ -42,7 +42,7 @@
 set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEST="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/../reasoning-harness-public"
+DEST="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/../reasoning-economy-harness"
 if [[ "${1:-}" != "" ]]; then
   DEST="$1"
 fi
