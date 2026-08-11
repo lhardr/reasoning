@@ -39,6 +39,19 @@
 # source files (then this script becomes a pure mechanical mirror again,
 # as intended), or always read the diff this script leaves you before
 # committing it — never sync-and-commit blind.
+#
+# KNOWN GAP 2 (facit -> answer_key): the SAME public-only-cleanup problem
+# above applies to a second, separate rename — the public repo's
+# `config/prompts.yaml`, `src/config_loader.py`, `src/heavy_tasks.py`,
+# `src/heavy_grader.py`, and `src/grader.py` all use `answer_key`/
+# `answer_key_grading` where this (private) repo still uses `facit`. That
+# rename also exists ONLY in the public directory. Unlike gap 1, this one
+# has an automated guard (see the pre-flight check below, "old field name
+# facit"): the script refuses to sync at all while any file it would copy
+# still contains the string "facit", so it fails loudly instead of
+# silently reverting the rename. It stays a gap, not a fix — the guard
+# only prevents a silent regression, it doesn't port the rename into this
+# repo's source. Do that (or keep hitting this guard forever).
 set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -121,6 +134,53 @@ RENAMES=(
 #   CHANGELOG.md                     -- documents how to read THIS repo's own historical
 #     result files; nothing in the public repo (no shipped results/) needs it yet
 #   data_release/                    -- gitignored staged output, never committed anywhere
+
+# --- Pre-flight: refuse to sync any file that still carries the old
+# "facit" field name. The public repo renamed facit -> answer_key /
+# answer_key_grading (see KNOWN GAP 2 above); this repo has not. Checking
+# the SOURCE files before any rsync runs means a regression is caught
+# before a single byte is written to DEST, not after — "sync-then-scan"
+# (like the secret scan below) would still leave the bad content sitting
+# in DEST on a failed run. Case-insensitive substring match, deliberately
+# not word-bounded: real occurrences include `with_facit`, `facit_grading`,
+# `matched_facit`, `accepted_facit_numerics` — a \bfacit\b boundary would
+# miss all of those because `_` counts as a word character.
+echo "==> Pre-flight: checking for the old field name 'facit' in source files"
+FACIT_HITS=0
+check_facit() {
+  local rel="$1"
+  local matches
+  matches="$(grep -inH 'facit' "$SRC/$rel" 2>/dev/null || true)"
+  if [[ -n "$matches" ]]; then
+    echo
+    echo "  OLD FIELD NAME 'facit' found in: $rel"
+    echo "$matches" | sed 's/^/    /'
+    FACIT_HITS=1
+  fi
+}
+for f in "${FILES_1TO1[@]}"; do
+  check_facit "$f"
+done
+for pair in "${RENAMES[@]}"; do
+  check_facit "${pair%% *}"
+done
+if [[ "$FACIT_HITS" -ne 0 ]]; then
+  echo
+  echo "REFUSING TO SYNC: the file(s) above still use the old field name 'facit'." >&2
+  echo "The public repo (reasoning-economy-harness) renamed this to 'answer_key' /" >&2
+  echo "'answer_key_grading' throughout config/prompts.yaml, src/config_loader.py," >&2
+  echo "src/heavy_tasks.py, src/heavy_grader.py, and src/grader.py — but only in" >&2
+  echo "the public directory, never in this (private) repo's source. Every one of" >&2
+  echo "those files is in FILES_1TO1/RENAMES above, so syncing right now would" >&2
+  echo "silently overwrite the public repo's renamed code and data with this" >&2
+  echo "repo's original 'facit' naming, reverting a deliberate rename with no" >&2
+  echo "warning (see KNOWN GAP 2 in this script's header)." >&2
+  echo "Fix: port the facit -> answer_key / answer_key_grading rename into this" >&2
+  echo "repo's own source (config/prompts.yaml equivalent + the four src/ files)" >&2
+  echo "so this repo and the public one agree, then re-run this script." >&2
+  exit 1
+fi
+echo "==> Clean. No 'facit' hits in files scheduled to sync."
 
 echo "==> Mirroring 1:1 files"
 for f in "${FILES_1TO1[@]}"; do
