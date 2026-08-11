@@ -55,7 +55,6 @@ fi
 
 # --- 1:1 path mirror (source path == dest path, relative to repo root) ---
 FILES_1TO1=(
-  analyse.py
   run.py
   run_phase2.py
   run_phase3.py
@@ -96,6 +95,7 @@ FILES_1TO1=(
 # (plain arrays instead of an associative array so this runs under bash 3.2,
 # macOS's default — no `declare -A` portability risk.)
 RENAMES=(
+  "analyse.py analysis.py"
   "data/prompts.yaml config/prompts.yaml"
   "data/prompts_multilang.yaml config/prompts_multilang.yaml"
   "src/adapters/deepseek.py src/adapters/deepseek_adapter.py"
